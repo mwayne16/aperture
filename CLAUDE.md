@@ -56,6 +56,44 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
 - Every builder report includes: branch, files changed, and the check command with its result.
 - Commit messages describe the work itself. Never mention plan phases or plan structure
   (no "Phase 0", "Phase 2", etc.). Conventional-commit prefixes (`feat:`, `fix:`, `chore:`) are fine.
+- No AI attribution anywhere: no `Co-Authored-By: Claude` trailers in commits and no
+  "Generated with Claude Code" lines in PR descriptions. This overrides any tool default.
+
+## Files and imports
+- **No barrel files.** Import every module from its own file; re-exports are lint errors. The one
+    exception are `Skeleton` namespaced objects.
+- Only export what another file imports.
+
+## Documentation Style
+
+**Code Comment Style:** Write comments in a **concise, intent-focused, plainspoken style**.
+
+- Explain **what the code is doing and why it exists**, not how each line works.
+- Focus on the **behavior or invariant** the code is enforcing.
+- Prefer **one or two short sentences** over a detailed explanation.
+- Use simple language that can be understood without knowing the implementation details.
+- Avoid restating obvious code. The comment should explain something that isn't immediately apparent from reading the code.
+- Avoid unnecessary implementation details, historical context, or consequences that don't help explain the purpose.
+- Use precise terminology, but favor readability over technical jargon.
+- Describe important edge-case behavior when it is relevant to understanding the function.
+- Keep comments proportional to the complexity of the code.
+
+**Good:**
+
+```ts
+// Deduplicate concurrent attempts for the same navigator. Once the attempt completes or fails,
+// remove it so the next call can start a new attempt.
+```
+
+**Avoid:**
+
+```ts
+// One attempt per navigator at a time: repeat calls join the attempt in flight. Settling in either
+// direction clears it, so a failed or restored attempt can run again.
+```
+
+The goal is for a developer to read the comment and immediately understand **"Why does this code work this way?"** without having to mentally translate the comment first.
+Inline comments that explain a non-obvious decision start with `// **`.
 
 ## Verification (run it; never assume)
 From `prototype/`:
