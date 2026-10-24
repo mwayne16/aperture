@@ -54,6 +54,8 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
 - No new dependencies without a one-line justification in the PR or report.
 - Don't edit a file another parallel task owns. One task, one branch, one owner per file.
 - Every builder report includes: branch, files changed, and the check command with its result.
+- Commit messages describe the work itself. Never mention plan phases or plan structure
+  (no "Phase 0", "Phase 2", etc.). Conventional-commit prefixes (`feat:`, `fix:`, `chore:`) are fine.
 
 ## Verification (run it; never assume)
 From `prototype/`:
