@@ -51,7 +51,10 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
 ## Rules
 - Never present simulated prices as real. Every mock surface shows a visible "Simulated" marker.
 - Keep business logic out of React components and out of route/transport handlers.
-- No new dependencies without a one-line justification in the PR or report.
+- Use well-maintained packages when they clearly simplify the work, e.g. `dayjs` (with its `utc` and
+  `timezone` plugins) for date math instead of hand-rolled calendar code. Write our own code when it's small
+  and the package's cost (size, maintenance, complexity) outweighs the benefit. Justify each new
+  dependency in one line in the report or PR.
 - Don't edit a file another parallel task owns. One task, one branch, one owner per file.
 - Every builder report includes: branch, files changed, and the check command with its result.
 - Commit messages describe the work itself. Never mention plan phases or plan structure
