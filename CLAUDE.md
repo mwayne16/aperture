@@ -18,6 +18,14 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
   - Docker Desktop data is already on `D:\Docker\WSL`.
 - Shells: use the Bash tool (Git Bash) for POSIX commands. Paths look like `/d/repositories/aperture-client`.
 - Package manager: **npm** (no pnpm or yarn here). Node 24, npm 11.
+- GitHub CLI lives at `D:\Tools\GitHub CLI\gh.exe` (`"/d/Tools/GitHub CLI/gh.exe"` in Bash if `gh` isn't on PATH yet).
+  Logged in as `mwayne16` with `repo` + `workflow` scopes.
+
+## Repository
+- Remote: https://github.com/mwayne16/aperture (private). The local folder is still named `aperture-client`.
+- **Monorepo** with npm workspaces from Phase 1: `apps/desktop` (Electron + React), `apps/server` (Fastify),
+  `packages/shared` (typed HTTP/WebSocket contracts). Chosen so client and API share types and change atomically.
+- `main` is protected by convention: work happens on `feat/*` branches and merges only with a green check.
 
 ## Toolchain decisions (don't revisit without a reason written down here)
 - TypeScript is pinned to **~6.0.3** everywhere. Verified 2026-10-23: TS 6.0.3 compiles a TypeORM 1.1.2
