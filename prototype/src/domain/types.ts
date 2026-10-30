@@ -107,7 +107,7 @@ export interface Watchlist {
 export type AlertCondition = 'above' | 'below';
 export type AlertTag = 'buy' | 'sell';
 /** Market-data field an alert is evaluated against. Only the latest trade price is supported. */
-export type AlertField = 'last';
+type AlertField = 'last';
 
 export interface PriceAlert {
   id: string;

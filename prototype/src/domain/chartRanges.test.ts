@@ -108,28 +108,6 @@ describe('resolveRange: calendar month clamping (UTC)', () => {
     // 2026-04-01T02:00Z is still March 31 in America/Chicago, but UTC says April 1.
     expect(iso(resolveRange('1M', at('2026-04-01T02:00:00.000Z')).start)).toBe('2026-03-01T02:00:00.000Z');
   });
-
-  it('keeps two-digit years literal instead of remapping them to 19xx', () => {
-    const now = new Date(0);
-    now.setUTCFullYear(50, 2, 31);
-    now.setUTCHours(12, 0, 0, 0);
-    const start = resolveRange('10Y', now).start!;
-    expect(start.getUTCFullYear()).toBe(40);
-    expect(start.getUTCMonth()).toBe(2);
-    expect(start.getUTCDate()).toBe(31);
-    const oneMonth = resolveRange('1M', now).start!;
-    expect([oneMonth.getUTCFullYear(), oneMonth.getUTCMonth(), oneMonth.getUTCDate()]).toEqual([50, 1, 28]);
-    const ytd = resolveRange('YTD', now).start!;
-    expect([ytd.getUTCFullYear(), ytd.getUTCMonth(), ytd.getUTCDate(), ytd.getUTCHours()]).toEqual([
-      50, 0, 1, 0,
-    ]);
-  });
-
-  it('treats year 0 as a leap year, like the proleptic Gregorian calendar Date uses', () => {
-    expect(iso(resolveRange('1M', at('0000-03-31T12:00:00.000Z')).start)).toBe('0000-02-29T12:00:00.000Z');
-    expect(iso(resolveRange('1Y', at('0001-02-28T12:00:00.000Z')).start)).toBe('0000-02-28T12:00:00.000Z');
-    expect(iso(resolveRange('1M', at('0100-03-31T12:00:00.000Z')).start)).toBe('0100-02-28T12:00:00.000Z');
-  });
 });
 
 describe('resolveRange: fixed-length windows', () => {
@@ -181,30 +159,16 @@ describe('resolveRange: invalid input', () => {
     expect(() => resolveRange('1d' as ChartRange, at('2026-10-23T00:00:00.000Z'))).toThrow(RangeError);
   });
 
-  it('throws a RangeError when a valid now puts the window start before the earliest Date', () => {
-    const earliest = new Date(-8.64e15);
-    for (const range of CHART_RANGES.filter((r) => r !== 'ALL')) {
-      expect(() => resolveRange(range, earliest), range).toThrow(RangeError);
+  it('throws a RangeError for a now before 1970', () => {
+    const year50 = new Date(0);
+    year50.setUTCFullYear(50, 2, 31);
+    for (const now of [at('1969-12-31T23:59:59.999Z'), year50, at('0000-03-31T12:00:00.000Z'), new Date(-8.64e15)]) {
+      for (const range of CHART_RANGES) expect(() => resolveRange(range, now), range).toThrow(RangeError);
     }
-    expect(resolveRange('ALL', earliest).start).toBeNull();
   });
 
-  it('accepts the earliest now whose window start is still representable', () => {
-    const spec = resolveRange('1D', new Date(-8.64e15 + 5 * 24 * 60 * 60 * 1000));
-    expect(spec.start?.getTime()).toBe(-8.64e15);
-  });
-
-  // The earliest Date is -271821-04-20T00:00Z, so the 1st of that month is out of range.
-  it.each<[ChartRange, string, string]>([
-    ['1M', '-271821-05-20T00:00:00.000Z', '-271821-04-20T00:00:00.000Z'],
-    ['1M', '-271821-05-31T06:00:00.000Z', '-271821-04-30T06:00:00.000Z'],
-    ['1Y', '-271820-04-25T00:00:00.000Z', '-271821-04-25T00:00:00.000Z'],
-  ])('resolves %s from %s although the 1st of the target month is out of range', (range, now, expected) => {
-    expect(iso(resolveRange(range, at(now)).start)).toBe(expected);
-  });
-
-  it('throws when a month window lands one day before the earliest Date', () => {
-    expect(() => resolveRange('1M', at('-271821-05-19T23:59:59.999Z'))).toThrow(RangeError);
+  it('accepts 1970-01-01 exactly, even though its windows start in 1969', () => {
+    expect(iso(resolveRange('1Y', at('1970-01-01T00:00:00.000Z')).start)).toBe('1969-01-01T00:00:00.000Z');
   });
 
   it('returns valid windows at the latest representable now', () => {

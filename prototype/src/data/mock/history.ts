@@ -1,12 +1,18 @@
+import dayjs, { type Dayjs } from 'dayjs';
+import timezone from 'dayjs/plugin/timezone';
+import utc from 'dayjs/plugin/utc';
 import type { Bar, BarTimeframe } from '../../domain/types';
 import { roundPrice } from './priceModel';
 import { createPrng, hashString } from './random';
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 /**
  * Deterministic simulated price history.
  *
  * - Intraday bars exist only on weekdays during the regular session, 09:30-16:00 America/New_York
- *   (US daylight-saving rules since 2007). Market holidays are not modeled.
+ *   (daylight saving included). Market holidays are not modeled.
  * - Daily bars are weekdays only; weekly bars are labeled by their Monday and monthly bars by the
  *   1st, all at 00:00 UTC. A period is included once its first session has opened.
  * - Every bar's shape is seeded by symbol + timeframe + bar time, so a bar looks the same on every
@@ -17,10 +23,10 @@ import { createPrng, hashString } from './random';
  */
 
 export const RETENTION_FLOOR_MS = Date.UTC(2016, 0, 1);
-export const SESSION_MINUTES = 390;
+const SESSION_MINUTES = 390;
 
 const MINUTE_MS = 60_000;
-const HOUR_MS = 60 * MINUTE_MS;
+const MARKET_ZONE = 'America/New_York';
 
 /** Typical daily log-return standard deviation at volatility 1 (about 25% a year). */
 const DAILY_SIGMA = 0.016;
@@ -43,48 +49,27 @@ function tradingDaysPerBar(timeframe: BarTimeframe): number {
   return 1;
 }
 
-interface CalendarDate {
-  year: number;
-  /** 0-based. */
-  month: number;
-  day: number;
+/*
+ * Calendar days are UTC-midnight Dayjs values, which is also how daily and longer bars are labeled.
+ * Only the session open is converted to New York time.
+ */
+
+function utcDay(ms: number): Dayjs {
+  return dayjs.utc(ms).startOf('day');
 }
 
-/** True when US Eastern daylight time applies on this calendar date (second Sunday in March to first Sunday in November). */
-export function isUsDst(year: number, month: number, day: number): boolean {
-  if (month < 2 || month > 10) return false;
-  if (month > 2 && month < 10) return true;
-  const firstWeekday = new Date(Date.UTC(year, month, 1)).getUTCDay();
-  const firstSunday = 1 + ((7 - firstWeekday) % 7);
-  return month === 2 ? day >= firstSunday + 7 : day < firstSunday;
+/** The New York calendar date of an instant. */
+function newYorkDay(ms: number): Dayjs {
+  return dayjs.utc(dayjs(ms).tz(MARKET_ZONE).format('YYYY-MM-DD'));
 }
 
-/** Epoch ms of 09:30 America/New_York on a calendar date. */
-export function sessionOpenMs({ year, month, day }: CalendarDate): number {
-  return Date.UTC(year, month, day, 9, 30) + (isUsDst(year, month, day) ? 4 : 5) * HOUR_MS;
+/** Epoch ms of the 09:30 New York open on a calendar day. */
+function sessionOpenMs(day: Dayjs): number {
+  return dayjs.tz(`${day.format('YYYY-MM-DD')} 09:30`, MARKET_ZONE).valueOf();
 }
 
-function toDate(ms: number): CalendarDate {
-  const d = new Date(ms);
-  return { year: d.getUTCFullYear(), month: d.getUTCMonth(), day: d.getUTCDate() };
-}
-
-/** Calendar date in America/New_York for an instant. */
-export function newYorkDate(ms: number): CalendarDate {
-  const standard = toDate(ms - 5 * HOUR_MS);
-  return isUsDst(standard.year, standard.month, standard.day) ? toDate(ms - 4 * HOUR_MS) : standard;
-}
-
-function addDays({ year, month, day }: CalendarDate, days: number): CalendarDate {
-  return toDate(Date.UTC(year, month, day + days));
-}
-
-function utcMidnight({ year, month, day }: CalendarDate): number {
-  return Date.UTC(year, month, day);
-}
-
-function isWeekday(date: CalendarDate): boolean {
-  const weekday = new Date(utcMidnight(date)).getUTCDay();
+function isWeekday(day: Dayjs): boolean {
+  const weekday = day.day();
   return weekday >= 1 && weekday <= 5;
 }
 
@@ -97,18 +82,22 @@ interface Slot {
   sessionPosition: number;
 }
 
+function periodSlot(label: Dayjs): Slot {
+  return { time: label.unix(), session: label.valueOf(), sessionPosition: 0 };
+}
+
 function intradaySlots(stepMinutes: number, startMs: number, endMs: number): Slot[] {
   const slots: Slot[] = [];
-  const last = utcMidnight(newYorkDate(endMs));
-  for (let date = newYorkDate(startMs); utcMidnight(date) <= last; date = addDays(date, 1)) {
-    if (!isWeekday(date)) continue;
-    const open = sessionOpenMs(date);
+  const last = newYorkDay(endMs);
+  for (let day = newYorkDay(startMs); !day.isAfter(last); day = day.add(1, 'day')) {
+    if (!isWeekday(day)) continue;
+    const open = sessionOpenMs(day);
     for (let minute = 0; minute < SESSION_MINUTES; minute += stepMinutes) {
       const barStart = open + minute * MINUTE_MS;
       if (barStart < startMs || barStart > endMs) continue;
       slots.push({
         time: barStart / 1000,
-        session: utcMidnight(date),
+        session: day.valueOf(),
         sessionPosition: minute / SESSION_MINUTES,
       });
     }
@@ -118,46 +107,31 @@ function intradaySlots(stepMinutes: number, startMs: number, endMs: number): Slo
 
 function dailySlots(startMs: number, endMs: number): Slot[] {
   const slots: Slot[] = [];
-  for (let date = toDate(startMs); utcMidnight(date) <= endMs; date = addDays(date, 1)) {
-    if (!isWeekday(date) || sessionOpenMs(date) > endMs) continue;
-    const label = utcMidnight(date);
-    slots.push({ time: label / 1000, session: label, sessionPosition: 0 });
+  for (let day = utcDay(startMs); day.valueOf() <= endMs; day = day.add(1, 'day')) {
+    if (isWeekday(day) && sessionOpenMs(day) <= endMs) slots.push(periodSlot(day));
   }
   return slots;
 }
 
 function weeklySlots(startMs: number, endMs: number): Slot[] {
   const slots: Slot[] = [];
-  const startDate = toDate(startMs);
-  const weekday = new Date(utcMidnight(startDate)).getUTCDay();
+  const start = utcDay(startMs);
   // Monday of the week containing the start (Sunday belongs to the week before).
-  let monday = addDays(startDate, -((weekday + 6) % 7));
-  for (; utcMidnight(monday) <= endMs; monday = addDays(monday, 7)) {
-    if (sessionOpenMs(monday) > endMs) continue;
-    const label = utcMidnight(monday);
-    slots.push({ time: label / 1000, session: label, sessionPosition: 0 });
+  let monday = start.subtract((start.day() + 6) % 7, 'day');
+  for (; monday.valueOf() <= endMs; monday = monday.add(7, 'day')) {
+    if (sessionOpenMs(monday) <= endMs) slots.push(periodSlot(monday));
   }
   return slots;
 }
 
 function monthlySlots(startMs: number, endMs: number): Slot[] {
   const slots: Slot[] = [];
-  const start = toDate(startMs);
-  for (let index = start.year * 12 + start.month; ; index++) {
-    const year = Math.floor(index / 12);
-    const month = index % 12;
-    const label = Date.UTC(year, month, 1);
-    if (label > endMs) break;
-    let firstSession: CalendarDate = { year, month, day: 1 };
-    while (!isWeekday(firstSession)) firstSession = addDays(firstSession, 1);
-    if (sessionOpenMs(firstSession) > endMs) continue;
-    slots.push({ time: label / 1000, session: label, sessionPosition: 0 });
+  for (let month = dayjs.utc(startMs).startOf('month'); month.valueOf() <= endMs; month = month.add(1, 'month')) {
+    let firstSession = month;
+    while (!isWeekday(firstSession)) firstSession = firstSession.add(1, 'day');
+    if (sessionOpenMs(firstSession) <= endMs) slots.push(periodSlot(month));
   }
   return slots;
-}
-
-function floorToUtcDay(ms: number): number {
-  return utcMidnight(toDate(ms));
 }
 
 export interface HistoryRequest {
@@ -208,7 +182,7 @@ export function generateHistory(request: HistoryRequest): GeneratedHistory {
   } else {
     // Period bars are included by date: the period containing the window start counts, but nothing
     // before the available-data floor does.
-    const windowStart = floorToUtcDay(startMs);
+    const windowStart = utcDay(startMs).valueOf();
     if (timeframe === '1Week') slots = weeklySlots(windowStart, endMs);
     else if (timeframe === '1Month') slots = monthlySlots(windowStart, endMs);
     else slots = dailySlots(windowStart, endMs);

@@ -13,7 +13,7 @@ import { buildSeedData, type SeedData } from './seed';
  */
 
 export const STORAGE_KEY = 'aperture.prototype.v1';
-export const STORAGE_VERSION = 1;
+const STORAGE_VERSION = 1;
 
 export type RepositoryData = SeedData;
 

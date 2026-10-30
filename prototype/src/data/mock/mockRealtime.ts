@@ -19,15 +19,15 @@ import { createSimulationSource, type SimulationSource } from './simulationSourc
  * replays a snapshot after every (re)connect.
  */
 
-export const TICK_INTERVAL_MS = 100;
+const TICK_INTERVAL_MS = 100;
 export const FLUSH_INTERVAL_MS = 250;
-export const SWEEP_INTERVAL_MS = 1000;
+const SWEEP_INTERVAL_MS = 1000;
 export const CONNECT_DELAY_MS = 300;
 export const DELAYED_FEED_MS = 15 * 60_000;
 export const FLAKY_DROP_AFTER_MS = 20_000;
 export const FLAKY_RECOVER_AFTER_MS = 4_000;
-export const BACKOFF_BASE_MS = 1_000;
-export const BACKOFF_CAP_MS = 30_000;
+const BACKOFF_BASE_MS = 1_000;
+const BACKOFF_CAP_MS = 30_000;
 export const FEED_NAME = 'Simulated feed';
 
 /** Delay before reconnect attempt `attempt` (1-based): 1s, 2s, 4s, 8s, 16s, then 30s. */

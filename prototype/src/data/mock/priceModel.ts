@@ -12,9 +12,9 @@ import { createPrng, hashString, type Prng } from './random';
  */
 
 /** Per-trade log-price standard deviation for volatility 1 (0.06%). */
-export const BASE_TRADE_SIGMA = 0.0006;
+const BASE_TRADE_SIGMA = 0.0006;
 /** Stationary standard deviation of the log price for volatility 1 (1.2%). */
-export const BASE_STATIONARY_SD = 0.012;
+const BASE_STATIONARY_SD = 0.012;
 /** Prices never move further than this fraction from the previous close. */
 export const MAX_DEVIATION = 0.06;
 

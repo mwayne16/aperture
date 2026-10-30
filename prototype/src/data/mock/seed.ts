@@ -34,7 +34,7 @@ function currentPrice(market: MockMarket, symbol: string): number {
  * An "above" target the model's own path reaches within NEAR_ALERT_LOOKAHEAD trades, at most
  * NEAR_ALERT_MAX_DISTANCE above the current price, and strictly above it (so it doesn't fire instantly).
  */
-export function nearAboveTarget(market: MockMarket, symbol: string): number {
+function nearAboveTarget(market: MockMarket, symbol: string): number {
   const last = currentPrice(market, symbol);
   const peak = Math.max(...market.peekPrices(symbol, NEAR_ALERT_LOOKAHEAD));
   if (peak > last) return Math.min(peak, roundPrice(last * (1 + NEAR_ALERT_MAX_DISTANCE)));
@@ -42,7 +42,7 @@ export function nearAboveTarget(market: MockMarket, symbol: string): number {
 }
 
 /** Mirror of nearAboveTarget for a "below" alert. */
-export function nearBelowTarget(market: MockMarket, symbol: string): number {
+function nearBelowTarget(market: MockMarket, symbol: string): number {
   const last = currentPrice(market, symbol);
   const trough = Math.min(...market.peekPrices(symbol, NEAR_ALERT_LOOKAHEAD));
   if (trough < last) return Math.max(trough, roundPrice(last * (1 - NEAR_ALERT_MAX_DISTANCE)));
