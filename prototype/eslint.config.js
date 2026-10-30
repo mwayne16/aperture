@@ -43,6 +43,17 @@ export default defineConfig([
     },
   },
   {
+    // ** Radix stays behind the design-system wrappers so features share one set of focus and layering rules.
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/components/ui/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        { paths: [{ name: 'radix-ui', message: 'Use the components/ui wrapper instead of importing Radix directly.' }] },
+      ],
+    },
+  },
+  {
     files: ['**/*.test.{ts,tsx}', 'src/test/**'],
     rules: {
       '@typescript-eslint/no-non-null-assertion': 'off',

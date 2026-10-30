@@ -36,6 +36,8 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
   compile, and write the evidence here.
 - Vite 8, React 19, Vitest 5, ESLint 10 flat config with typescript-eslint strict type-checked rules.
 - Charts: `lightweight-charts` v5 (TradingView, Apache-2.0).
+- UI primitives: `radix-ui` provides focus, layering and keyboard behavior for Dialog, Menu, Tooltip,
+  SegmentedControl, Tabs and Switch. Features import our `components/ui/*` wrappers, never Radix directly.
 - Client state: `zustand` stores. Live quotes use per-symbol selectors so one tick re-renders one row.
 - Validation (backend): `class-validator` + `class-transformer` only. No Zod.
 
