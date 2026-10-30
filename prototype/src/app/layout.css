@@ -1,0 +1,94 @@
+/*
+ * App layout: top bar, then watchlists beside the market table and stock detail, then the alerts
+ * dock and the status bar. Areas clip their content; features scroll inside their own area.
+ */
+.layout {
+  display: grid;
+  grid-template-areas:
+    'top top'
+    'side main'
+    'side dock'
+    'status status';
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: 232px minmax(0, 1fr);
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  background-color: var(--bg-app);
+}
+
+/* Dialogs, drawers and toasts position themselves, so they never take a grid cell. */
+.layout__overlays {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+}
+
+.layout__top,
+.layout__side,
+.layout__main,
+.layout__market,
+.layout__detail,
+.layout__dock,
+.layout__status {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.layout__top {
+  grid-area: top;
+  border-bottom: 1px solid var(--border);
+  background-color: var(--bg-chrome);
+}
+
+.layout__side {
+  grid-area: side;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  background-color: var(--bg-chrome);
+}
+
+.layout__main {
+  grid-area: main;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 400px;
+}
+
+.layout__market,
+.layout__detail {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-panel);
+}
+
+.layout__detail {
+  border-left: 1px solid var(--border);
+}
+
+.layout__dock {
+  grid-area: dock;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+  background-color: var(--bg-panel);
+}
+
+.layout__status {
+  grid-area: status;
+  border-top: 1px solid var(--border);
+  background-color: var(--bg-chrome);
+}
+
+@media (max-width: 1200px) {
+  .layout {
+    grid-template-columns: 200px minmax(0, 1fr);
+  }
+
+  .layout__main {
+    grid-template-columns: minmax(0, 1fr) 340px;
+  }
+}

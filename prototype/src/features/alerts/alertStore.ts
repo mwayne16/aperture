@@ -10,6 +10,8 @@ export const MAX_ALERT_EVENTS = 50;
  * Alert state backed by `api` (CRUD) and `realtime` (server-side evaluation results).
  * Implemented by the alerts task.
  *
+ * - load() never rejects: a failure sets status 'error' and `error`. A call while a load is in
+ *   flight returns that load instead of starting another.
  * - create and update reject with ApiError so the dialog can show errors inline.
  * - setEnabled and remove are optimistic with rollback + error toast on failure.
  * - applyServerUpdate merges an alert pushed by the backend; it ignores updates whose updatedAt is
@@ -40,7 +42,7 @@ export const useAlertStore = create<AlertState>()(() => ({
   error: null,
   alerts: [],
   events: [],
-  load: notImplemented,
+  load: () => Promise.resolve(),
   create: notImplemented,
   update: notImplemented,
   setEnabled: notImplemented,

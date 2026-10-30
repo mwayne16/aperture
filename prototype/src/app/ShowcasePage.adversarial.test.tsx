@@ -1,7 +1,7 @@
 import { act, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { App } from './App';
-import { dismissAllToasts } from './components/ui/toastStore';
+import { ShowcasePage } from './ShowcasePage';
+import { dismissAllToasts } from '../components/ui/toastStore';
 
 afterEach(() => {
   act(() => {
@@ -10,9 +10,9 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('App / Showcase (adversarial)', () => {
+describe('ShowcasePage (adversarial)', () => {
   it('keeps exactly one h1 "Aperture"', () => {
-    render(<App />);
+    render(<ShowcasePage />);
     const h1s = screen.getAllByRole('heading', { level: 1 });
     expect(h1s).toHaveLength(1);
     expect(h1s[0]).toHaveTextContent('Aperture');
@@ -20,7 +20,7 @@ describe('App / Showcase (adversarial)', () => {
 
   it('flashes exactly one quote row and uses tabular numerals for numbers', () => {
     vi.useFakeTimers();
-    render(<App />);
+    render(<ShowcasePage />);
     act(() => {
       vi.advanceTimersByTime(5000);
     });
@@ -36,13 +36,13 @@ describe('App / Showcase (adversarial)', () => {
 
   it('stops the flash interval when unmounted (no timer leak)', () => {
     vi.useFakeTimers();
-    const { unmount } = render(<App />);
+    const { unmount } = render(<ShowcasePage />);
     unmount();
     expect(vi.getTimerCount()).toBe(0);
   });
 
   it('shows a theme switcher with system, dark and light', () => {
-    render(<App />);
+    render(<ShowcasePage />);
     const theme = screen.getByRole('radiogroup', { name: 'Theme' });
     const names = within(theme)
       .getAllByRole('radio')

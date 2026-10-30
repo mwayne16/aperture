@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState, type ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { App } from '../../App';
+import { ShowcasePage } from '../../app/ShowcasePage';
 import { Button } from './Button';
 import { IconButton } from './IconButton';
 import { Menu } from './Menu';
@@ -151,7 +151,7 @@ describe('Tooltip content changes (adversarial)', () => {
 
 describe('Showcase covers the required states (adversarial)', () => {
   it('shows disabled, loading, error and selected states across primitives', () => {
-    render(<App />);
+    render(<ShowcasePage />);
     const buttons = screen.getAllByRole('button');
     expect(buttons.some((b) => b.hasAttribute('disabled') && !b.hasAttribute('aria-busy'))).toBe(true);
     expect(buttons.some((b) => b.getAttribute('aria-busy') === 'true')).toBe(true);
@@ -171,7 +171,7 @@ describe('Showcase covers the required states (adversarial)', () => {
   });
 
   it('the quote table has the specified columns in order, 10 rows and one selected row', () => {
-    render(<App />);
+    render(<ShowcasePage />);
     const table = screen.getByRole('grid', { name: /quotes/i });
     const headers = within(table)
       .getAllByRole('columnheader')

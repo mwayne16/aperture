@@ -7,6 +7,8 @@ export type LoadStatus = 'idle' | 'loading' | 'ready' | 'error';
  * Watchlist state backed by `api` from data/dataLayer.ts. Implemented by the watchlists task.
  *
  * Error contract:
+ * - load() never rejects: a failure sets status 'error' and `error`. A call while a load is in flight
+ *   returns that load instead of starting another.
  * - create, rename, addSymbol reject with ApiError so forms can show the message inline.
  * - remove, removeSymbol, reorder are optimistic: the UI updates immediately; on failure the
  *   previous state is restored, an error toast is shown, and the promise still resolves.
@@ -36,7 +38,7 @@ export const useWatchlistStore = create<WatchlistState>()(() => ({
   error: null,
   watchlists: [],
   activeId: null,
-  load: notImplemented,
+  load: () => Promise.resolve(),
   setActive: () => undefined,
   create: notImplemented,
   rename: notImplemented,

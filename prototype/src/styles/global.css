@@ -205,7 +205,7 @@ table {
   }
 }
 
-/* App shell. Temporary: App.tsx renders the design-system showcase for now. */
+/* Showcase page chrome (app/ShowcasePage.tsx). */
 .app-shell {
   display: flex;
   flex-direction: column;
