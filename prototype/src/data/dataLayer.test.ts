@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AlertEvent } from '../domain/types';
 import { useConnectionStore } from './connectionStore';
-import * as data from './index';
-import { api, getQuote, realtime, resetDemoData, startDataLayer, updateSimulation } from './index';
+import { ApiError, isApiError } from './api';
+import * as dataLayer from './dataLayer';
+import { api, realtime, resetDemoData, startDataLayer } from './dataLayer';
 import { STORAGE_KEY } from './mock/repository';
-import { useQuoteStore } from './quoteStore';
-import { resetSimulation } from './simulationStore';
+import { getQuote, useQuoteStore } from './quoteStore';
+import { resetSimulation, updateSimulation } from './simulationStore';
 
 const teardowns: (() => void)[] = [];
 
@@ -29,30 +30,16 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('data layer public surface', () => {
-  it('exports exactly the documented runtime names', () => {
-    expect(Object.keys(data).sort()).toEqual(
-      [
-        'ApiError',
-        'api',
-        'getQuote',
-        'isApiError',
-        'realtime',
-        'resetDemoData',
-        'startDataLayer',
-        'updateSimulation',
-        'useConnection',
-        'useQuote',
-        'useSimulation',
-      ].sort(),
-    );
+describe('data layer module', () => {
+  it('exports only its own wiring, not re-exports of the stores or contracts', () => {
+    expect(Object.keys(dataLayer).sort()).toEqual(['api', 'realtime', 'resetDemoData', 'startDataLayer']);
   });
 
-  it('re-exports the shared ApiError class', async () => {
+  it('rejects API failures with the shared ApiError class', async () => {
     updateSimulation({ failNextApiCall: true });
     const error = await api.listWatchlists().catch((e: unknown) => e);
-    expect(error).toBeInstanceOf(data.ApiError);
-    expect(data.isApiError(error)).toBe(true);
+    expect(error).toBeInstanceOf(ApiError);
+    expect(isApiError(error)).toBe(true);
   });
 });
 

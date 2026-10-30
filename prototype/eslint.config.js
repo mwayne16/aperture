@@ -28,6 +28,18 @@ export default defineConfig([
       '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true }],
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       '@typescript-eslint/consistent-type-imports': ['error', { fixStyle: 'inline-type-imports' }],
+      // ** Barrel files slow Vite's unbundled dev server and hinder tree shaking, so re-exports are banned.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'ExportAllDeclaration',
+          message: 'No barrel files: import from the module that defines the value instead of re-exporting it.',
+        },
+        {
+          selector: 'ExportNamedDeclaration[source]',
+          message: 'No barrel files: import from the module that defines the value instead of re-exporting it.',
+        },
+      ],
     },
   },
   {

@@ -2,7 +2,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Quote } from '../domain/types';
 import { useConnectionStore } from './connectionStore';
-import { getQuote, realtime, resetDemoData, startDataLayer, updateSimulation, useSimulation } from './index';
+import { realtime, resetDemoData, startDataLayer } from './dataLayer';
+import { getQuote } from './quoteStore';
+import { updateSimulation, useSimulation } from './simulationStore';
 import { useQuoteStore } from './quoteStore';
 import { resetSimulation, useSimulationStore } from './simulationStore';
 import { renderHook } from '@testing-library/react';

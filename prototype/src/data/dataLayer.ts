@@ -1,5 +1,6 @@
 /**
- * Public surface of the data layer. UI code imports from here only, never from `./mock/*`.
+ * Wires the data layer: the `api` and `realtime` singletons and the store plumbing. UI code imports
+ * hooks and types from their own modules (quoteStore, connectionStore, simulationStore, api, realtime).
  * In the prototype, `api` and `realtime` are mocks over one shared simulated market and repository,
  * so alert changes made through `api` reach the realtime alert evaluation immediately.
  */
@@ -15,13 +16,6 @@ import { useQuoteStore } from './quoteStore';
 import type { RealtimeClient } from './realtime';
 import { getSimulation, subscribeSimulation, updateSimulation } from './simulationStore';
 
-export { ApiError, isApiError } from './api';
-export type { ApiErrorCode, ApiErrorDetail, MarketApi } from './api';
-export type { RealtimeClient, Unsubscribe } from './realtime';
-export type { FeedScenario, HistoryScenario, SimulationState } from './simulation';
-export { useConnection } from './connectionStore';
-export { getQuote, useQuote } from './quoteStore';
-export { updateSimulation, useSimulation } from './simulationStore';
 
 const simulation: SimulationSource = {
   get: getSimulation,

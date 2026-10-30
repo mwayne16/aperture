@@ -45,6 +45,8 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
 - `data/api.ts` and `data/realtime.ts`: **interfaces** that mirror the future HTTP API and WebSocket client.
   `data/mock/` implements them with clearly labeled simulated data. In Phase 5 the mocks are replaced
   by real clients and the UI stays as it is.
+- `data/dataLayer.ts` defines the `api`/`realtime` singletons and `startDataLayer`. Hooks live in
+  `quoteStore.ts`, `connectionStore.ts` and `simulationStore.ts`; import them from there.
 - `components/ui/`: design-system primitives. `features/<area>/`: feature UI. `styles/`: tokens and global CSS.
 - Alert evaluation lives behind the realtime interface (the "backend" side), never inside UI components.
 
@@ -65,6 +67,9 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
 ## Files and imports
 - **No barrel files.** Import every module from its own file; re-exports are lint errors. The one
     exception are `Skeleton` namespaced objects.
+  Why: Vite serves modules unbundled in dev, so importing one name from a barrel loads every module it
+  re-exports; barrels also hinder tree shaking. ESLint enforces this (`no-restricted-syntax` bans
+  `export * from` and `export { x } from`). Don't name modules `index.ts`; name them for what they hold.
 - Only export what another file imports.
 
 ## Documentation Style

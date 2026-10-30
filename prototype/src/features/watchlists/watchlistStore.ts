@@ -4,7 +4,7 @@ import type { Watchlist } from '../../domain/types';
 export type LoadStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 /**
- * Watchlist state backed by `api` from data/index.ts. Implemented by the watchlists task.
+ * Watchlist state backed by `api` from data/dataLayer.ts. Implemented by the watchlists task.
  *
  * Error contract:
  * - create, rename, addSymbol reject with ApiError so forms can show the message inline.
