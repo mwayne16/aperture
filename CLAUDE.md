@@ -106,4 +106,10 @@ From `prototype/`:
 - A failed check sends the task back with evidence. Three attempts max, then escalate.
 
 ## Lessons learned (add a line when a mistake repeats)
-- (none yet)
+- Adversarial QA reports only defects a real user could hit, or broken contracts. Exotic inputs (rare
+  Unicode case folding, year 0, Number.MAX_VALUE gaps) burned two session limits without user value.
+  Cap QA at one or two rounds and give it a severity bar.
+- Never resume a workflow that runs parallel branches while another task writes to one of its worktrees.
+  Resume can re-run finished agents live, and two writers then collide in one worktree.
+- Tool parameters decode `\uXXXX`, so writing a regex escape through Edit/Write can insert the literal
+  character instead. Check the bytes, or use a `\p{...}` class or `String.fromCharCode` instead.
