@@ -50,6 +50,11 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
 - `data/dataLayer.ts` defines the `api`/`realtime` singletons and `startDataLayer`. Hooks live in
   `quoteStore.ts`, `connectionStore.ts` and `simulationStore.ts`; import them from there.
 - `components/ui/`: design-system primitives. `features/<area>/`: feature UI. `styles/`: tokens and global CSS.
+- `App.tsx` owns the layout grid and landmarks; each feature renders content only inside its area.
+  `app/` holds cross-feature UI state (`uiStore.ts`), startup, quote subscriptions and global shortcuts.
+  The design-system showcase is at `#showcase`.
+- Domain rules that both the UI and the API enforce (symbols, watchlist names, alert fields) live in
+  `domain/`, so forms validate without a round trip and report the same messages as the API.
 - Alert evaluation lives behind the realtime interface (the "backend" side), never inside UI components.
 
 ## Rules
@@ -118,5 +123,7 @@ From `prototype/`:
   Cap QA at one or two rounds and give it a severity bar.
 - Never resume a workflow that runs parallel branches while another task writes to one of its worktrees.
   Resume can re-run finished agents live, and two writers then collide in one worktree.
+- An agent that starts a dev server must kill its own PID (`taskkill //PID <pid> //T //F`) and confirm
+  the port is free. Orphaned Vite servers lock rolldown's binary, and `npm ci` then half-deletes node_modules.
 - Tool parameters decode `\uXXXX`, so writing a regex escape through Edit/Write can insert the literal
   character instead. Check the bytes, or use a `\p{...}` class or `String.fromCharCode` instead.
