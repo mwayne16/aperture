@@ -92,6 +92,50 @@ describe('load', () => {
     expect(list).toHaveBeenCalledTimes(2);
   });
 
+  it('starts a new request when forced and ignores the load it replaces', async () => {
+    const stale = await api.listWatchlists();
+    let releaseStale: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => (releaseStale = resolve));
+    const list = vi.spyOn(api, 'listWatchlists').mockImplementationOnce(async () => {
+      await gate;
+      return stale;
+    });
+    const first = state().load();
+    await api.createWatchlist({ name: 'Fresh' });
+    const forced = state().load({ force: true });
+    expect(forced).not.toBe(first);
+    // A plain load joins the forced one.
+    expect(state().load()).toBe(forced);
+    await forced;
+    expect(state().watchlists.map((w) => w.name)).toContain('Fresh');
+
+    releaseStale();
+    await expect(first).resolves.toBeUndefined();
+    expect(state().watchlists.map((w) => w.name)).toContain('Fresh');
+    expect(state().status).toBe('ready');
+    expect(list).toHaveBeenCalledTimes(2);
+  });
+
+  it('ignores a failure of the load a forced one replaced', async () => {
+    let failStale: () => void = () => undefined;
+    const gate = new Promise<void>((_, reject) => {
+      failStale = () => {
+        reject(new Error('stale failure'));
+      };
+    });
+    vi.spyOn(api, 'listWatchlists').mockImplementationOnce(async () => {
+      await gate;
+      return [];
+    });
+    const first = state().load();
+    await state().load({ force: true });
+    failStale();
+    await first;
+    expect(state().status).toBe('ready');
+    expect(state().error).toBeNull();
+    expect(ids()).toEqual(SEED_IDS);
+  });
+
   it('never rejects: a failure sets the error, and a retry recovers', async () => {
     failNextCall();
     await expect(state().load()).resolves.toBeUndefined();

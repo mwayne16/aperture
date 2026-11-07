@@ -69,6 +69,30 @@ describe('load', () => {
     expect(list).toHaveBeenCalledTimes(2);
   });
 
+  it('starts a new request when forced and ignores the load it replaces', async () => {
+    const stale = await api.listAlerts();
+    let releaseStale: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => (releaseStale = resolve));
+    const list = vi.spyOn(api, 'listAlerts').mockImplementationOnce(async () => {
+      await gate;
+      return stale;
+    });
+    const first = store().load();
+    await api.deleteAlert(MSFT);
+    const forced = store().load({ force: true });
+    expect(forced).not.toBe(first);
+    // A plain load joins the forced one.
+    expect(store().load()).toBe(forced);
+    await forced;
+    expect(shown(MSFT)).toBeUndefined();
+
+    releaseStale();
+    await expect(first).resolves.toBeUndefined();
+    expect(shown(MSFT)).toBeUndefined();
+    expect(store().status).toBe('ready');
+    expect(list).toHaveBeenCalledTimes(2);
+  });
+
   it('resolves with an error status when the API fails, and a retry recovers', async () => {
     updateSimulation({ failNextApiCall: true });
     await expect(store().load()).resolves.toBeUndefined();

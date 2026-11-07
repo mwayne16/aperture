@@ -6,6 +6,11 @@ import type { AlertEvent, CreateAlertInput, PriceAlert, UpdateAlertInput } from 
 
 type LoadStatus = 'idle' | 'loading' | 'ready' | 'error';
 
+interface LoadOptions {
+  /** Start a new request even if a load is in flight, e.g. after the server data was reset. */
+  force?: boolean;
+}
+
 /** Max trigger events kept in memory for the log. */
 export const MAX_ALERT_EVENTS = 50;
 
@@ -13,7 +18,8 @@ export const MAX_ALERT_EVENTS = 50;
  * Alert state backed by `api` (CRUD) and `realtime` (server-side evaluation results).
  *
  * - load() never rejects: a failure sets status 'error' and `error`. A call while a load is in
- *   flight returns that load instead of starting another.
+ *   flight returns that load instead of starting another. load({ force: true }) always starts a new
+ *   request, and the result of the load it replaces is ignored.
  * - create and update reject with ApiError so the dialog can show errors inline. An update that
  *   comes back NOT_FOUND also drops the alert from the store.
  * - setEnabled and remove are optimistic with rollback + error toast on failure. Their promises
@@ -30,7 +36,7 @@ interface AlertState {
   alerts: PriceAlert[];
   events: AlertEvent[];
 
-  load(): Promise<void>;
+  load(options?: LoadOptions): Promise<void>;
   create(input: CreateAlertInput): Promise<PriceAlert>;
   update(id: string, input: UpdateAlertInput): Promise<PriceAlert>;
   setEnabled(id: string, enabled: boolean): Promise<void>;
@@ -150,9 +156,9 @@ export const useAlertStore = create<AlertStoreState>()((set, get) => {
     deletedIds: [],
     inflightLoad: null,
 
-    load() {
+    load({ force = false } = {}) {
       const inflight = get().inflightLoad;
-      if (inflight) return inflight;
+      if (inflight && !force) return inflight;
       // ** The request starts on a microtask so `inflightLoad` is set before any outcome can be
       // handled, even if the API throws synchronously.
       const promise: Promise<void> = Promise.resolve()

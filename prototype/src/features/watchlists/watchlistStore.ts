@@ -16,12 +16,18 @@ import {
 
 type LoadStatus = 'idle' | 'loading' | 'ready' | 'error';
 
+interface LoadOptions {
+  /** Start a new request even if a load is in flight, e.g. after the server data was reset. */
+  force?: boolean;
+}
+
 /**
  * Watchlist state backed by `api` from data/dataLayer.ts.
  *
  * Error contract:
  * - load() never rejects: a failure sets status 'error' and `error`. A call while a load is in flight
- *   returns that load instead of starting another.
+ *   returns that load instead of starting another. load({ force: true }) always starts a new request,
+ *   and the result of the load it replaces is ignored.
  * - create, rename, addSymbol reject with ApiError so forms can show the message inline.
  * - remove, removeSymbol, reorder are optimistic: the UI updates immediately; on failure the
  *   previous state is restored, an error toast is shown, and the promise still resolves.
@@ -34,7 +40,7 @@ export interface WatchlistState {
   watchlists: Watchlist[];
   activeId: string | null;
 
-  load(): Promise<void>;
+  load(options?: LoadOptions): Promise<void>;
   setActive(id: string): void;
   create(name: string): Promise<Watchlist>;
   rename(id: string, name: string): Promise<void>;
@@ -77,6 +83,8 @@ function alreadyGone(error: unknown): boolean {
 }
 
 let inFlightLoad: Promise<void> | null = null;
+/** Numbers each load, so only the newest one may apply its result. */
+let loadSeq = 0;
 /** Lists whose optimistic delete is in flight, so a load that lands meanwhile doesn't bring them back. */
 const pendingDeletes = new Set<string>();
 /** Writes in flight per watchlist id. */
@@ -135,23 +143,31 @@ export const useWatchlistStore = create<WatchlistState>()((set, get) => {
     watchlists: [],
     activeId: null,
 
-    load() {
-      if (inFlightLoad) return inFlightLoad;
+    load({ force = false } = {}) {
+      if (inFlightLoad && !force) return inFlightLoad;
+      loadSeq += 1;
+      const seq = loadSeq;
+      const isCurrent = () => seq === loadSeq;
       set({ status: 'loading', error: null });
-      inFlightLoad = (async () => {
+      const request = (async () => {
+        // ** Yield first, so `inFlightLoad` points at this load before it can finish.
+        await Promise.resolve();
         try {
-          const watchlists = (await api.listWatchlists()).filter((w) => !pendingDeletes.has(w.id));
+          const listed = await api.listWatchlists();
+          if (!isCurrent()) return;
+          const watchlists = listed.filter((w) => !pendingDeletes.has(w.id));
           // ** The in-memory choice wins over storage, which may be blocked or stale.
           const activeId = pickActiveId(watchlists, [get().activeId, readStoredActiveId()]);
           set({ status: 'ready', error: null, watchlists });
           setActiveId(activeId);
         } catch (error) {
-          set({ status: 'error', error: messageOf(error) });
+          if (isCurrent()) set({ status: 'error', error: messageOf(error) });
         } finally {
-          inFlightLoad = null;
+          if (isCurrent()) inFlightLoad = null;
         }
       })();
-      return inFlightLoad;
+      inFlightLoad = request;
+      return request;
     },
 
     setActive(id) {

@@ -8,7 +8,7 @@ export type ResetOutcome =
   | { ok: false; dataReset: boolean; message: string };
 
 interface ReloadableStore {
-  getState(): { load(): Promise<void>; status: string; error: string | null };
+  getState(): { load(options?: { force?: boolean }): Promise<void>; status: string; error: string | null };
 }
 
 function errorMessage(error: unknown): string {
@@ -18,7 +18,8 @@ function errorMessage(error: unknown): string {
 /** Reloads one store and returns why it failed, or null when it loaded. */
 async function reload(name: string, store: ReloadableStore): Promise<string | null> {
   try {
-    await store.getState().load();
+    // ** Forced, so a load that started before the reset can't hand back the old data.
+    await store.getState().load({ force: true });
   } catch (error) {
     // ** load() is documented never to reject; if it does, report it like a failed load.
     return `${name} did not reload: ${errorMessage(error)}`;
