@@ -134,6 +134,32 @@ describe('SymbolSearch add variant', () => {
     expect(addBox()).toHaveValue('msft');
   });
 
+  it('keeps the next symbol typed during a failed add and still shows the error', async () => {
+    const { addSymbol } = seedWatchlist();
+    let fail: () => void = () => undefined;
+    addSymbol.mockImplementationOnce(
+      () =>
+        new Promise<void>((_, reject) => {
+          fail = () => {
+            reject(new ApiError('CONFLICT', 'MSFT is already in this watchlist.', 409));
+          };
+        }),
+    );
+    const user = userEvent.setup();
+    render(<SymbolSearch variant="add" watchlistId="wl-1" />);
+    await user.type(addBox(), 'msft');
+    await findOption(/^MSFT/);
+    await user.keyboard('{Enter}');
+    // The box clears while the add saves.
+    expect(addBox()).toHaveValue('');
+    await user.type(addBox(), 'nv');
+    act(() => {
+      fail();
+    });
+    expect(await screen.findByText('MSFT is already in this watchlist.', { selector: 'p' })).toBeInTheDocument();
+    expect(addBox()).toHaveValue('nv');
+  });
+
   it('adds once when Enter is pressed repeatedly during a slow add', async () => {
     const { addSymbol } = seedWatchlist();
     let finish: () => void = () => undefined;

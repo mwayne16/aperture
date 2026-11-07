@@ -176,12 +176,16 @@ export function SymbolSearch({ variant, watchlistId, autoFocus = false, onDone }
     }
     busyRef.current = true;
     setBusy(true);
+    // ** The add box clears while the symbol saves, so the user can type the next one meanwhile.
+    const submitted = variant === 'add' ? (inputRef.current?.value ?? '') : null;
+    if (submitted !== null) reset();
     try {
       await useWatchlistStore.getState().addSymbol(watchlist.id, check.value);
-      if (variant === 'add') reset();
-      else showToast({ tone: 'success', title: `Added ${check.value} to ${watchlist.name}` });
+      if (variant === 'global') showToast({ tone: 'success', title: `Added ${check.value} to ${watchlist.name}` });
       onDone?.();
     } catch (failure) {
+      // Bring the text back to correct it, unless the user has started on the next symbol.
+      if (submitted !== null && inputRef.current?.value === '') setQuery(submitted);
       report(isApiError(failure) ? failure.message : `Couldn't add ${check.value}. Try again.`);
     } finally {
       busyRef.current = false;
@@ -223,6 +227,8 @@ export function SymbolSearch({ variant, watchlistId, autoFocus = false, onDone }
   };
 
   const onEnter = (intent: Intent) => {
+    // An add is saving; its spinner shows, and the next add can start once it finishes.
+    if (busyRef.current && (variant === 'add' || intent === 'add')) return;
     if (term === '') {
       if (variant === 'add') report(noMatchReason(''));
       return;
