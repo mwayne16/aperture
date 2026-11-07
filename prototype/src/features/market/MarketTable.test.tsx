@@ -249,13 +249,30 @@ describe('MarketTable rows', () => {
   it('flashes the last price up or down when it changes', () => {
     seedWatchlists();
     render(<MarketTable />);
-    pushQuotes(quote('AAPL', { last: 100 }));
+    const t0 = Date.now();
+    pushQuotes(quote('AAPL', { last: 100, lastTradeAt: t0 }));
     expect(cells('AAPL')[1]).not.toHaveClass('flash-up');
-    pushQuotes(quote('AAPL', { last: 100.25 }));
+    pushQuotes(quote('AAPL', { last: 100.25, lastTradeAt: t0 + 1000 }));
     expect(cells('AAPL')[1]).toHaveClass('flash-up');
-    pushQuotes(quote('AAPL', { last: 100.1 }));
+    pushQuotes(quote('AAPL', { last: 100.1, lastTradeAt: t0 + 3000 }));
     expect(cells('AAPL')[1]).toHaveClass('flash-down');
     expect(cells('MSFT')[1]).not.toHaveClass('flash-up');
+  });
+
+  it('flashes a busy symbol at most once per two seconds of trading, so the price stays readable', () => {
+    seedWatchlists();
+    render(<MarketTable />);
+    const t0 = Date.now();
+    pushQuotes(quote('AAPL', { last: 100, lastTradeAt: t0 }));
+    pushQuotes(quote('AAPL', { last: 100.25, lastTradeAt: t0 + 100 }));
+    const flashed = cells('AAPL')[1];
+    expect(flashed).toHaveClass('flash-up');
+    pushQuotes(quote('AAPL', { last: 100.1, lastTradeAt: t0 + 600 }));
+    expect(cells('AAPL')[1]).toBe(flashed);
+    expect(cells('AAPL')[1]).toHaveTextContent('100.10');
+    expect(cells('AAPL')[1]).not.toHaveClass('flash-down');
+    pushQuotes(quote('AAPL', { last: 99.9, lastTradeAt: t0 + 2100 }));
+    expect(cells('AAPL')[1]).toHaveClass('flash-down');
   });
 
   it('shows how old the data is and updates it every second', () => {

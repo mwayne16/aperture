@@ -55,7 +55,7 @@ export const MarketRow = memo(function MarketRow({
   const quote = useQuote(symbol);
   const connection = useConnectionStore((s) => s.connection.state);
   const status = quoteStatusView(quote, connection);
-  const flash = usePriceFlash(quote?.last ?? null);
+  const flash = usePriceFlash(quote?.last ?? null, quote?.lastTradeAt ?? null);
   const direction = status.dimmed ? 0 : changeDirection(quote?.change);
   const tone = direction > 0 ? 'gain' : direction < 0 ? 'loss' : 'muted';
 
@@ -119,11 +119,11 @@ export const MarketRow = memo(function MarketRow({
       </td>
       <td className="is-num market-row__value market-col--bid">{formatPrice(quote?.bid)}</td>
       <td className="is-num market-row__value market-col--ask">{formatPrice(quote?.ask)}</td>
-      <td className="is-num is-muted">{formatVolume(quote?.volume)}</td>
+      <td className="is-num is-muted market-col--volume">{formatVolume(quote?.volume)}</td>
       <td>
         <StatusDot tone={status.tone} label={status.label} />
       </td>
-      <td className="is-num is-muted">
+      <td className="is-num is-muted market-col--updated">
         <QuoteAge time={quoteDataTime(quote)} />
       </td>
       <td className="market-row__actions" data-row-actions="">

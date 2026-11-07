@@ -58,6 +58,18 @@ export function flashDirection(previous: number | null, next: number | null): Fl
   return null;
 }
 
+/** Shortest time between two flashes of one cell, measured in trade time. */
+const FLASH_MIN_INTERVAL_MS = 2000;
+
+/**
+ * Whether a price change at `tradedAt` may start a new flash. Busy symbols trade several times a
+ * second, and flashing on every trade would keep the cell colored and hard to read.
+ */
+export function flashIsDue(lastFlashAt: number | null, tradedAt: number | null): boolean {
+  if (lastFlashAt === null || tradedAt === null) return true;
+  return tradedAt - lastFlashAt >= FLASH_MIN_INTERVAL_MS;
+}
+
 type StatusTone = 'gain' | 'warning' | 'accent' | 'muted';
 
 interface StatusView {

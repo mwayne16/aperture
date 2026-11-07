@@ -136,9 +136,9 @@ const SKELETON_CELLS: readonly { className?: string; width: number | string }[] 
   { className: 'is-num', width: 52 },
   { className: 'is-num market-col--bid', width: 48 },
   { className: 'is-num market-col--ask', width: 48 },
-  { className: 'is-num', width: 40 },
+  { className: 'is-num market-col--volume', width: 40 },
   { width: 56 },
-  { className: 'is-num', width: 40 },
+  { className: 'is-num market-col--updated', width: 40 },
   { width: 0 },
 ];
 

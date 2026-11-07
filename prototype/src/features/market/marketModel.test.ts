@@ -4,6 +4,7 @@ import type { ConnectionInfo, Quote } from '../../domain/types';
 import {
   connectionNotice,
   flashDirection,
+  flashIsDue,
   moveSymbol,
   navigationTarget,
   neighborAfterRemoval,
@@ -69,6 +70,15 @@ describe('neighborAfterRemoval', () => {
   it('returns null when the list will be empty or the symbol is missing', () => {
     expect(neighborAfterRemoval(['AAPL'], 'AAPL')).toBeNull();
     expect(neighborAfterRemoval(SYMBOLS, 'TSLA')).toBeNull();
+  });
+});
+
+describe('flashIsDue', () => {
+  it('allows the first flash and then one per two seconds of trade time', () => {
+    expect(flashIsDue(null, 1000)).toBe(true);
+    expect(flashIsDue(1000, 2999)).toBe(false);
+    expect(flashIsDue(1000, 3000)).toBe(true);
+    expect(flashIsDue(1000, null)).toBe(true);
   });
 });
 

@@ -172,6 +172,18 @@
   }
 }
 
+/* Narrower still, volume and age give way too, so the status column stays in view. */
+@container (max-width: 599px) {
+  .market-table {
+    min-width: 460px;
+  }
+
+  .market-table .market-col--volume,
+  .market-table .market-col--updated {
+    display: none;
+  }
+}
+
 .market-row:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
