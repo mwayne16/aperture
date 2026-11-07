@@ -230,11 +230,11 @@ describe('SymbolSearch results', () => {
       expect(pending).toHaveLength(2);
     });
     act(() => {
-      pending[1]?.([{ symbol: 'ABBV', name: 'AbbVie Inc.', exchange: 'NYSE' }]);
+      pending[1]?.([{ symbol: 'ABBV', name: 'AbbVie Inc.', exchange: 'NYSE', assetClass: 'stock' }]);
     });
     await findOption(/^ABBV/);
     act(() => {
-      pending[0]?.([{ symbol: 'AAPL', name: 'Apple Inc.', exchange: 'NASDAQ' }]);
+      pending[0]?.([{ symbol: 'AAPL', name: 'Apple Inc.', exchange: 'NASDAQ', assetClass: 'stock' }]);
     });
     await Promise.resolve();
     expect(screen.queryByRole('option', { name: /^AAPL/ })).not.toBeInTheDocument();

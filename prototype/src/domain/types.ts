@@ -33,13 +33,17 @@ export interface ConnectionInfo {
   error: string | null;
 }
 
+/** Kind of instrument. Crypto trades around the clock and uses pair symbols such as "BTC/USD". */
+export type AssetClass = 'stock' | 'etf' | 'crypto';
+
 export interface Instrument {
-  /** Normalized upper-case ticker, e.g. "AAPL" or "BRK.B". */
+  /** Normalized upper-case ticker, e.g. "AAPL", "BRK.B" or "BTC/USD". */
   symbol: string;
-  /** Company or fund name. */
+  /** Company, fund or coin name. */
   name: string;
-  /** Primary listing exchange, e.g. "NASDAQ". */
+  /** Primary listing exchange, e.g. "NASDAQ", or "CRYPTO" for coins. */
   exchange: string;
+  assetClass: AssetClass;
 }
 
 export interface Quote {
@@ -66,6 +70,33 @@ export interface Quote {
   status: DataStatus;
   /** Epoch ms when this quote object last changed on the client. */
   updatedAt: number;
+}
+
+export interface NewsItem {
+  id: string;
+  headline: string;
+  summary: string;
+  source: string;
+  /** Symbols the article is about. */
+  symbols: string[];
+  /** ISO timestamp. */
+  publishedAt: string;
+  /** Link to the full article, or null when there is none (simulated items). */
+  url: string | null;
+  /** True for prototype headlines. The UI must label them as simulated. */
+  simulated: boolean;
+}
+
+export interface MarketMovers {
+  /** Stocks with the largest percent gain today, best first. */
+  gainers: Quote[];
+  /** Stocks with the largest percent loss today, worst first. */
+  losers: Quote[];
+  /** Stocks with the highest session volume, highest first. */
+  mostActive: Quote[];
+  /** Epoch ms when the ranking was computed. */
+  asOf: number;
+  simulated: boolean;
 }
 
 export const CHART_RANGES = ['1D', '1W', '1M', '3M', '6M', 'YTD', '1Y', '5Y', '10Y', 'ALL'] as const;

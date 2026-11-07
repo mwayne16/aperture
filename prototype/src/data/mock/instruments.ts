@@ -1,4 +1,4 @@
-import type { Instrument } from '../../domain/types';
+import type { AssetClass, Instrument } from '../../domain/types';
 
 /**
  * The simulated instrument universe. Names and exchanges are real listings; every number here
@@ -6,12 +6,11 @@ import type { Instrument } from '../../domain/types';
  * not market data.
  */
 export interface InstrumentProfile extends Instrument {
-  kind: 'stock' | 'etf';
   /** Simulated reference price in USD that the model's previous close is drawn around. */
   referencePrice: number;
   /** Relative volatility: 1 is a typical large-cap stock, 0.5 a calm ETF, 2+ a high-beta name. */
   volatility: number;
-  /** Simulated average daily volume in shares. */
+  /** Simulated average daily volume in shares, or in coins for crypto. */
   averageVolume: number;
   /** Year of listing. History before Jan 1 of this year is not available. */
   listedYear: number;
@@ -99,7 +98,21 @@ const ETFS: Row[] = [
   ['ARKK', 'ARK Innovation ETF', 'NYSE Arca', 69.9, 1.8, 10_000_000, 2014],
 ];
 
-function toProfile(kind: InstrumentProfile['kind']) {
+// ** Crypto history starts in 2021, when Alpaca's crypto market data begins.
+const CRYPTO: Row[] = [
+  ['BTC/USD', 'Bitcoin', 'CRYPTO', 68_400, 2.0, 28_000, 2021],
+  ['ETH/USD', 'Ethereum', 'CRYPTO', 3_420, 2.4, 310_000, 2021],
+  ['SOL/USD', 'Solana', 'CRYPTO', 172.5, 3.0, 2_100_000, 2021],
+  ['XRP/USD', 'XRP', 'CRYPTO', 2.31, 2.8, 95_000_000, 2021],
+  ['ADA/USD', 'Cardano', 'CRYPTO', 0.712, 2.9, 120_000_000, 2021],
+  ['AVAX/USD', 'Avalanche', 'CRYPTO', 34.8, 3.0, 3_500_000, 2021],
+  ['LINK/USD', 'Chainlink', 'CRYPTO', 17.6, 2.9, 6_000_000, 2021],
+  ['DOT/USD', 'Polkadot', 'CRYPTO', 6.92, 3.0, 9_000_000, 2021],
+  ['LTC/USD', 'Litecoin', 'CRYPTO', 98.4, 2.5, 1_200_000, 2021],
+  ['DOGE/USD', 'Dogecoin', 'CRYPTO', 0.1834, 3.0, 900_000_000, 2021],
+];
+
+function toProfile(assetClass: AssetClass) {
   return ([
     symbol,
     name,
@@ -109,12 +122,13 @@ function toProfile(kind: InstrumentProfile['kind']) {
     averageVolume,
     listedYear,
   ]: Row): InstrumentProfile =>
-    Object.freeze({ symbol, name, exchange, kind, referencePrice, volatility, averageVolume, listedYear });
+    Object.freeze({ symbol, name, exchange, assetClass, referencePrice, volatility, averageVolume, listedYear });
 }
 
 export const INSTRUMENTS: readonly InstrumentProfile[] = Object.freeze([
   ...STOCKS.map(toProfile('stock')),
   ...ETFS.map(toProfile('etf')),
+  ...CRYPTO.map(toProfile('crypto')),
 ]);
 
 const BY_SYMBOL: ReadonlyMap<string, InstrumentProfile> = new Map(INSTRUMENTS.map((i) => [i.symbol, i]));
@@ -126,5 +140,5 @@ export function findInstrument(symbol: string): InstrumentProfile | undefined {
 
 /** Public shape (no simulation parameters). */
 export function toInstrument(profile: InstrumentProfile): Instrument {
-  return { symbol: profile.symbol, name: profile.name, exchange: profile.exchange };
+  return { symbol: profile.symbol, name: profile.name, exchange: profile.exchange, assetClass: profile.assetClass };
 }

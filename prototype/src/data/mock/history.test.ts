@@ -7,6 +7,7 @@ const base: HistoryRequest = {
   start: new Date(Date.UTC(2026, 6, 1)),
   end: new Date(Date.UTC(2026, 9, 21, 15)),
   lastSessionOnly: false,
+  continuous: false,
   listedYear: 1980,
   volatility: 1,
   averageVolume: 50_000_000,

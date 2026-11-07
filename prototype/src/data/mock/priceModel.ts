@@ -117,7 +117,7 @@ export function createInitialState(profile: InstrumentProfile): PriceState {
   const sigma = BASE_TRADE_SIGMA * vol;
   const stationarySd = BASE_STATIONARY_SD * Math.sqrt(vol);
   const theta = (sigma * sigma) / (2 * stationarySd * stationarySd);
-  const relativeSpread = (profile.kind === 'etf' ? 0.0001 : 0.0003) * Math.max(0.5, vol);
+  const relativeSpread = (profile.assetClass === 'etf' ? 0.0001 : 0.0003) * Math.max(0.5, vol);
 
   const { bid, ask } = spreadAround(open, relativeSpread);
   const { bidSize, askSize } = bookSizes(rng);

@@ -192,7 +192,7 @@ describe('SymbolSearch global search with the mock API', () => {
     });
     await user.clear(globalBox());
     act(() => {
-      pending[0]?.([{ symbol: 'MSFT', name: 'Microsoft Corporation', exchange: 'NASDAQ' }]);
+      pending[0]?.([{ symbol: 'MSFT', name: 'Microsoft Corporation', exchange: 'NASDAQ', assetClass: 'stock' }]);
     });
     await act(async () => {
       await Promise.resolve();

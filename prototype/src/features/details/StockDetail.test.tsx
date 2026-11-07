@@ -9,7 +9,7 @@ import { INITIAL_CONNECTION, useConnectionStore } from '../../data/connectionSto
 import { api } from '../../data/dataLayer';
 import { useQuoteStore } from '../../data/quoteStore';
 import { resetSimulation, updateSimulation } from '../../data/simulationStore';
-import type { ChartRange, ConnectionState, HistoryResult, Quote } from '../../domain/types';
+import type { ChartRange, ConnectionState, HistoryResult, Instrument, Quote } from '../../domain/types';
 import { liveChart, mockCharts, seriesOf } from './chartMock';
 import { historyCache } from './historyCache';
 import { StockDetail } from './StockDetail';
@@ -163,7 +163,7 @@ describe('StockDetail selection', () => {
   });
 
   it('ignores company details that arrive after the selection moved on', async () => {
-    let resolveSlow: (value: { symbol: string; name: string; exchange: string }) => void = () => undefined;
+    let resolveSlow: (value: Instrument) => void = () => undefined;
     vi.spyOn(api, 'getInstrument').mockImplementationOnce(
       () =>
         new Promise((resolve) => {
@@ -175,7 +175,7 @@ describe('StockDetail selection', () => {
     select('MSFT');
     expect(await screen.findByText('Microsoft Corporation')).toBeInTheDocument();
     await act(async () => {
-      resolveSlow({ symbol: 'AAPL', name: 'Apple Inc.', exchange: 'NASDAQ' });
+      resolveSlow({ symbol: 'AAPL', name: 'Apple Inc.', exchange: 'NASDAQ', assetClass: 'stock' });
       await Promise.resolve();
     });
     expect(screen.queryByText('Apple Inc.')).toBeNull();

@@ -51,7 +51,7 @@ describe('price model over a long session', () => {
       symbol: 'PNNY',
       name: 'Penny Test',
       exchange: 'NASDAQ',
-      kind: 'stock',
+      assetClass: 'stock',
       referencePrice: 0.42,
       volatility: 3,
       averageVolume: 1_000_000,

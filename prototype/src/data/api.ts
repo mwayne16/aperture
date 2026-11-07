@@ -1,9 +1,13 @@
 import type {
+  AssetClass,
   ChartRange,
   CreateAlertInput,
   HistoryResult,
   Instrument,
+  MarketMovers,
+  NewsItem,
   PriceAlert,
+  Quote,
   UpdateAlertInput,
   Watchlist,
 } from '../domain/types';
@@ -36,6 +40,18 @@ export interface MarketApi {
   getInstrument(symbol: string): Promise<Instrument | null>;
   /** Rejects with PROVIDER_ERROR when history can't be loaded. Honors `signal` for cancellation. */
   getHistory(symbol: string, range: ChartRange, signal?: AbortSignal): Promise<HistoryResult>;
+
+  /** Every instrument of one asset class, for browsing. Ordered by symbol. */
+  listInstruments(assetClass: AssetClass): Promise<Instrument[]>;
+  /**
+   * Latest quote for each symbol in one request, for lists too long to stream (the free IEX stream
+   * caps live subscriptions). Unknown symbols come back with status 'unavailable'. Order follows `symbols`.
+   */
+  getSnapshots(symbols: readonly string[]): Promise<Quote[]>;
+  /** Today's biggest stock gainers and losers and the most active stocks, `limit` each (default 5). */
+  getMovers(limit?: number): Promise<MarketMovers>;
+  /** Recent news, newest first, limited to articles about `symbols` when given. Default limit 10. */
+  getNews(options?: { symbols?: readonly string[]; limit?: number }): Promise<NewsItem[]>;
 }
 
 export type ApiErrorCode =

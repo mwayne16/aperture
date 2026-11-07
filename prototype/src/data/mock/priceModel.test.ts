@@ -190,7 +190,7 @@ describe('stepPrice', () => {
   });
 
   it('keeps sub-dollar prices at 4 decimals with a positive, uncrossed book', () => {
-    const penny: InstrumentProfile = { ...profile('F'), symbol: 'PNY', referencePrice: 0.42, kind: 'stock' };
+    const penny: InstrumentProfile = { ...profile('F'), symbol: 'PNY', referencePrice: 0.42, assetClass: 'stock' };
     walk(createInitialState(penny), 5000, (s) => {
       expect(s.last).toBeGreaterThan(0);
       expect(s.last).toBeLessThan(1);

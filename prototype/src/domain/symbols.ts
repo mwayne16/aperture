@@ -4,11 +4,13 @@
  * - Symbols are normalized by trimming whitespace and upper-casing.
  * - Valid symbol: 1-5 letters, optionally followed by "." and 1-2 letters for share classes
  *   (e.g. "AAPL", "F", "BRK.B"). Pattern: /^[A-Z]{1,5}(?:\.[A-Z]{1,2})?$/
+ * - Crypto pairs are also valid: a 2-10 letter coin, "/", and USD, USDT, USDC or BTC (e.g. "BTC/USD").
  * - Watchlist names are trimmed, 1-40 characters, and unique per user ignoring case.
  * - A watchlist holds at most MAX_WATCHLIST_SYMBOLS symbols and never the same symbol twice.
  */
 
 export const SYMBOL_PATTERN = /^[A-Z]{1,5}(?:\.[A-Z]{1,2})?$/;
+const CRYPTO_PAIR_PATTERN = /^[A-Z]{2,10}\/(?:USD|USDT|USDC|BTC)$/;
 export const WATCHLIST_NAME_MAX = 40;
 export const MAX_WATCHLIST_SYMBOLS = 100;
 
@@ -32,8 +34,8 @@ export function validateSymbol(input: string): ValidationResult<string> {
   const trimmed = trimWhitespace(input);
   if (trimmed === '') return { ok: false, reason: 'Enter a symbol.' };
   const symbol = trimmed.toUpperCase();
-  if (!ASCII_ONLY.test(trimmed) || !SYMBOL_PATTERN.test(symbol)) {
-    return { ok: false, reason: 'Use 1-5 letters, optionally followed by a share class like ".B".' };
+  if (!ASCII_ONLY.test(trimmed) || !(SYMBOL_PATTERN.test(symbol) || CRYPTO_PAIR_PATTERN.test(symbol))) {
+    return { ok: false, reason: 'Use 1-5 letters with an optional class like ".B", or a pair like "BTC/USD".' };
   }
   return { ok: true, value: symbol };
 }

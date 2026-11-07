@@ -391,6 +391,7 @@ describe('search and instruments', () => {
       symbol: 'BRK.B',
       name: 'Berkshire Hathaway Inc. Class B',
       exchange: 'NYSE',
+      assetClass: 'stock',
     });
     expect(await api.searchInstruments('qqqqqq')).toEqual([]);
   });
@@ -417,6 +418,7 @@ describe('search and instruments', () => {
       symbol: 'MSFT',
       name: 'Microsoft Corporation',
       exchange: 'NASDAQ',
+      assetClass: 'stock',
     });
     expect(await api.getInstrument('ZZZZ')).toBeNull();
     await apiError(api.getInstrument('not valid'), 'VALIDATION_ERROR', 400);

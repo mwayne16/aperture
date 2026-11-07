@@ -40,7 +40,7 @@ describe('validateAlertFields', () => {
 
   it('uses the symbol rules for the symbol message', () => {
     expect(validateAlertFields({ ...valid, symbol: 'TOOLONG' }, 'create')[0]?.message).toBe(
-      'Use 1-5 letters, optionally followed by a share class like ".B".',
+      'Use 1-5 letters with an optional class like ".B", or a pair like "BTC/USD".',
     );
   });
 });

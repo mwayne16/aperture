@@ -1,10 +1,11 @@
 import { evaluateAlert } from '../../domain/alertEngine';
 import { normalizeSymbol } from '../../domain/symbols';
-import type { AlertEvent, ConnectionInfo, DataStatus, PriceAlert, Quote } from '../../domain/types';
+import type { AlertEvent, ConnectionInfo, PriceAlert, Quote } from '../../domain/types';
 import type { RealtimeClient, Unsubscribe } from '../realtime';
 import { STALE_AFTER_MS, type FeedScenario } from '../simulation';
 import { createMockMarket, type MockMarket } from './market';
-import { roundChange, roundTo, type PriceState } from './priceModel';
+import type { PriceState } from './priceModel';
+import { quoteFromState, unavailableQuote } from './quotes';
 import { makeId } from './random';
 import type { Repository } from './repository';
 import { createSimulationSource, type SimulationSource } from './simulationSource';
@@ -64,50 +65,6 @@ const MESSAGES = {
   outage: 'Simulated outage: the feed is unreachable.',
   drop: 'Simulated network drop.',
 } as const;
-
-function unavailableQuote(symbol: string, at: number): Quote {
-  return {
-    symbol,
-    last: null,
-    lastTradeAt: null,
-    bid: null,
-    bidSize: null,
-    ask: null,
-    askSize: null,
-    quoteAt: null,
-    open: null,
-    high: null,
-    low: null,
-    prevClose: null,
-    volume: null,
-    change: null,
-    changePct: null,
-    status: 'unavailable',
-    updatedAt: at,
-  };
-}
-
-function quoteFromState(state: PriceState, tradeAt: number, status: DataStatus, at: number): Quote {
-  return {
-    symbol: state.symbol,
-    last: state.last,
-    lastTradeAt: tradeAt,
-    bid: state.bid,
-    bidSize: state.bidSize,
-    ask: state.ask,
-    askSize: state.askSize,
-    quoteAt: tradeAt,
-    open: state.open,
-    high: state.high,
-    low: state.low,
-    prevClose: state.prevClose,
-    volume: state.volume,
-    change: roundChange(state.last - state.prevClose),
-    changePct: roundTo((state.last / state.prevClose - 1) * 100, 4),
-    status,
-    updatedAt: at,
-  };
-}
 
 function clampTicksPerSecond(value: number): number {
   if (!Number.isFinite(value)) return 1;

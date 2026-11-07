@@ -8,17 +8,22 @@ import {
 } from '../../domain/symbols';
 import {
   CHART_RANGES,
+  type AssetClass,
   type ChartRange,
   type HistoryResult,
   type Instrument,
   type PriceAlert,
+  type Quote,
   type UpdateAlertInput,
   type Watchlist,
 } from '../../domain/types';
 import { ApiError, isApiError, type ApiErrorDetail, type MarketApi } from '../api';
 import { generateHistory } from './history';
+import { simulatedNews } from './news';
+import { quoteFromState, unavailableQuote } from './quotes';
 import { INSTRUMENTS, toInstrument, type InstrumentProfile } from './instruments';
 import { createMockMarket, type MockMarket } from './market';
+import { DELAYED_FEED_MS } from './mockRealtime';
 import { makeId } from './random';
 import type { Repository } from './repository';
 import { createSimulationSource, type SimulationSource } from './simulationSource';
@@ -31,6 +36,10 @@ import { createSimulationSource, type SimulationSource } from './simulationSourc
 
 export const HISTORY_DELAY_MS = { normal: 400, slow: 2500 } as const;
 export const DEFAULT_SEARCH_LIMIT = 8;
+const DEFAULT_MOVERS_LIMIT = 5;
+const DEFAULT_NEWS_LIMIT = 10;
+const MAX_LIST_LIMIT = 50;
+const ASSET_CLASSES: readonly AssetClass[] = ['stock', 'etf', 'crypto'];
 export const MAX_SEARCH_LIMIT = 50;
 
 export interface MockApiOptions {
@@ -178,6 +187,24 @@ export function createMockApi(options: MockApiOptions): MarketApi {
           a.name.localeCompare(b.name),
       );
     return [...exact, ...prefix, ...byName].slice(0, limit).map(toInstrument);
+  }
+
+  function checkLimit(limit: unknown, fallback: number): number {
+    if (limit === undefined) return fallback;
+    if (typeof limit !== 'number' || !Number.isInteger(limit) || limit < 1 || limit > MAX_LIST_LIMIT) {
+      throw validationError([{ field: 'limit', message: `Limit must be a whole number from 1 to ${MAX_LIST_LIMIT}.` }]);
+    }
+    return limit;
+  }
+
+  /** A point-in-time quote, after trading the symbol forward if nobody has streamed it lately. */
+  function snapshot(symbol: string, at: number): Quote {
+    const state = market.catchUp(symbol, at);
+    if (!state) return unavailableQuote(symbol, at);
+    const tradedAt = market.lastTradeAt(symbol) ?? at;
+    return simulation.get().feedScenario === 'delayed'
+      ? quoteFromState(state, tradedAt - DELAYED_FEED_MS, 'delayed', at)
+      : quoteFromState(state, tradedAt, 'live', at);
   }
 
   return {
@@ -412,6 +439,7 @@ export function createMockApi(options: MockApiOptions): MarketApi {
           start: spec.start,
           end: spec.end,
           lastSessionOnly: spec.lastSessionOnly,
+          continuous: profile.assetClass === 'crypto',
           listedYear: profile.listedYear,
           volatility: profile.volatility,
           averageVolume: profile.averageVolume,
@@ -422,5 +450,55 @@ export function createMockApi(options: MockApiOptions): MarketApi {
         throw new ApiError('INTERNAL', 'Unexpected error in the simulated backend.', 500);
       }
     },
+
+    listInstruments: (assetClass) =>
+      request(() => {
+        if (!ASSET_CLASSES.includes(assetClass)) {
+          throw validationError([{ field: 'assetClass', message: 'Asset class must be stock, etf or crypto.' }]);
+        }
+        return instruments
+          .filter((i) => i.assetClass === assetClass)
+          .sort((a, b) => a.symbol.localeCompare(b.symbol))
+          .map(toInstrument);
+      }),
+
+    getSnapshots: (symbols) =>
+      request(() => {
+        if (!Array.isArray(symbols) || symbols.length > MAX_SEARCH_LIMIT * 4) {
+          throw validationError([{ field: 'symbols', message: 'Ask for at most 200 symbols at a time.' }]);
+        }
+        const at = now();
+        return (symbols as readonly unknown[]).map((raw) => {
+          const result = validateSymbol(asString(raw));
+          return result.ok ? snapshot(result.value, at) : unavailableQuote(asString(raw), at);
+        });
+      }),
+
+    getMovers: (limit) =>
+      request(() => {
+        const count = checkLimit(limit, DEFAULT_MOVERS_LIMIT);
+        const at = now();
+        const quotes = instruments
+          .filter((i) => i.assetClass === 'stock')
+          .map((i) => snapshot(i.symbol, at))
+          .filter((q) => q.changePct !== null);
+        const byChange = [...quotes].sort((a, b) => (b.changePct ?? 0) - (a.changePct ?? 0));
+        return {
+          gainers: byChange.filter((q) => (q.changePct ?? 0) > 0).slice(0, count),
+          losers: byChange.filter((q) => (q.changePct ?? 0) < 0).reverse().slice(0, count),
+          mostActive: [...quotes].sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0)).slice(0, count),
+          asOf: at,
+          simulated: true,
+        };
+      }),
+
+    getNews: (options = {}) =>
+      request(() => {
+        const input = asRecord(options);
+        const count = checkLimit(input.limit, DEFAULT_NEWS_LIMIT);
+        const wanted = Array.isArray(input.symbols) ? (input.symbols as unknown[]).map((s) => normalizeSymbol(asString(s))) : null;
+        const profiles = wanted ? instruments.filter((i) => wanted.includes(i.symbol)) : instruments;
+        return simulatedNews(profiles, count, now());
+      }),
   };
 }

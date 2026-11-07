@@ -13,6 +13,8 @@ dayjs.extend(timezone);
  *
  * - Intraday bars exist only on weekdays during the regular session, 09:30-16:00 America/New_York
  *   (daylight saving included). Market holidays are not modeled.
+ * - Continuous markets (crypto) have bars around the clock, every day; their 1D range is the last
+ *   24 hours rather than the last session.
  * - Daily bars are weekdays only; weekly bars are labeled by their Monday and monthly bars by the
  *   1st, all at 00:00 UTC. A period is included once its first session has opened.
  * - Every bar's shape is seeded by symbol + timeframe + bar time, so a bar looks the same on every
@@ -26,6 +28,7 @@ export const RETENTION_FLOOR_MS = Date.UTC(2016, 0, 1);
 const SESSION_MINUTES = 390;
 
 const MINUTE_MS = 60_000;
+const DAY_MS = 24 * 60 * MINUTE_MS;
 const MARKET_ZONE = 'America/New_York';
 
 /** Typical daily log-return standard deviation at volatility 1 (about 25% a year). */
@@ -41,9 +44,9 @@ const INTRADAY_MINUTES: Partial<Record<BarTimeframe, number>> = {
 };
 
 /** Trading days a bar of this timeframe covers (fractional for intraday bars). */
-function tradingDaysPerBar(timeframe: BarTimeframe): number {
+function tradingDaysPerBar(timeframe: BarTimeframe, continuous: boolean): number {
   const minutes = INTRADAY_MINUTES[timeframe];
-  if (minutes !== undefined) return minutes / SESSION_MINUTES;
+  if (minutes !== undefined) return minutes / (continuous ? 24 * 60 : SESSION_MINUTES);
   if (timeframe === '1Week') return 5;
   if (timeframe === '1Month') return 21;
   return 1;
@@ -113,20 +116,35 @@ function dailySlots(startMs: number, endMs: number): Slot[] {
   return slots;
 }
 
-function weeklySlots(startMs: number, endMs: number): Slot[] {
+/** Every bar slot of a market that trades around the clock, aligned to whole steps in UTC. */
+function continuousSlots(stepMinutes: number, startMs: number, endMs: number): Slot[] {
+  const step = stepMinutes * MINUTE_MS;
+  const slots: Slot[] = [];
+  for (let time = Math.ceil(startMs / step) * step; time <= endMs; time += step) {
+    const day = utcDay(time).valueOf();
+    slots.push({ time: time / 1000, session: day, sessionPosition: (time - day) / DAY_MS });
+  }
+  return slots;
+}
+
+function weeklySlots(startMs: number, endMs: number, continuous: boolean): Slot[] {
   const slots: Slot[] = [];
   const start = utcDay(startMs);
   // Monday of the week containing the start (Sunday belongs to the week before).
   let monday = start.subtract((start.day() + 6) % 7, 'day');
   for (; monday.valueOf() <= endMs; monday = monday.add(7, 'day')) {
-    if (sessionOpenMs(monday) <= endMs) slots.push(periodSlot(monday));
+    if (continuous || sessionOpenMs(monday) <= endMs) slots.push(periodSlot(monday));
   }
   return slots;
 }
 
-function monthlySlots(startMs: number, endMs: number): Slot[] {
+function monthlySlots(startMs: number, endMs: number, continuous: boolean): Slot[] {
   const slots: Slot[] = [];
   for (let month = dayjs.utc(startMs).startOf('month'); month.valueOf() <= endMs; month = month.add(1, 'month')) {
+    if (continuous) {
+      slots.push(periodSlot(month));
+      continue;
+    }
     let firstSession = month;
     while (!isWeekday(firstSession)) firstSession = firstSession.add(1, 'day');
     if (sessionOpenMs(firstSession) <= endMs) slots.push(periodSlot(month));
@@ -140,8 +158,10 @@ export interface HistoryRequest {
   /** Inclusive window start, or null for the earliest available. */
   start: Date | null;
   end: Date;
-  /** Keep only the most recent session (1D). */
+  /** Keep only the most recent session (1D), or the last 24 hours for a continuous market. */
   lastSessionOnly: boolean;
+  /** True for markets that trade around the clock (crypto). */
+  continuous: boolean;
   listedYear: number;
   volatility: number;
   averageVolume: number;
@@ -171,9 +191,13 @@ export function generateHistory(request: HistoryRequest): GeneratedHistory {
   // Invalid dates would make the period loops run forever; an empty window is the safe answer.
   if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || startMs > endMs) return { bars: [], truncated };
 
+  const { continuous } = request;
   const stepMinutes = INTRADAY_MINUTES[timeframe];
   let slots: Slot[];
-  if (stepMinutes !== undefined) {
+  if (stepMinutes !== undefined && continuous) {
+    slots = continuousSlots(stepMinutes, startMs, endMs);
+    if (request.lastSessionOnly) slots = slots.filter((s) => s.time * 1000 > endMs - DAY_MS);
+  } else if (stepMinutes !== undefined) {
     slots = intradaySlots(stepMinutes, startMs, endMs);
     if (request.lastSessionOnly && slots.length > 0) {
       const lastSession = slots[slots.length - 1]?.session;
@@ -183,14 +207,15 @@ export function generateHistory(request: HistoryRequest): GeneratedHistory {
     // Period bars are included by date: the period containing the window start counts, but nothing
     // before the available-data floor does.
     const windowStart = utcDay(startMs).valueOf();
-    if (timeframe === '1Week') slots = weeklySlots(windowStart, endMs);
-    else if (timeframe === '1Month') slots = monthlySlots(windowStart, endMs);
+    if (timeframe === '1Week') slots = weeklySlots(windowStart, endMs, continuous);
+    else if (timeframe === '1Month') slots = monthlySlots(windowStart, endMs, continuous);
+    else if (continuous) slots = continuousSlots(24 * 60, windowStart, endMs);
     else slots = dailySlots(windowStart, endMs);
     slots = slots.filter((s) => s.time * 1000 >= availableFrom);
   }
   if (slots.length === 0) return { bars: [], truncated };
 
-  const days = tradingDaysPerBar(timeframe);
+  const days = tradingDaysPerBar(timeframe, continuous);
   const sigma = DAILY_SIGMA * request.volatility * Math.sqrt(days);
   const drift = DAILY_DRIFT * days;
   const intraday = stepMinutes !== undefined;
@@ -205,8 +230,8 @@ export function generateHistory(request: HistoryRequest): GeneratedHistory {
     const close = open * Math.exp(drift + sigma * rng.normal());
     const high = Math.max(open, close) * Math.exp(Math.abs(rng.normal()) * sigma * 0.4);
     const low = Math.min(open, close) * Math.exp(-Math.abs(rng.normal()) * sigma * 0.4);
-    // U-shaped intraday volume: heavier near the open and the close.
-    const profile = intraday ? 0.6 + 1.6 * (2 * slot.sessionPosition - 1) ** 2 : 1;
+    // U-shaped intraday volume: heavier near the open and the close. Continuous markets stay flat.
+    const profile = intraday && !continuous ? 0.6 + 1.6 * (2 * slot.sessionPosition - 1) ** 2 : 1;
     const volume = Math.round(request.averageVolume * days * profile * (0.6 + 0.8 * rng.next()));
     raw.push({ open, high, low, close, volume });
     previousClose = close;

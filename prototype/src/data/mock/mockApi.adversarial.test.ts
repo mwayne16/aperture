@@ -187,7 +187,7 @@ describe('searchInstruments', () => {
     expect((await settle(api.searchInstruments('BERKSHIRE')))[0]?.symbol).toBe('BRK.B');
     expect(await settle(api.searchInstruments(''))).toEqual([]);
     // Public shape only: no simulation parameters leak.
-    expect(Object.keys(a[0]!).sort()).toEqual(['exchange', 'name', 'symbol']);
+    expect(Object.keys(a[0]!).sort()).toEqual(['assetClass', 'exchange', 'name', 'symbol']);
   });
 });
 

@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import type { Instrument } from '../../domain/types';
 import { buildOptions, defaultActiveIndex, stepActiveIndex } from './symbolSearchModel';
 
-const AAPL: Instrument = { symbol: 'AAPL', name: 'Apple Inc.', exchange: 'NASDAQ' };
-const AAL: Instrument = { symbol: 'AAL', name: 'American Airlines Group Inc.', exchange: 'NASDAQ' };
-const KO: Instrument = { symbol: 'KO', name: 'The Coca-Cola Company', exchange: 'NYSE' };
+const AAPL: Instrument = { symbol: 'AAPL', name: 'Apple Inc.', exchange: 'NASDAQ', assetClass: 'stock' };
+const AAL: Instrument = { symbol: 'AAL', name: 'American Airlines Group Inc.', exchange: 'NASDAQ', assetClass: 'stock' };
+const KO: Instrument = { symbol: 'KO', name: 'The Coca-Cola Company', exchange: 'NYSE', assetClass: 'stock' };
 
 const symbols = (options: ReturnType<typeof buildOptions>) => options.map((o) => `${o.kind}:${o.symbol}`);
 
