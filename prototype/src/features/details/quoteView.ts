@@ -63,7 +63,7 @@ export function quoteStats(quote: Quote | undefined): QuoteStat[] {
     { label: 'Low', value: formatPrice(quote?.low) },
     { label: 'Bid', value: priceWithSize(quote?.bid ?? null, quote?.bidSize ?? null) },
     { label: 'Ask', value: priceWithSize(quote?.ask ?? null, quote?.askSize ?? null) },
-    { label: 'Spread', value: formatPrice(spread) },
+    { label: 'Spread', value: formatPrice(spread, quote?.last ?? quote?.bid) },
     { label: 'Volume', value: formatVolume(quote?.volume) },
   ];
 }

@@ -51,7 +51,7 @@ describe('quoteStats', () => {
       { label: 'Low', value: '186.75' },
       { label: 'Bid', value: '189.10 × 300' },
       { label: 'Ask', value: '189.14 × 1.20K' },
-      { label: 'Spread', value: '0.0400' },
+      { label: 'Spread', value: '0.04' },
       { label: 'Volume', value: '48.3M' },
     ]);
   });
@@ -67,6 +67,15 @@ describe('quoteStats', () => {
     expect(stats.find((s) => s.label === 'Spread')?.value).toBe('—');
     const crossed = quoteStats(quote({ bid: 190, ask: 189 }));
     expect(crossed.find((s) => s.label === 'Spread')?.value).toBe('—');
+  });
+
+  it('prints the spread with the decimals of the price it belongs to', () => {
+    const spread = (overrides: Partial<Quote>) =>
+      quoteStats(quote(overrides)).find((s) => s.label === 'Spread')?.value;
+    expect(spread({ last: 0.5123, bid: 0.512, ask: 0.5124 })).toBe('0.0004');
+    // Before the first trade, the bid sets the precision.
+    expect(spread({ last: null, bid: 235.1, ask: 235.18 })).toBe('0.08');
+    expect(spread({ last: null, bid: 0.512, ask: 0.5124 })).toBe('0.0004');
   });
 });
 

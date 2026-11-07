@@ -202,6 +202,18 @@ describe('StockDetail quote', () => {
     expect(within(stats).getByText('Volume').nextElementSibling).toHaveTextContent('48.3M');
   });
 
+  it('prints a small change and the spread with the decimals of the price', () => {
+    act(() => {
+      useQuoteStore.getState().applyBatch([quote({ last: 235.12, change: 0.76, changePct: 0.32, bid: 235.1, ask: 235.18 })]);
+    });
+    select('AAPL');
+    render(<StockDetail />);
+    expect(screen.getByText('+0.76 (+0.32%)')).toBeInTheDocument();
+    const stats = screen.getByText('Spread').closest('dl');
+    if (!stats) throw new Error('No stats grid.');
+    expect(within(stats).getByText('Spread').nextElementSibling).toHaveTextContent(/^0\.08$/);
+  });
+
   it('colors a falling price as a loss and greys out a stale one', () => {
     act(() => {
       useQuoteStore.getState().applyBatch([quote({ change: -2.5, changePct: -1.31, status: 'stale' })]);

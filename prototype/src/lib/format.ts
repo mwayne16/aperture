@@ -43,27 +43,43 @@ function signed(value: number, magnitude: string, plus: boolean): string {
 }
 
 /**
- * Unsigned price magnitude: 4 decimals when it is below 1 after rounding to 4 decimals, else 2.
- * So 0.5 -> "0.5000", 0.99995 -> "1.00" (not "1.0000"), and 0 or 0.00001 -> "0.00".
+ * Decimals a price prints with: 4 when it is below 1 after rounding to 4 decimals, else 2.
+ * So 0.5 prints with 4, while 0.99995 ("1.00") and 0 or 0.00001 ("0.00") print with 2.
  */
-function priceMagnitude(abs: number): string {
+function priceDecimals(abs: number): 2 | 4 {
   if (abs < 1) {
     const four = FIXED_4.format(abs);
-    if (four !== '1.0000' && !isZeroDisplay(four)) return four;
+    if (four !== '1.0000' && !isZeroDisplay(four)) return 4;
   }
-  return FIXED_2.format(abs);
+  return 2;
 }
 
-/** 2 decimals; 4 decimals when |value| < 1. Thousands separators. e.g. 1234.5 -> "1,234.50". */
-export function formatPrice(value: number | null | undefined): string {
-  if (!isFiniteNumber(value)) return EMPTY_VALUE;
-  return signed(value, priceMagnitude(Math.abs(value)), false);
+/**
+ * Unsigned magnitude with the decimals of `reference` when it is finite, else with its own price
+ * decimals. A reference lets a small difference print like the price it belongs to.
+ */
+function priceMagnitude(abs: number, reference: number | null | undefined): string {
+  const decimals = priceDecimals(isFiniteNumber(reference) ? Math.abs(reference) : abs);
+  return (decimals === 4 ? FIXED_4 : FIXED_2).format(abs);
 }
 
-/** Signed price change with the same decimals as formatPrice: "+1.23", "−1.23" (U+2212 minus), "0.00". */
-export function formatChange(value: number | null | undefined): string {
+/**
+ * 2 decimals; 4 decimals when |value| < 1. Thousands separators. e.g. 1234.5 -> "1,234.50".
+ * With a finite `reference` price the decimals follow the reference instead, so a spread of 0.08 on
+ * a $235 stock reads "0.08" rather than "0.0800".
+ */
+export function formatPrice(value: number | null | undefined, reference?: number | null): string {
   if (!isFiniteNumber(value)) return EMPTY_VALUE;
-  return signed(value, priceMagnitude(Math.abs(value)), true);
+  return signed(value, priceMagnitude(Math.abs(value), reference), false);
+}
+
+/**
+ * Signed price change with the same decimals as formatPrice: "+1.23", "−1.23" (U+2212 minus), "0.00".
+ * Pass the price the change belongs to as `reference`, so a $235 stock's change reads "+0.76".
+ */
+export function formatChange(value: number | null | undefined, reference?: number | null): string {
+  if (!isFiniteNumber(value)) return EMPTY_VALUE;
+  return signed(value, priceMagnitude(Math.abs(value), reference), true);
 }
 
 /** Signed percent with 2 decimals: "+1.23%", "−0.40%", "0.00%". Input 1.23 means 1.23%. */

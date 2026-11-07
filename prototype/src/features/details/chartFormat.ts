@@ -173,7 +173,7 @@ export function describeBar(bars: readonly Bar[], index: number, timeframe: BarT
       { label: 'Close', value: formatPrice(bar.close) },
       { label: 'Volume', value: formatVolume(bar.volume) },
     ],
-    change: `${formatChange(change)} (${formatPercent(percent)})`,
+    change: `${formatChange(change, bar.close)} (${formatPercent(percent)})`,
     direction: changeDirection(change),
   };
 }

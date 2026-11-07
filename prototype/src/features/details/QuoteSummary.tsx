@@ -67,7 +67,7 @@ function QuoteHeadline({ quote }: { quote: Quote }) {
         </span>
         <span className={cx('details-quote__change num', directionClass(quote.change))}>
           <span className="visually-hidden">Change </span>
-          {formatChange(quote.change)} ({formatPercent(quote.changePct)})
+          {formatChange(quote.change, quote.last)} ({formatPercent(quote.changePct)})
         </span>
       </div>
       <div className="details-quote__status">

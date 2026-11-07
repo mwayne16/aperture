@@ -192,6 +192,7 @@ describe('MarketTable rows', () => {
     pushQuotes(
       quote('AAPL', { last: 1234.5, change: 1.5, changePct: 0.1217, volume: 4_560_000 }),
       quote('MSFT', { last: 0.5, change: -2, changePct: -0.4, bid: null }),
+      quote('NVDA', { last: 235.12, change: 0.76, changePct: 0.3243 }),
     );
     const [, last, change, pct, bid, , volume, status] = cells('AAPL');
     expect(last).toHaveTextContent('1,234.50');
@@ -202,11 +203,13 @@ describe('MarketTable rows', () => {
     expect(volume).toHaveTextContent('4.56M');
     expect(status).toHaveTextContent('Live');
 
+    // A change prints with the decimals of its price: 4 below a dollar, else 2.
     const msft = cells('MSFT');
     expect(msft[1]).toHaveTextContent('0.5000');
-    expect(msft[2]).toHaveTextContent('−2.00');
+    expect(msft[2]).toHaveTextContent(/^−2\.0000$/);
     expect(msft[2]).toHaveClass('is-loss');
     expect(msft[4]).toHaveTextContent('—');
+    expect(cells('NVDA')[2]).toHaveTextContent(/^\+0\.76$/);
   });
 
   it('shows Waiting until a first quote arrives', () => {

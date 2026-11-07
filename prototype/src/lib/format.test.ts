@@ -125,6 +125,43 @@ describe('formatChange', () => {
   });
 });
 
+describe('price precision from a reference price', () => {
+  it.each([
+    // A change or spread on a price of 1 or more uses 2 decimals, whatever its own size.
+    [0.76, 235.12, '+0.76', '0.76'],
+    [-0.756, 235.12, `${MINUS}0.76`, `${MINUS}0.76`],
+    [0.08, 235, '+0.08', '0.08'],
+    [12.5, 1148, '+12.50', '12.50'],
+    // A sub-dollar reference keeps 4 decimals, even for a larger difference.
+    [0.0012, 0.5123, '+0.0012', '0.0012'],
+    [1.5, 0.5, '+1.5000', '1.5000'],
+    // The reference's sign doesn't matter, and one that prints as 1.00 or 0.00 counts as 2 decimals.
+    [0.0123, -0.5, '+0.0123', '0.0123'],
+    [0.0123, 0.99995, '+0.01', '0.01'],
+    [0.0123, 0, '+0.01', '0.01'],
+    // Rounding to zero at the reference's precision drops the sign.
+    [0.004, 235, '0.00', '0.00'],
+    [-0.004, 235, '0.00', '0.00'],
+  ])('%d against %d -> change %s, price %s', (value, reference, change, price) => {
+    expect(formatChange(value, reference)).toBe(change);
+    expect(formatPrice(value, reference)).toBe(price);
+  });
+
+  it.each([null, undefined, Number.NaN, Number.POSITIVE_INFINITY])(
+    "uses the value's own decimals when the reference is %s",
+    (reference) => {
+      expect(formatChange(0.76, reference)).toBe('+0.7600');
+      expect(formatPrice(0.08, reference)).toBe('0.0800');
+      expect(formatPrice(235.12, reference)).toBe('235.12');
+    },
+  );
+
+  it('still returns the em dash for a missing value', () => {
+    expect(formatChange(null, 235)).toBe(EMPTY_VALUE);
+    expect(formatPrice(Number.NaN, 235)).toBe(EMPTY_VALUE);
+  });
+});
+
 describe('formatPercent', () => {
   it.each([
     [1.23, '+1.23%'],

@@ -123,6 +123,13 @@ describe('describeBar', () => {
     expect(describeBar(bars, 0, '1Day')?.change).toBe('+2.00 (+2.00%)');
   });
 
+  it('prints a change below a dollar with the decimals of the close', () => {
+    expect(describeBar([bar(t0, 235, 235.5), bar(t1, 235.4, 236.26)], 1, '1Day')?.change).toBe('+0.76 (+0.32%)');
+    expect(describeBar([bar(t0, 0.5, 0.51), bar(t1, 0.51, 0.5076)], 1, '1Day')?.change).toBe(
+      '−0.0024 (−0.47%)',
+    );
+  });
+
   it('returns null for an index outside the bars', () => {
     expect(describeBar(bars, -1, '1Day')).toBeNull();
     expect(describeBar(bars, 2, '1Day')).toBeNull();

@@ -109,7 +109,9 @@ export const MarketRow = memo(function MarketRow({
       >
         {formatPrice(quote?.last)}
       </td>
-      <td className={cx('is-num market-row__value', `is-${tone}`)}>{formatChange(quote?.change)}</td>
+      <td className={cx('is-num market-row__value', `is-${tone}`)}>
+        {formatChange(quote?.change, quote?.last)}
+      </td>
       <td className="is-num">
         <Badge tone={tone} size="sm">
           {formatPercent(quote?.changePct)}

@@ -89,7 +89,7 @@ export function PriceChart({ bars, timeframe, live, summary }: PriceChartProps) 
     const palette = chartPalette(readThemeColors());
     const chart = createChart(container, {
       autoSize: true,
-      localization: { locale: 'en-US', priceFormatter: formatPrice },
+      localization: { locale: 'en-US', priceFormatter: (price: number) => formatPrice(price) },
       timeScale: { fixLeftEdge: true, fixRightEdge: true, lockVisibleTimeRangeOnResize: true },
     });
     const candles = chart.addSeries(CandlestickSeries, {
