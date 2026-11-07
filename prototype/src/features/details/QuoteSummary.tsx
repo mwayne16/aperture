@@ -27,19 +27,10 @@ function directionClass(value: number | null): string | false {
 /** Live quote for one symbol: last price, change, data status and age, then the stats grid. */
 export function QuoteSummary({ symbol }: { symbol: string }) {
   const quote = useQuote(symbol);
-  const { state } = useConnection();
-  const notice = connectionNotice(state, quote !== undefined);
-
   return (
     <div className="details-quote">
       <h3 className="visually-hidden">Quote</h3>
-      {notice && (
-        <p className="details-quote__notice" role="status">
-          <WifiOff aria-hidden="true" />
-          {notice}
-        </p>
-      )}
-      {quote ? <QuoteHeadline quote={quote} /> : <QuotePlaceholder loading={awaitingQuote(state)} />}
+      <LiveQuote symbol={symbol} />
       <dl className="details-stats">
         {quoteStats(quote).map((stat) => (
           <div key={stat.label} className="details-stats__item">
@@ -52,14 +43,41 @@ export function QuoteSummary({ symbol }: { symbol: string }) {
   );
 }
 
-function QuoteHeadline({ quote }: { quote: Quote }) {
+type QuoteSize = 'md' | 'lg';
+
+/**
+ * Last price with change, data status and age, plus a notice while the feed is down. `lg` is the
+ * stock page's large headline.
+ */
+export function LiveQuote({ symbol, size = 'md' }: { symbol: string; size?: QuoteSize }) {
+  const quote = useQuote(symbol);
+  const { state } = useConnection();
+  const notice = connectionNotice(state, quote !== undefined);
+  return (
+    <>
+      {notice && (
+        <p className="details-quote__notice" role="status">
+          <WifiOff aria-hidden="true" />
+          {notice}
+        </p>
+      )}
+      {quote ? (
+        <QuoteHeadline quote={quote} size={size} />
+      ) : (
+        <QuotePlaceholder loading={awaitingQuote(state)} size={size} />
+      )}
+    </>
+  );
+}
+
+function QuoteHeadline({ quote, size }: { quote: Quote; size: QuoteSize }) {
   const now = useNow();
   const status = describeStatus(quote.status);
   const time = quoteTime(quote);
   const dimmed = quote.status === 'stale' || quote.status === 'unavailable';
 
   return (
-    <div className="details-quote__headline">
+    <div className={cx('details-quote__headline', size === 'lg' && 'details-quote__headline--lg')}>
       <div className="details-quote__price-row">
         <span className={cx('details-quote__last num', dimmed && 'is-dimmed')}>
           <span className="visually-hidden">Last price </span>
@@ -88,10 +106,11 @@ function QuoteHeadline({ quote }: { quote: Quote }) {
 }
 
 /** Skeletons while the first quote is on its way; a plain dash once the feed is down and none can arrive. */
-function QuotePlaceholder({ loading }: { loading: boolean }) {
+function QuotePlaceholder({ loading, size }: { loading: boolean; size: QuoteSize }) {
+  const className = cx('details-quote__headline', size === 'lg' && 'details-quote__headline--lg');
   if (!loading) {
     return (
-      <div className="details-quote__headline">
+      <div className={className}>
         <span className="details-quote__last num is-dimmed">
           <span className="visually-hidden">Last price </span>
           {EMPTY_VALUE}
@@ -99,11 +118,12 @@ function QuotePlaceholder({ loading }: { loading: boolean }) {
       </div>
     );
   }
+  const large = size === 'lg';
   return (
-    <div className="details-quote__headline" aria-hidden="true">
+    <div className={className} aria-hidden="true">
       <div className="details-quote__price-row">
-        <Skeleton width={120} height={28} />
-        <Skeleton width={96} height={14} />
+        <Skeleton width={large ? 180 : 120} height={large ? 40 : 28} />
+        <Skeleton width={large ? 140 : 96} height={large ? 20 : 14} />
       </div>
       <Skeleton width={160} height={12} />
     </div>

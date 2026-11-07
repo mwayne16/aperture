@@ -50,7 +50,8 @@ export function liveChart(): MockChart {
   return chart;
 }
 
-export function seriesOf(chart: MockChart, type: 'Candlestick' | 'Histogram'): MockSeries {
+/** The chart's series of `type`. Removed series are dropped from `chart.series`, so they never match. */
+export function seriesOf(chart: MockChart, type: 'Candlestick' | 'Line' | 'Histogram'): MockSeries {
   const series = chart.series.find((s) => s.type === type);
   if (!series) throw new Error(`No ${type} series.`);
   return series;
@@ -121,6 +122,9 @@ export function createChart(container: HTMLElement, options?: Options): IChartAp
       if (seriesOptions) series.applyOptions(seriesOptions);
       chart.series.push(series);
       return series;
+    },
+    removeSeries: (series: MockSeries) => {
+      chart.series = chart.series.filter((s) => s !== series);
     },
     priceScale: () => ({ applyOptions: () => undefined }),
     timeScale: () => timeScale,

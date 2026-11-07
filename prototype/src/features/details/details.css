@@ -135,6 +135,19 @@
   font-weight: var(--fw-medium);
 }
 
+/* The stock page's large headline. */
+.details-quote__headline--lg .details-quote__last {
+  font-size: calc(var(--fs-2xl) + 12px);
+}
+
+.details-quote__headline--lg .details-quote__change {
+  font-size: var(--fs-xl);
+}
+
+.details-quote__headline--lg .details-quote__status {
+  font-size: var(--fs-md);
+}
+
 .details-quote__change.is-gain,
 .price-chart__tooltip-change.is-gain {
   color: var(--gain-text);
@@ -309,16 +322,4 @@
   flex: none;
   align-items: center;
   gap: var(--sp-1);
-}
-
-/* ------------------------------------------------------------------ Stock page */
-
-.stock-page__panel {
-  display: flex;
-  flex-direction: column;
-  min-height: 640px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background-color: var(--bg-panel);
 }

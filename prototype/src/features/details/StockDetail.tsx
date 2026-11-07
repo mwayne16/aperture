@@ -1,5 +1,5 @@
-import { BellPlus, ChartLine, Maximize2, RotateCw, SearchX } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { BellPlus, ChartLine, Maximize2, SearchX } from 'lucide-react';
+import { useRef } from 'react';
 import { useLocation } from 'wouter';
 import { paths } from '../../app/routes';
 import { useUiStore } from '../../app/uiStore';
@@ -7,15 +7,13 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { IconButton } from '../../components/ui/IconButton';
-import { Skeleton } from '../../components/ui/Skeleton';
 import { normalizeSymbol } from '../../domain/symbols';
-import type { ChartRange } from '../../domain/types';
 import { ChartPanel } from './ChartPanel';
+import { useChartRange, useChartStyle } from './chartView';
+import { InstrumentLine } from './InstrumentLine';
 import { QuoteSummary } from './QuoteSummary';
-import { useInstrument, type InstrumentView } from './useInstrument';
+import { useInstrument } from './useInstrument';
 import './details.css';
-
-const DEFAULT_RANGE: ChartRange = '1D';
 
 interface StockDetailProps {
   /** Show a button that opens the symbol's full page, for the quick view beside a table. */
@@ -23,12 +21,12 @@ interface StockDetailProps {
 }
 
 /**
- * Detail panel for the selected symbol: identity, live quote, stats and the history chart.
- * The chosen chart range carries over when the selection changes.
+ * Compact detail panel for the selected symbol: identity, live quote, stats and the history chart.
+ * The chart range and style follow the settings until the user picks a range, and the pick carries
+ * over when the selection changes and to the full page.
  */
 export function StockDetail({ expandable = false }: StockDetailProps) {
   const selected = useUiStore((s) => s.selectedSymbol);
-  const [range, setRange] = useState<ChartRange>(DEFAULT_RANGE);
 
   if (selected === null) {
     return (
@@ -44,21 +42,14 @@ export function StockDetail({ expandable = false }: StockDetailProps) {
 
   const symbol = normalizeSymbol(selected);
   // ** Keyed by symbol so every request, tooltip and timer from the previous symbol is dropped at once.
-  return (
-    <SymbolDetail key={symbol} symbol={symbol} range={range} onRangeChange={setRange} expandable={expandable} />
-  );
+  return <SymbolDetail key={symbol} symbol={symbol} expandable={expandable} />;
 }
 
-interface SymbolDetailProps {
-  symbol: string;
-  range: ChartRange;
-  onRangeChange: (range: ChartRange) => void;
-  expandable: boolean;
-}
-
-function SymbolDetail({ symbol, range, onRangeChange, expandable }: SymbolDetailProps) {
+function SymbolDetail({ symbol, expandable }: { symbol: string; expandable: boolean }) {
   const [, navigate] = useLocation();
   const { view, retry } = useInstrument(symbol);
+  const [range, setRange] = useChartRange();
+  const [chartStyle] = useChartStyle();
   const identityRef = useRef<HTMLDivElement>(null);
   const unknown = view.status === 'ready' && view.instrument === null;
   const retryInstrument = () => {
@@ -112,37 +103,9 @@ function SymbolDetail({ symbol, range, onRangeChange, expandable }: SymbolDetail
       ) : (
         <>
           <QuoteSummary symbol={symbol} />
-          <ChartPanel symbol={symbol} range={range} onRangeChange={onRangeChange} />
+          <ChartPanel symbol={symbol} range={range} onRangeChange={setRange} chartStyle={chartStyle} />
         </>
       )}
     </div>
-  );
-}
-
-function InstrumentLine({ view, onRetry }: { view: InstrumentView; onRetry: () => void }) {
-  if (view.status === 'loading') {
-    return (
-      <div className="details__instrument" aria-busy="true">
-        <span className="visually-hidden">Loading company details</span>
-        <Skeleton width={180} height={12} />
-      </div>
-    );
-  }
-  if (view.status === 'error') {
-    return (
-      <div className="details__instrument is-error">
-        <span title={view.message}>Company details unavailable</span>
-        <IconButton size="sm" label="Retry loading company details" icon={<RotateCw />} onClick={onRetry} />
-      </div>
-    );
-  }
-  if (view.instrument === null) {
-    return <p className="details__instrument">Unknown symbol</p>;
-  }
-  return (
-    <p className="details__instrument">
-      <span className="details__name">{view.instrument.name}</span>
-      <span className="details__exchange">{view.instrument.exchange}</span>
-    </p>
   );
 }

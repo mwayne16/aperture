@@ -6,8 +6,10 @@ import {
   chartableBars,
   findBarIndex,
   includePrice,
+  lineOptions,
   placeTooltip,
   toCandles,
+  toLine,
   toVolume,
   withAlpha,
 } from './chartData';
@@ -46,6 +48,22 @@ describe('series data', () => {
       { time: 100, open: 10, high: 11, low: 10, close: 11 },
       { time: 200, open: 11, high: 11, low: 10.5, close: 10.5 },
     ]);
+  });
+
+  it('maps bars to a line through their closes', () => {
+    expect(toLine(bars)).toEqual([
+      { time: 100, value: 11 },
+      { time: 200, value: 10.5 },
+    ]);
+    expect(toLine([])).toEqual([]);
+  });
+
+  it('draws the line in the accent color with a marker that reads on the panel', () => {
+    expect(lineOptions(palette)).toMatchObject({
+      color: palette.line,
+      crosshairMarkerBackgroundColor: palette.line,
+      crosshairMarkerBorderColor: palette.background,
+    });
   });
 
   it('colors volume by the bar direction', () => {

@@ -218,3 +218,48 @@ describe('PriceChart', () => {
     expect(chart.removed).toBe(true);
   });
 });
+
+describe('PriceChart styles', () => {
+  it('draws a line through the closes in line style', () => {
+    renderChart({ chartStyle: 'line' });
+    const chart = liveChart();
+    const line = seriesOf(chart, 'Line');
+    expect(line.data).toHaveLength(5);
+    expect(line.data[0]).toEqual({ time: START, value: 101 });
+    expect(line.options).toMatchObject({ priceLineVisible: false, lastValueVisible: false, lineWidth: 2 });
+    expect(line.priceLines[0]?.options).toMatchObject({ price: 105.5, title: 'Live' });
+    expect(() => seriesOf(chart, 'Candlestick')).toThrow();
+    expect(seriesOf(chart, 'Histogram').data).toHaveLength(5);
+  });
+
+  it('swaps the series in place when the style changes, keeping the bars, volume and live line', () => {
+    const { update } = renderChart();
+    const chart = liveChart();
+    const volume = seriesOf(chart, 'Histogram');
+    const volumeWrites = volume.setData.mock.calls.length;
+    const fits = chart.fitContent.mock.calls.length;
+
+    update({ chartStyle: 'line' });
+    expect(mockCharts).toHaveLength(1);
+    expect(() => seriesOf(chart, 'Candlestick')).toThrow();
+    const line = seriesOf(chart, 'Line');
+    expect(line.data).toHaveLength(5);
+    expect(line.priceLines).toHaveLength(1);
+    expect(line.priceLines[0]?.options.price).toBe(105.5);
+    expect(volume.setData).toHaveBeenCalledTimes(volumeWrites);
+    expect(chart.fitContent).toHaveBeenCalledTimes(fits);
+
+    update({ chartStyle: 'candles', live: { price: 104, label: 'Live', muted: false } });
+    const candles = seriesOf(chart, 'Candlestick');
+    expect(candles.data).toHaveLength(5);
+    expect(candles.priceLines).toHaveLength(1);
+    expect(candles.priceLines[0]?.options.price).toBe(104);
+  });
+
+  it('places the keyboard crosshair on the line series in line style', () => {
+    renderChart({ chartStyle: 'line' });
+    const chart = liveChart();
+    fireEvent.keyDown(screen.getByRole('group'), { key: 'End' });
+    expect(chart.setCrosshairPosition).toHaveBeenLastCalledWith(105, START + 4 * DAY, seriesOf(chart, 'Line'));
+  });
+});

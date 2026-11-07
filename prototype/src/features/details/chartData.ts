@@ -8,10 +8,15 @@ import {
   type ChartOptions,
   type DeepPartial,
   type HistogramData,
+  type LineData,
+  type LineSeriesPartialOptions,
   type UTCTimestamp,
 } from 'lightweight-charts';
 import type { ThemeColors } from '../../components/ui/theme';
 import type { Bar } from '../../domain/types';
+
+/** How the price series is drawn: OHLC candles, or a line through the closes. */
+export type ChartStyle = 'candles' | 'line';
 
 /** Mapping from history bars and theme tokens to lightweight-charts data and options. */
 
@@ -37,6 +42,11 @@ export function toCandles(bars: readonly Bar[]): CandlestickData<UTCTimestamp>[]
     low: bar.low,
     close: bar.close,
   }));
+}
+
+/** The line style plots each bar's close. */
+export function toLine(bars: readonly Bar[]): LineData<UTCTimestamp>[] {
+  return bars.map((bar) => ({ time: bar.time as UTCTimestamp, value: bar.close }));
 }
 
 export function toVolume(bars: readonly Bar[], palette: ChartPalette): HistogramData<UTCTimestamp>[] {
@@ -86,6 +96,7 @@ export interface ChartPalette {
   down: string;
   volumeUp: string;
   volumeDown: string;
+  line: string;
   live: string;
   liveText: string;
   stale: string;
@@ -105,6 +116,7 @@ export function chartPalette(colors: ThemeColors): ChartPalette {
     down: colors.loss,
     volumeUp: withAlpha(colors.gain, VOLUME_ALPHA),
     volumeDown: withAlpha(colors.loss, VOLUME_ALPHA),
+    line: colors.accent,
     live: colors.accent,
     liveText: colors.textOnAccent,
     stale: colors.textMuted,
@@ -147,6 +159,15 @@ export function candleOptions(palette: ChartPalette): CandlestickSeriesPartialOp
     wickUpColor: palette.up,
     wickDownColor: palette.down,
     borderVisible: false,
+  };
+}
+
+export function lineOptions(palette: ChartPalette): LineSeriesPartialOptions {
+  return {
+    color: palette.line,
+    lineWidth: 2,
+    crosshairMarkerBorderColor: palette.background,
+    crosshairMarkerBackgroundColor: palette.line,
   };
 }
 

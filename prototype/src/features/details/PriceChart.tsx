@@ -1,6 +1,7 @@
 import {
   CandlestickSeries,
   HistogramSeries,
+  LineSeries,
   LineStyle,
   createChart,
   type AutoscaleInfo,
@@ -24,10 +25,13 @@ import {
   chartableBars,
   findBarIndex,
   includePrice,
+  lineOptions,
   placeTooltip,
   toCandles,
+  toLine,
   toVolume,
   type ChartPalette,
+  type ChartStyle,
 } from './chartData';
 import { announceBar, describeBar, formatBarTime, formatTickMark, isIntradayTimeframe } from './chartFormat';
 import type { LiveLine } from './quoteView';
@@ -40,12 +44,19 @@ interface PriceChartProps {
   live: LiveLine | null;
   /** Accessible description of what the chart shows. */
   summary: string;
+  /** Candles (default) or a line through the closes. */
+  chartStyle?: ChartStyle;
 }
+
+type PriceSeries =
+  | { style: 'candles'; series: ISeriesApi<'Candlestick'> }
+  | { style: 'line'; series: ISeriesApi<'Line'> };
 
 /** Chart objects plus the latest values the chart's callbacks read. */
 interface ChartHandles {
   chart: IChartApi;
-  candles: ISeriesApi<'Candlestick'>;
+  /** Created by the style effect, which runs right after the chart is created. */
+  price: PriceSeries | null;
   volume: ISeriesApi<'Histogram'>;
   palette: ChartPalette;
   bars: readonly Bar[];
@@ -69,12 +80,36 @@ function fontOf(element: Element): string | undefined {
   return window.getComputedStyle(element).fontFamily || undefined;
 }
 
+function addPriceSeries(handles: ChartHandles, style: ChartStyle): PriceSeries {
+  // ** The series' own last-value line would mark the last historical close; only the live line marks "now".
+  const common = {
+    priceLineVisible: false,
+    lastValueVisible: false,
+    autoscaleInfoProvider: (original: () => AutoscaleInfo | null) => includePrice(original(), handles.livePrice),
+  };
+  if (style === 'line') {
+    return { style, series: handles.chart.addSeries(LineSeries, { ...lineOptions(handles.palette), ...common }) };
+  }
+  return { style, series: handles.chart.addSeries(CandlestickSeries, { ...candleOptions(handles.palette), ...common }) };
+}
+
+function fillPrice(price: PriceSeries, bars: readonly Bar[]): void {
+  if (price.style === 'line') price.series.setData(toLine(bars));
+  else price.series.setData(toCandles(bars));
+}
+
+function stylePrice(price: PriceSeries, palette: ChartPalette): void {
+  if (price.style === 'line') price.series.applyOptions(lineOptions(palette));
+  else price.series.applyOptions(candleOptions(palette));
+}
+
 /**
- * Candlesticks with a volume histogram (lightweight-charts). Colors follow the theme, the live price
- * updates in place without touching the bars, and the crosshair shows a tooltip for the bar under it.
- * The keyboard moves the crosshair too: arrows step one bar (Shift for ten), Home/End jump to the ends.
+ * Price history with a volume histogram (lightweight-charts), drawn as candles or as a line through
+ * the closes. Colors follow the theme, the live price updates in place without touching the bars,
+ * and the crosshair shows a tooltip for the bar under it. The keyboard moves the crosshair too:
+ * arrows step one bar (Shift for ten), Home/End jump to the ends.
  */
-export function PriceChart({ bars, timeframe, live, summary }: PriceChartProps) {
+export function PriceChart({ bars, timeframe, live, summary, chartStyle = 'candles' }: PriceChartProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const handlesRef = useRef<ChartHandles | null>(null);
   const { resolved: theme } = useTheme();
@@ -92,24 +127,16 @@ export function PriceChart({ bars, timeframe, live, summary }: PriceChartProps) 
       localization: { locale: 'en-US', priceFormatter: (price: number) => formatPrice(price) },
       timeScale: { fixLeftEdge: true, fixRightEdge: true, lockVisibleTimeRangeOnResize: true },
     });
-    const candles = chart.addSeries(CandlestickSeries, {
-      ...candleOptions(palette),
-      // ** The series' own last-value line would mark the last historical close; only the live line marks "now".
-      priceLineVisible: false,
-      lastValueVisible: false,
-    });
     const volume = chart.addSeries(HistogramSeries, {
       priceScaleId: 'volume',
       priceFormat: { type: 'volume' },
       priceLineVisible: false,
       lastValueVisible: false,
     });
-    candles.priceScale().applyOptions({ scaleMargins: { top: 0.08, bottom: 0.26 } });
+    chart.priceScale('right').applyOptions({ scaleMargins: { top: 0.08, bottom: 0.26 } });
     chart.priceScale('volume').applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
 
-    const handles: ChartHandles = { chart, candles, volume, palette, bars: [], livePrice: null, liveLine: null };
-    candles.applyOptions({ autoscaleInfoProvider: (original: () => AutoscaleInfo | null) => includePrice(original(), handles.livePrice) });
-    handlesRef.current = handles;
+    handlesRef.current = { chart, price: null, volume, palette, bars: [], livePrice: null, liveLine: null };
 
     const onCrosshairMove = (param: MouseEventParams) => {
       if (!param.point || typeof param.time !== 'number') {
@@ -128,6 +155,18 @@ export function PriceChart({ bars, timeframe, live, summary }: PriceChartProps) 
     };
   }, []);
 
+  // Switching style swaps the price series. Its price lines go with it, so the live line effect
+  // below draws a new one.
+  useEffect(() => {
+    const handles = handlesRef.current;
+    if (!handles) return;
+    if (handles.price) handles.chart.removeSeries(handles.price.series);
+    handles.liveLine = null;
+    handles.price = addPriceSeries(handles, chartStyle);
+    // ** On mount the bars effect fills the new series, so only a style switch copies the bars here.
+    if (handles.bars.length > 0) fillPrice(handles.price, handles.bars);
+  }, [chartStyle]);
+
   useEffect(() => {
     const handles = handlesRef.current;
     const container = canvasRef.current;
@@ -135,7 +174,7 @@ export function PriceChart({ bars, timeframe, live, summary }: PriceChartProps) 
     const palette = chartPalette(readThemeColors());
     handles.palette = palette;
     handles.chart.applyOptions(chartThemeOptions(palette, fontOf(container)));
-    handles.candles.applyOptions(candleOptions(palette));
+    if (handles.price) stylePrice(handles.price, palette);
     handles.volume.setData(toVolume(handles.bars, palette));
   }, [theme]);
 
@@ -158,7 +197,7 @@ export function PriceChart({ bars, timeframe, live, summary }: PriceChartProps) 
     const handles = handlesRef.current;
     if (!handles) return;
     handles.bars = chartBars;
-    handles.candles.setData(toCandles(chartBars));
+    if (handles.price) fillPrice(handles.price, chartBars);
     handles.volume.setData(toVolume(chartBars, handles.palette));
     handles.chart.timeScale().fitContent();
   }, [chartBars]);
@@ -168,10 +207,11 @@ export function PriceChart({ bars, timeframe, live, summary }: PriceChartProps) 
   const liveMuted = live?.muted ?? false;
   useEffect(() => {
     const handles = handlesRef.current;
-    if (!handles) return;
+    const price = handles?.price;
+    if (!handles || !price) return;
     handles.livePrice = livePrice;
     if (livePrice === null) {
-      if (handles.liveLine) handles.candles.removePriceLine(handles.liveLine);
+      if (handles.liveLine) price.series.removePriceLine(handles.liveLine);
       handles.liveLine = null;
       return;
     }
@@ -187,14 +227,14 @@ export function PriceChart({ bars, timeframe, live, summary }: PriceChartProps) 
       axisLabelTextColor: handles.palette.liveText,
     };
     if (handles.liveLine) handles.liveLine.applyOptions(options);
-    else handles.liveLine = handles.candles.createPriceLine(options);
-  }, [livePrice, liveLabel, liveMuted, theme]);
+    else handles.liveLine = price.series.createPriceLine(options);
+  }, [livePrice, liveLabel, liveMuted, theme, chartStyle]);
 
   const inspectBar = (index: number) => {
     const handles = handlesRef.current;
     const container = canvasRef.current;
     const bar = chartBars[index];
-    if (!handles || !container || !bar) return;
+    if (!handles?.price || !container || !bar) return;
     const timeScale = handles.chart.timeScale();
     const visible = timeScale.getVisibleLogicalRange();
     if (visible && (index < visible.from || index > visible.to)) {
@@ -203,11 +243,11 @@ export function PriceChart({ bars, timeframe, live, summary }: PriceChartProps) 
       timeScale.setVisibleLogicalRange({ from, to: from + span });
     }
     const time = bar.time as UTCTimestamp;
-    handles.chart.setCrosshairPosition(bar.close, time, handles.candles);
+    handles.chart.setCrosshairPosition(bar.close, time, handles.price.series);
     setInspection({
       time: bar.time,
       x: timeScale.timeToCoordinate(time) ?? 0,
-      y: handles.candles.priceToCoordinate(bar.close) ?? 0,
+      y: handles.price.series.priceToCoordinate(bar.close) ?? 0,
       width: container.clientWidth,
       height: container.clientHeight,
     });

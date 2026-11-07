@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event';
 import type * as LightweightCharts from 'lightweight-charts';
 import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { Router } from 'wouter';
+import { memoryLocation } from 'wouter/memory-location';
 import { useUiStore } from '../../app/uiStore';
 import { ApiError } from '../../data/api';
 import { INITIAL_CONNECTION, useConnectionStore } from '../../data/connectionStore';
@@ -10,7 +12,9 @@ import { api } from '../../data/dataLayer';
 import { useQuoteStore } from '../../data/quoteStore';
 import { resetSimulation, updateSimulation } from '../../data/simulationStore';
 import type { ChartRange, ConnectionState, HistoryResult, Instrument, Quote } from '../../domain/types';
+import { useSettingsStore } from '../settings/settingsStore';
 import { liveChart, mockCharts, seriesOf } from './chartMock';
+import { resetChartView } from './chartView';
 import { historyCache } from './historyCache';
 import { StockDetail } from './StockDetail';
 import { clearInstrumentCache } from './useInstrument';
@@ -114,6 +118,8 @@ afterEach(() => {
     useUiStore.setState({ selectedSymbol: null, alertDialog: { open: false } });
     useQuoteStore.getState().clear();
     useConnectionStore.getState().setConnection(INITIAL_CONNECTION);
+    useSettingsStore.getState().reset();
+    resetChartView();
   });
   resetSimulation();
   historyCache.clear();
@@ -442,5 +448,43 @@ describe('StockDetail chart', () => {
     expect(candles.priceLines[0]?.options.price).toBe(3.75);
     expect(candles.setData).toHaveBeenCalledTimes(1);
     expect(spy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('StockDetail quick view', () => {
+  it('opens on the range and chart style from the settings, without a style toggle', async () => {
+    act(() => {
+      useSettingsStore.getState().update({ defaultChartRange: '3M', chartStyle: 'line' });
+    });
+    const { find } = controlHistory();
+    select('AAPL');
+    render(<StockDetail expandable />);
+    expect(screen.getByRole('radio', { name: '3M' })).toBeChecked();
+    expect(screen.queryByRole('radiogroup', { name: 'Chart style' })).toBeNull();
+    await act(async () => {
+      find('AAPL', '3M').resolve(history('AAPL', '3M', [1, 2, 3]));
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(seriesOf(liveChart(), 'Line').data).toHaveLength(3);
+    });
+  });
+
+  it('opens the full page from Expand', async () => {
+    const location = memoryLocation({ path: '/watchlists/wl', record: true });
+    select('BTC/USD');
+    render(
+      <Router hook={location.hook}>
+        <StockDetail expandable />
+      </Router>,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Open BTC/USD full page' }));
+    expect(location.history.at(-1)).toBe('/symbol/BTC%2FUSD');
+  });
+
+  it('has no Expand button outside the quick view', () => {
+    select('AAPL');
+    render(<StockDetail />);
+    expect(screen.queryByRole('button', { name: /full page/ })).toBeNull();
   });
 });
