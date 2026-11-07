@@ -1,0 +1,270 @@
+/*
+ * Alerts dock, alert table, trigger log and the alert dialog form.
+ * Colors come from tokens.css only, so both themes work without overrides here.
+ */
+
+/* ---------------------------------------------------------------- Dock */
+
+.alerts-dock {
+  display: flex;
+  flex-direction: column;
+  height: 240px;
+  min-height: 0;
+  background-color: var(--bg-panel);
+}
+
+.alerts-dock.is-collapsed {
+  height: var(--h-panel-header);
+}
+
+.alerts-dock__bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-2);
+  height: var(--h-panel-header);
+  padding: 0 var(--sp-2) 0 var(--sp-1);
+  border-bottom: 1px solid var(--border);
+}
+
+.alerts-dock.is-collapsed .alerts-dock__bar {
+  border-bottom: 0;
+}
+
+/* The bar draws the divider, so the tab strip's own bottom border would double it. */
+.alerts-dock__bar .ui-tabs {
+  border-bottom: 0;
+}
+
+.alerts-dock__spacer {
+  flex: 1;
+}
+
+.alerts-dock__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.alerts-dock__note {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 2px var(--sp-3);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-tight);
+}
+
+.alerts-dock__note svg {
+  width: 13px;
+  height: 13px;
+}
+
+.alerts-dock__note--warning {
+  background-color: var(--warning-tint);
+  color: var(--warning-text);
+}
+
+.alerts-dock__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.alerts-dock__scroll:focus-visible {
+  outline-offset: -2px;
+}
+
+/* ---------------------------------------------------------------- Tables */
+
+.alerts-table td {
+  color: var(--text-primary);
+}
+
+.alerts-table tbody tr[data-status='disabled'] td {
+  color: var(--text-muted);
+}
+
+.alerts-table .alerts-table__condition {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}
+
+.alerts-table .alerts-table__actions {
+  width: 1%;
+  padding-right: var(--sp-2);
+  text-align: right;
+}
+
+.alerts-table .alerts-table__symbol {
+  font-weight: var(--fw-semibold);
+}
+
+/* These columns absorb spare width so the data columns stay packed together on wide windows. */
+.alerts-table .alerts-table__fill {
+  width: 100%;
+}
+
+.alerts-table .alerts-table__note {
+  width: 100%;
+  max-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  text-overflow: ellipsis;
+}
+
+.alerts-symbol {
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-primary);
+  font-weight: var(--fw-semibold);
+  cursor: pointer;
+}
+
+.alerts-symbol:hover {
+  color: var(--accent-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.alerts-table tbody tr[data-status='disabled'] .alerts-symbol:not(:hover) {
+  color: var(--text-muted);
+}
+
+.alerts-tag {
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+.alerts-met {
+  color: var(--warning-text);
+  font-weight: var(--fw-medium);
+}
+
+/* ---------------------------------------------------------------- States */
+
+.alerts-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+}
+
+.alerts-skeleton__row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+}
+
+.alerts-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 28px;
+  padding: 0 var(--sp-2) 0 var(--sp-3);
+  border-bottom: 1px solid var(--border-subtle);
+  background-color: var(--loss-tint);
+  color: var(--loss-text);
+  font-size: var(--fs-sm);
+}
+
+.alerts-banner svg {
+  width: 14px;
+  height: 14px;
+}
+
+.alerts-banner > span {
+  flex: 1;
+}
+
+/* ---------------------------------------------------------------- Dialog form */
+
+.alert-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.alert-form__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--sp-3);
+  align-items: start;
+}
+
+.alert-form__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+
+.alert-form__symbol .ui-input__control {
+  text-transform: uppercase;
+}
+
+.alert-form__symbol .ui-input__control::placeholder {
+  text-transform: none;
+}
+
+.alert-form__quote {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 20px;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.alert-form__quote-price {
+  color: var(--text-primary);
+  font-weight: var(--fw-semibold);
+}
+
+.alert-form__quote-price.is-gain {
+  color: var(--gain-text);
+}
+
+.alert-form__quote-price.is-loss {
+  color: var(--loss-text);
+}
+
+.alert-form__preview {
+  padding: 6px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-neutral-tint);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-normal);
+}
+
+.alert-form__preview.is-met {
+  border-color: transparent;
+  background-color: var(--warning-tint);
+  color: var(--warning-text);
+}
+
+.alert-form__error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  background-color: var(--loss-tint);
+  color: var(--loss-text);
+  font-size: var(--fs-sm);
+}
+
+.alert-form__error svg {
+  width: 14px;
+  height: 14px;
+  margin-top: 2px;
+}
