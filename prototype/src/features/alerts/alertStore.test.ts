@@ -10,17 +10,17 @@ const store = () => useAlertStore.getState();
 const shown = (id: string) => store().alerts.find((a) => a.id === id);
 const toasts = () => useToastStore.getState().toasts;
 
-const NVDA = 'alert-seed-nvda';
 const MSFT = 'alert-seed-msft';
+const NVDA = 'alert-seed-nvda';
 
 function later(alert: PriceAlert, patch: Partial<PriceAlert>, ms = 60_000): PriceAlert {
   return { ...alert, ...patch, updatedAt: new Date(Date.parse(alert.updatedAt) + ms).toISOString() };
 }
 
-function event(id: string, triggeredAt: string, symbol = 'NVDA'): AlertEvent {
+function event(id: string, triggeredAt: string, symbol = 'MSFT'): AlertEvent {
   return {
     id,
-    alertId: NVDA,
+    alertId: MSFT,
     symbol,
     condition: 'above',
     targetPrice: 100,
@@ -93,7 +93,7 @@ describe('load', () => {
 
   it('keeps a copy pushed during the request when it is newer than the loaded one', async () => {
     await loaded();
-    const stale = shown(NVDA)!;
+    const stale = shown(MSFT)!;
     const pushed = later(stale, { armed: false, triggerCount: 1 });
     vi.spyOn(api, 'listAlerts').mockImplementationOnce(() => {
       store().applyServerUpdate(pushed);
@@ -113,10 +113,10 @@ describe('load', () => {
       return snapshot;
     });
     const reload = store().load();
-    await store().remove(NVDA);
+    await store().remove(MSFT);
     release();
     await reload;
-    expect(shown(NVDA)).toBeUndefined();
+    expect(shown(MSFT)).toBeUndefined();
   });
 });
 
@@ -141,128 +141,128 @@ describe('create and update', () => {
 
   it('replaces the alert with the saved version', async () => {
     await loaded();
-    const saved = await store().update(NVDA, { targetPrice: 1234.5, note: null });
-    expect(shown(NVDA)).toEqual(saved);
+    const saved = await store().update(MSFT, { targetPrice: 1234.5, note: null });
+    expect(shown(MSFT)).toEqual(saved);
     expect(saved).toMatchObject({ targetPrice: 1234.5, note: null });
   });
 
   it('drops an alert the server no longer has and still rejects', async () => {
     await loaded();
-    await api.deleteAlert(NVDA);
-    await expect(store().update(NVDA, { targetPrice: 5 })).rejects.toMatchObject({ code: 'NOT_FOUND' });
-    expect(shown(NVDA)).toBeUndefined();
+    await api.deleteAlert(MSFT);
+    await expect(store().update(MSFT, { targetPrice: 5 })).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    expect(shown(MSFT)).toBeUndefined();
   });
 });
 
 describe('setEnabled', () => {
   it('shows the change at once and keeps the server copy afterwards', async () => {
     await loaded();
-    const pending = store().setEnabled(NVDA, false);
-    expect(shown(NVDA)?.enabled).toBe(false);
+    const pending = store().setEnabled(MSFT, false);
+    expect(shown(MSFT)?.enabled).toBe(false);
     await pending;
-    expect(shown(NVDA)?.enabled).toBe(false);
-    expect((await api.listAlerts()).find((a) => a.id === NVDA)?.enabled).toBe(false);
+    expect(shown(MSFT)?.enabled).toBe(false);
+    expect((await api.listAlerts()).find((a) => a.id === MSFT)?.enabled).toBe(false);
     expect(toasts()).toEqual([]);
   });
 
   it('shows a re-enabled alert as armed, as the server re-arms it', async () => {
     await loaded();
-    store().applyServerUpdate(later(shown(MSFT)!, { armed: false }, 1));
-    const pending = store().setEnabled(MSFT, true);
-    expect(shown(MSFT)).toMatchObject({ enabled: true, armed: true });
+    store().applyServerUpdate(later(shown(NVDA)!, { armed: false }, 1));
+    const pending = store().setEnabled(NVDA, true);
+    expect(shown(NVDA)).toMatchObject({ enabled: true, armed: true });
     await pending;
-    expect(shown(MSFT)).toMatchObject({ enabled: true, armed: true });
+    expect(shown(NVDA)).toMatchObject({ enabled: true, armed: true });
   });
 
   it('rolls back and shows an error toast when the server rejects it', async () => {
     await loaded();
     updateSimulation({ failNextApiCall: true });
-    const pending = store().setEnabled(NVDA, false);
-    expect(shown(NVDA)?.enabled).toBe(false);
+    const pending = store().setEnabled(MSFT, false);
+    expect(shown(MSFT)?.enabled).toBe(false);
     await expect(pending).resolves.toBeUndefined();
-    expect(shown(NVDA)?.enabled).toBe(true);
-    expect(toasts()).toMatchObject([{ tone: 'error', title: "Couldn't disable the NVDA alert" }]);
+    expect(shown(MSFT)?.enabled).toBe(true);
+    expect(toasts()).toMatchObject([{ tone: 'error', title: "Couldn't disable the MSFT alert" }]);
   });
 
   it('lets the newest flip decide when an earlier one fails', async () => {
     await loaded();
     updateSimulation({ failNextApiCall: true });
-    const first = store().setEnabled(NVDA, false);
-    const second = store().setEnabled(NVDA, true);
-    const third = store().setEnabled(NVDA, false);
+    const first = store().setEnabled(MSFT, false);
+    const second = store().setEnabled(MSFT, true);
+    const third = store().setEnabled(MSFT, false);
     await Promise.all([first, second, third]);
-    expect(shown(NVDA)?.enabled).toBe(false);
-    expect((await api.listAlerts()).find((a) => a.id === NVDA)?.enabled).toBe(false);
+    expect(shown(MSFT)?.enabled).toBe(false);
+    expect((await api.listAlerts()).find((a) => a.id === MSFT)?.enabled).toBe(false);
     expect(toasts()).toEqual([]);
   });
 
   it('falls back to the last confirmed state when the newest flip fails', async () => {
     await loaded();
-    const first = store().setEnabled(NVDA, false);
+    const first = store().setEnabled(MSFT, false);
     updateSimulation({ failNextApiCall: true });
-    const second = store().setEnabled(NVDA, true);
+    const second = store().setEnabled(MSFT, true);
     await Promise.all([first, second]);
-    expect(shown(NVDA)?.enabled).toBe(false);
-    expect(toasts()).toMatchObject([{ tone: 'error', title: "Couldn't enable the NVDA alert" }]);
+    expect(shown(MSFT)?.enabled).toBe(false);
+    expect(toasts()).toMatchObject([{ tone: 'error', title: "Couldn't enable the MSFT alert" }]);
   });
 
   it('does nothing when the alert already has that state', async () => {
     await loaded();
     const update = vi.spyOn(api, 'updateAlert');
-    await store().setEnabled(NVDA, true);
+    await store().setEnabled(MSFT, true);
     await store().setEnabled('missing', false);
     expect(update).not.toHaveBeenCalled();
   });
 
   it('removes an alert that was deleted on the server and says so', async () => {
     await loaded();
-    await api.deleteAlert(NVDA);
-    await store().setEnabled(NVDA, false);
-    expect(shown(NVDA)).toBeUndefined();
-    expect(toasts()).toMatchObject([{ tone: 'warning', title: 'The NVDA alert no longer exists' }]);
+    await api.deleteAlert(MSFT);
+    await store().setEnabled(MSFT, false);
+    expect(shown(MSFT)).toBeUndefined();
+    expect(toasts()).toMatchObject([{ tone: 'warning', title: 'The MSFT alert no longer exists' }]);
   });
 
   it('keeps the pending value when the server pushes an older state meanwhile', async () => {
     await loaded();
-    const pending = store().setEnabled(NVDA, false);
-    store().applyServerUpdate(later(shown(NVDA)!, { enabled: true, armed: false, triggerCount: 1 }, 1));
-    expect(shown(NVDA)).toMatchObject({ enabled: false, triggerCount: 1 });
+    const pending = store().setEnabled(MSFT, false);
+    store().applyServerUpdate(later(shown(MSFT)!, { enabled: true, armed: false, triggerCount: 1 }, 1));
+    expect(shown(MSFT)).toMatchObject({ enabled: false, triggerCount: 1 });
     await pending;
-    expect(shown(NVDA)?.enabled).toBe(false);
+    expect(shown(MSFT)?.enabled).toBe(false);
   });
 });
 
 describe('remove', () => {
   it('hides the alert at once and deletes it on the server', async () => {
     await loaded();
-    const pending = store().remove(NVDA);
-    expect(shown(NVDA)).toBeUndefined();
+    const pending = store().remove(MSFT);
+    expect(shown(MSFT)).toBeUndefined();
     await pending;
-    expect(shown(NVDA)).toBeUndefined();
-    expect((await api.listAlerts()).some((a) => a.id === NVDA)).toBe(false);
+    expect(shown(MSFT)).toBeUndefined();
+    expect((await api.listAlerts()).some((a) => a.id === MSFT)).toBe(false);
   });
 
   it('restores the alert and shows an error toast when the delete fails', async () => {
     await loaded();
     const order = store().alerts.map((a) => a.id);
     updateSimulation({ failNextApiCall: true });
-    await expect(store().remove(NVDA)).resolves.toBeUndefined();
+    await expect(store().remove(MSFT)).resolves.toBeUndefined();
     expect(store().alerts.map((a) => a.id)).toEqual(order);
-    expect(toasts()).toMatchObject([{ tone: 'error', title: "Couldn't delete the NVDA alert" }]);
+    expect(toasts()).toMatchObject([{ tone: 'error', title: "Couldn't delete the MSFT alert" }]);
   });
 
   it('sends one delete for repeated clicks', async () => {
     await loaded();
     const remove = vi.spyOn(api, 'deleteAlert');
-    await Promise.all([store().remove(NVDA), store().remove(NVDA)]);
+    await Promise.all([store().remove(MSFT), store().remove(MSFT)]);
     expect(remove).toHaveBeenCalledTimes(1);
   });
 
   it('treats an alert already deleted elsewhere as removed', async () => {
     await loaded();
-    await api.deleteAlert(NVDA);
-    await store().remove(NVDA);
-    expect(shown(NVDA)).toBeUndefined();
+    await api.deleteAlert(MSFT);
+    await store().remove(MSFT);
+    expect(shown(MSFT)).toBeUndefined();
     expect(toasts()).toEqual([]);
   });
 });
@@ -280,20 +280,20 @@ describe('applyServerUpdate', () => {
 
   it('applies newer updates and ignores older ones', async () => {
     await loaded();
-    const current = shown(NVDA)!;
+    const current = shown(MSFT)!;
     const newer = later(current, { armed: false, triggerCount: 2 });
     store().applyServerUpdate(newer);
-    expect(shown(NVDA)).toEqual(newer);
+    expect(shown(MSFT)).toEqual(newer);
     store().applyServerUpdate(later(current, { triggerCount: 1 }, 1_000));
-    expect(shown(NVDA)).toEqual(newer);
+    expect(shown(MSFT)).toEqual(newer);
   });
 
   it('ignores pushes for an alert the user deleted', async () => {
     await loaded();
-    const current = shown(NVDA)!;
-    await store().remove(NVDA);
+    const current = shown(MSFT)!;
+    await store().remove(MSFT);
     store().applyServerUpdate(later(current, { armed: false }));
-    expect(shown(NVDA)).toBeUndefined();
+    expect(shown(MSFT)).toBeUndefined();
   });
 });
 

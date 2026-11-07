@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AlertEvent, ConnectionInfo, PriceAlert, Quote } from '../../domain/types';
-import { STALE_AFTER_MS, type SimulationState } from '../simulation';
+import { DEFAULT_SIMULATION, STALE_AFTER_MS, type SimulationState } from '../simulation';
 import { createMockMarket } from './market';
 import { createMockApi } from './mockApi';
 import {
@@ -13,7 +13,9 @@ import {
   FLAKY_RECOVER_AFTER_MS,
   FLUSH_INTERVAL_MS,
 } from './mockRealtime';
+import { createPrng } from './random';
 import { createRepository, type Repository } from './repository';
+import { SEED_WATCHLISTS } from './seed';
 import { createSimulationSource } from './simulationSource';
 
 const START = Date.UTC(2026, 9, 21, 15, 0);
@@ -812,18 +814,35 @@ describe('alert evaluation', () => {
     expect(repo.getAlert('a1')?.triggerCount).toBe(2);
   });
 
-  it('fires the seeded near alerts within a minute of demo time at default settings', () => {
-    const repo = createRepository();
-    const t = setup({ repo, sim: { ticksPerSecond: 12 }, random: Math.random });
-    t.rt.setSubscriptions(['AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'META', 'TSLA', 'AMD', 'AVGO', 'NFLX']);
-    t.connect();
-    t.advance(60_000);
-    const fired = new Set(t.events.map((e) => e.alertId));
-    expect(fired.has('alert-seed-nvda')).toBe(true);
-    expect(fired.has('alert-seed-tsla')).toBe(true);
-    expect(fired.has('alert-seed-aapl')).toBe(false);
-    expect(fired.has('alert-seed-msft')).toBe(false);
-    expect(repo.getAlert('alert-seed-aapl')?.armed).toBe(true);
+  it('fires the seeded demo alerts 30-90 seconds into a fresh session at default settings, then minutes apart', () => {
+    // Which symbol gets each trade is random, so check several trade orders.
+    for (const seed of [1, 2, 3, 4, 5]) {
+      const repo = createRepository({ storage: null });
+      const order = createPrng(seed);
+      const t = setup({
+        repo,
+        sim: { ticksPerSecond: DEFAULT_SIMULATION.ticksPerSecond },
+        random: () => order.next(),
+      });
+      t.rt.setSubscriptions(SEED_WATCHLISTS[0]!.symbols);
+      t.connect();
+      const start = Date.now();
+      t.advance(10 * 60_000);
+      t.rt.disconnect();
+
+      const firedAt = (alertId: string) =>
+        t.events.filter((e) => e.alertId === alertId).map((e) => (Date.parse(e.triggeredAt) - start) / 1000);
+      for (const id of ['alert-seed-msft', 'alert-seed-tsla']) {
+        const seconds = firedAt(id);
+        expect(seconds[0]).toBeGreaterThanOrEqual(30);
+        expect(seconds[0]).toBeLessThanOrEqual(90);
+        for (let i = 1; i < seconds.length; i++)
+          expect(seconds[i]! - seconds[i - 1]!).toBeGreaterThanOrEqual(120);
+      }
+      expect(firedAt('alert-seed-aapl')).toEqual([]);
+      expect(firedAt('alert-seed-nvda')).toEqual([]);
+      expect(repo.getAlert('alert-seed-aapl')?.armed).toBe(true);
+    }
   });
 });
 

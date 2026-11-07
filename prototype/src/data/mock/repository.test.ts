@@ -2,7 +2,14 @@ import { describe, expect, it, vi } from 'vitest';
 import type { PriceAlert, Watchlist } from '../../domain/types';
 import { createMockMarket } from './market';
 import { createRepository, parsePersisted, STORAGE_KEY, type StorageLike } from './repository';
-import { buildSeedData, NEAR_ALERT_LOOKAHEAD, NEAR_ALERT_MAX_DISTANCE, SEED_WATCHLISTS } from './seed';
+import { roundPrice } from './priceModel';
+import {
+  buildSeedData,
+  DEMO_FIRST_TRIGGER_TRADES,
+  DEMO_HORIZON_TRADES,
+  demoFireTrades,
+  SEED_WATCHLISTS,
+} from './seed';
 
 const NOW = Date.UTC(2026, 9, 21, 15, 0);
 const ISO = new Date(NOW).toISOString();
@@ -66,54 +73,86 @@ describe('seed data', () => {
     }
   });
 
-  it('has two near enabled alerts (above/buy and below/sell), one far armed alert, and one disabled alert', () => {
+  it('has two demo alerts (MSFT above/buy, TSLA below/sell), one far armed alert, and one disabled alert', () => {
     const market = createMockMarket();
-    const [near1, near2, far, disabled] = seed.alerts;
+    const [buy, sell, far, disabled] = seed.alerts;
     expect(seed.alerts).toHaveLength(4);
-    expect(near1).toMatchObject({
+    expect(buy).toMatchObject({
+      id: 'alert-seed-msft',
+      symbol: 'MSFT',
       condition: 'above',
       tag: 'buy',
       enabled: true,
       armed: true,
       triggerCount: 0,
     });
-    expect(near2).toMatchObject({ condition: 'below', tag: 'sell', enabled: true, armed: true });
-    expect(far).toMatchObject({ enabled: true, armed: true });
-    expect(disabled).toMatchObject({ enabled: false });
+    expect(sell).toMatchObject({
+      id: 'alert-seed-tsla',
+      symbol: 'TSLA',
+      condition: 'below',
+      tag: 'sell',
+      enabled: true,
+    });
+    expect(far).toMatchObject({ symbol: 'AAPL', enabled: true, armed: true });
+    expect(disabled).toMatchObject({ symbol: 'NVDA', enabled: false });
 
     const price = (symbol: string): number => market.getState(symbol)!.last;
     const distance = (a: PriceAlert): number => Math.abs(a.targetPrice / price(a.symbol) - 1);
-    expect(distance(near1!)).toBeLessThanOrEqual(NEAR_ALERT_MAX_DISTANCE + 0.0001);
-    expect(distance(near2!)).toBeLessThanOrEqual(NEAR_ALERT_MAX_DISTANCE + 0.0001);
-    // Not already satisfied at the seeded price, so they fire on a later trade, not instantly.
-    expect(near1!.targetPrice).toBeGreaterThan(price(near1!.symbol));
-    expect(near2!.targetPrice).toBeLessThan(price(near2!.symbol));
+    // Not already satisfied at the seeded price, so they fire on a later trade, and still close by.
+    expect(buy!.targetPrice).toBeGreaterThan(price('MSFT'));
+    expect(sell!.targetPrice).toBeLessThan(price('TSLA'));
+    expect(distance(buy!)).toBeLessThan(0.03);
+    expect(distance(sell!)).toBeLessThan(0.03);
     expect(distance(far!)).toBeGreaterThan(0.1);
     expect(seed.alerts.every((a) => a.lastTriggeredAt === null && a.lastTriggeredPrice === null)).toBe(true);
     expect(new Set(seed.alerts.map((a) => a.id)).size).toBe(4);
   });
 
-  it('places the near alerts on the deterministic path so they trigger within the look-ahead', () => {
+  it('places the demo alerts on the deterministic path: first trigger in the window, then re-fires minutes apart', () => {
     const market = createMockMarket();
-    const [above, below] = seed.alerts;
-    const abovePath = market.peekPrices(above!.symbol, NEAR_ALERT_LOOKAHEAD);
-    const belowPath = market.peekPrices(below!.symbol, NEAR_ALERT_LOOKAHEAD);
-    expect(abovePath.some((p) => p >= above!.targetPrice)).toBe(true);
-    expect(belowPath.some((p) => p <= below!.targetPrice)).toBe(true);
+    // At default settings each Core Tech symbol trades about 1.2 times a second.
+    const twoMinutes = 144;
+    for (const alert of seed.alerts.slice(0, 2)) {
+      const path = market.peekPrices(alert.symbol, DEMO_HORIZON_TRADES);
+      const fires = demoFireTrades(path, alert.condition, alert.targetPrice);
+      expect(fires[0]).toBeGreaterThanOrEqual(DEMO_FIRST_TRIGGER_TRADES.min);
+      expect(fires[0]).toBeLessThanOrEqual(DEMO_FIRST_TRIGGER_TRADES.max);
+      for (let i = 1; i < fires.length; i++)
+        expect(fires[i]! - fires[i - 1]!).toBeGreaterThanOrEqual(twoMinutes);
+    }
     // The far alert is not reached anywhere near that soon.
     const far = seed.alerts[2]!;
     expect(market.peekPrices(far.symbol, 5000).some((p) => p >= far.targetPrice)).toBe(false);
   });
 
-  it('places near alerts relative to the current price of a market that has already traded', () => {
+  it('places the demo alerts relative to the current price of a market that has already traded', () => {
     const market = createMockMarket();
-    for (let i = 0; i < 300; i++) market.trade('NVDA', NOW + i);
-    const fresh = buildSeedData({ market, now: NOW });
-    const target = fresh.alerts[0]!.targetPrice;
-    const last = market.getState('NVDA')!.last;
-    expect(target).toBeGreaterThan(last);
-    expect(target / last - 1).toBeLessThanOrEqual(NEAR_ALERT_MAX_DISTANCE + 0.0001);
-    expect(market.peekPrices('NVDA', NEAR_ALERT_LOOKAHEAD).some((p) => p >= target)).toBe(true);
+    for (let i = 0; i < 300; i++) {
+      market.trade('MSFT', NOW + i);
+      market.trade('TSLA', NOW + i);
+    }
+    const [buy, sell] = buildSeedData({ market, now: NOW }).alerts;
+    expect(buy!.targetPrice).toBeGreaterThan(market.getState('MSFT')!.last);
+    expect(sell!.targetPrice).toBeLessThan(market.getState('TSLA')!.last);
+    for (const alert of [buy!, sell!]) {
+      const fires = demoFireTrades(
+        market.peekPrices(alert.symbol, DEMO_HORIZON_TRADES),
+        alert.condition,
+        alert.targetPrice,
+      );
+      expect(fires[0]).toBeGreaterThanOrEqual(DEMO_FIRST_TRIGGER_TRADES.min);
+      expect(fires[0]).toBeLessThanOrEqual(DEMO_FIRST_TRIGGER_TRADES.max);
+    }
+  });
+
+  it('falls back to a target just beyond the price when the path never moves that way', () => {
+    const market = createMockMarket();
+    // Every TSLA trade ahead prints above the current price, so no "below" target is ever reached.
+    const peek = market.peekPrices.bind(market);
+    market.peekPrices = (symbol, count) =>
+      symbol === 'TSLA' ? Array<number>(count).fill(400) : peek(symbol, count);
+    const sell = buildSeedData({ market, now: NOW }).alerts[1]!;
+    expect(sell.targetPrice).toBe(roundPrice(market.getState('TSLA')!.last * 0.999));
   });
 
   it('matches the exported watchlist definition', () => {

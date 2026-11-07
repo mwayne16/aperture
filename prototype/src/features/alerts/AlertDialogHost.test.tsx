@@ -15,7 +15,7 @@ import { resetAlertsTestState, setQuote, toastTitles } from './alertsTestHarness
 // mid-flow keeps running into the next one.
 vi.setConfig({ testTimeout: 20_000 });
 
-const NVDA = 'alert-seed-nvda';
+const MSFT = 'alert-seed-msft';
 
 function setup(open: () => void, options: { strict?: boolean } = {}) {
   const user = userEvent.setup();
@@ -223,29 +223,29 @@ describe('edit', () => {
   });
 
   it('prefills the form and sends only what changed', async () => {
-    const alert = useAlertStore.getState().alerts.find((a) => a.id === NVDA)!;
+    const alert = useAlertStore.getState().alerts.find((a) => a.id === MSFT)!;
     const update = vi.spyOn(api, 'updateAlert');
     const { user } = setup(() => {
-      useUiStore.getState().openEditAlert(NVDA);
+      useUiStore.getState().openEditAlert(MSFT);
     });
     expect(dialog()).toHaveAccessibleName('Edit alert');
-    expect(field('Symbol')).toHaveValue('NVDA');
+    expect(field('Symbol')).toHaveValue('MSFT');
     expect(field('Symbol')).toHaveAttribute('readonly');
     expect(field('Target price')).toHaveValue(String(alert.targetPrice));
     expect(field('Note (optional)')).toHaveValue(alert.note);
 
     await user.click(within(dialog()).getByRole('radio', { name: 'Sell' }));
     await user.click(within(dialog()).getByRole('button', { name: 'Save changes' }));
-    expect(update).toHaveBeenCalledWith(NVDA, { tag: 'sell' });
+    expect(update).toHaveBeenCalledWith(MSFT, { tag: 'sell' });
     expect(isOpen()).toBe(false);
     expect(toastTitles()).toEqual(['Alert updated']);
-    expect(useAlertStore.getState().alerts.find((a) => a.id === NVDA)?.tag).toBe('sell');
+    expect(useAlertStore.getState().alerts.find((a) => a.id === MSFT)?.tag).toBe('sell');
   });
 
   it('closes without a request when nothing changed', async () => {
     const update = vi.spyOn(api, 'updateAlert');
     const { user } = setup(() => {
-      useUiStore.getState().openEditAlert(NVDA);
+      useUiStore.getState().openEditAlert(MSFT);
     });
     await user.click(within(dialog()).getByRole('button', { name: 'Save changes' }));
     expect(update).not.toHaveBeenCalled();
@@ -266,19 +266,19 @@ describe('edit', () => {
 
   it('closes and explains when the alert was deleted elsewhere before saving', async () => {
     const { user } = setup(() => {
-      useUiStore.getState().openEditAlert(NVDA);
+      useUiStore.getState().openEditAlert(MSFT);
     });
-    await api.deleteAlert(NVDA);
+    await api.deleteAlert(MSFT);
     await user.clear(field('Target price'));
     await user.type(field('Target price'), '1');
     await user.click(within(dialog()).getByRole('button', { name: 'Save changes' }));
     expect(isOpen()).toBe(false);
     expect(toastTitles()).toEqual(['This alert no longer exists']);
-    expect(useAlertStore.getState().alerts.some((a) => a.id === NVDA)).toBe(false);
+    expect(useAlertStore.getState().alerts.some((a) => a.id === MSFT)).toBe(false);
   });
 
   it('warns that a triggered alert stays quiet unless the edit re-arms it', async () => {
-    const alert = useAlertStore.getState().alerts.find((a) => a.id === NVDA)!;
+    const alert = useAlertStore.getState().alerts.find((a) => a.id === MSFT)!;
     act(() => {
       useAlertStore.getState().applyServerUpdate({
         ...alert,
@@ -286,9 +286,9 @@ describe('edit', () => {
         updatedAt: new Date(Date.parse(alert.updatedAt) + 1).toISOString(),
       });
     });
-    setQuote('NVDA', alert.targetPrice + 1);
+    setQuote('MSFT', alert.targetPrice + 1);
     const { user } = setup(() => {
-      useUiStore.getState().openEditAlert(NVDA);
+      useUiStore.getState().openEditAlert(MSFT);
     });
     expect(
       within(dialog()).getByText(/This alert has triggered and re-arms once Last moves back below/),

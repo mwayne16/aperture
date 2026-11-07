@@ -156,9 +156,9 @@ describe('AlertsPanel alert table', () => {
     expect(row('AAPL')).toHaveTextContent(/Last ≥ [\d,.]+/);
     expect(row('AAPL')).toHaveTextContent('Armed');
     expect(row('AAPL')).toHaveTextContent('Sell');
-    expect(row('MSFT')).toHaveTextContent(/Last ≤ [\d,.]+/);
-    expect(row('MSFT')).toHaveTextContent('Disabled');
-    expect(row('MSFT')).toHaveTextContent('Never');
+    expect(row('NVDA')).toHaveTextContent(/Last ≤ [\d,.]+/);
+    expect(row('NVDA')).toHaveTextContent('Disabled');
+    expect(row('NVDA')).toHaveTextContent('Never');
   });
 
   it('shows the current price and the distance to the target from live quotes', async () => {
@@ -174,30 +174,30 @@ describe('AlertsPanel alert table', () => {
 
   it('shows a triggered alert as waiting to re-arm, with its trigger time and count', async () => {
     await loadAndRender();
-    const nvda = store().alerts.find((a) => a.symbol === 'NVDA')!;
+    const msft = store().alerts.find((a) => a.symbol === 'MSFT')!;
     act(() => {
       store().applyServerUpdate({
-        ...nvda,
+        ...msft,
         armed: false,
         lastTriggeredAt: '2026-10-30T18:05:09.000Z',
         triggerCount: 2,
-        updatedAt: new Date(Date.parse(nvda.updatedAt) + 1).toISOString(),
+        updatedAt: new Date(Date.parse(msft.updatedAt) + 1).toISOString(),
       });
     });
-    expect(row('NVDA')).toHaveTextContent('Triggered, waiting to re-arm');
-    expect(row('NVDA')).toHaveTextContent('Oct 30, 14:05:09 · 2×');
+    expect(row('MSFT')).toHaveTextContent('Triggered, waiting to re-arm');
+    expect(row('MSFT')).toHaveTextContent('Oct 30, 14:05:09 · 2×');
   });
 
   it('disables and re-enables an alert with its switch', async () => {
     const { user } = await loadAndRender();
-    const toggle = within(row('NVDA')).getByRole('switch');
-    expect(toggle).toHaveAccessibleName(/^Enabled: NVDA Last ≥/);
+    const toggle = within(row('MSFT')).getByRole('switch');
+    expect(toggle).toHaveAccessibleName(/^Enabled: MSFT Last ≥/);
     await user.click(toggle);
     expect(toggle).not.toBeChecked();
-    expect(row('NVDA')).toHaveTextContent('Disabled');
+    expect(row('MSFT')).toHaveTextContent('Disabled');
     await user.click(toggle);
     expect(toggle).toBeChecked();
-    expect((await api.listAlerts()).find((a) => a.symbol === 'NVDA')?.enabled).toBe(true);
+    expect((await api.listAlerts()).find((a) => a.symbol === 'MSFT')?.enabled).toBe(true);
   });
 
   it('opens the edit dialog from the row menu', async () => {
@@ -213,23 +213,23 @@ describe('AlertsPanel alert table', () => {
 
   it('deletes after confirmation and moves focus to the next row', async () => {
     const { user } = await loadAndRender();
-    await user.click(within(row('MSFT')).getByRole('button', { name: /^Actions for MSFT/ }));
+    await user.click(within(row('NVDA')).getByRole('button', { name: /^Actions for NVDA/ }));
     await user.click(await screen.findByRole('menuitem', { name: 'Delete' }));
     const dialog = await screen.findByRole('dialog', { name: 'Delete alert?' });
-    expect(dialog).toHaveAccessibleDescription(/MSFT Last ≤ [\d,.]+ will stop being monitored/);
+    expect(dialog).toHaveAccessibleDescription(/NVDA Last ≤ [\d,.]+ will stop being monitored/);
     await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
-    expect(screen.queryByRole('button', { name: 'MSFT, show details' })).not.toBeInTheDocument();
-    expect(within(row('NVDA')).getByRole('button', { name: /^Actions for NVDA/ })).toHaveFocus();
-    expect((await api.listAlerts()).some((a) => a.symbol === 'MSFT')).toBe(false);
+    expect(screen.queryByRole('button', { name: 'NVDA, show details' })).not.toBeInTheDocument();
+    expect(within(row('TSLA')).getByRole('button', { name: /^Actions for TSLA/ })).toHaveFocus();
+    expect((await api.listAlerts()).some((a) => a.symbol === 'NVDA')).toBe(false);
   });
 
   it('keeps the alert when the delete is cancelled', async () => {
     const { user } = await loadAndRender();
-    await user.click(within(row('MSFT')).getByRole('button', { name: /^Actions for MSFT/ }));
+    await user.click(within(row('NVDA')).getByRole('button', { name: /^Actions for NVDA/ }));
     await user.click(await screen.findByRole('menuitem', { name: 'Delete' }));
     await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(row('MSFT')).toBeInTheDocument();
+    expect(row('NVDA')).toBeInTheDocument();
   });
 
   it('focuses the empty state after deleting the last alert', async () => {
