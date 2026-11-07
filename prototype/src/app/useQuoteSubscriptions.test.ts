@@ -24,20 +24,29 @@ afterEach(() => {
 });
 
 describe('subscribedSymbols', () => {
-  it('combines the watchlist, the selected symbol and enabled alerts, sorted and unique', () => {
-    expect(subscribedSymbols(['MSFT', 'AAPL'], 'AAPL', [alert('TSLA', true), alert('MSFT', true)])).toEqual([
-      'AAPL',
-      'MSFT',
-      'TSLA',
-    ]);
+  const none = { watchlist: [], selected: null, alertDraft: null, alerts: [] };
+
+  it('combines the watchlist, the selection, the alert draft and enabled alerts, sorted and unique', () => {
+    expect(
+      subscribedSymbols({
+        watchlist: ['MSFT', 'AAPL'],
+        selected: 'AAPL',
+        alertDraft: 'AMD',
+        alerts: [alert('TSLA', true), alert('MSFT', true)],
+      }),
+    ).toEqual(['AAPL', 'AMD', 'MSFT', 'TSLA']);
   });
 
   it('skips disabled alerts', () => {
-    expect(subscribedSymbols([], null, [alert('AMD', false)])).toEqual([]);
+    expect(subscribedSymbols({ ...none, alerts: [alert('AMD', false)] })).toEqual([]);
   });
 
   it('subscribes to the selected symbol even when no watchlist is active', () => {
-    expect(subscribedSymbols([], 'NVDA', [])).toEqual(['NVDA']);
+    expect(subscribedSymbols({ ...none, selected: 'NVDA' })).toEqual(['NVDA']);
+  });
+
+  it('subscribes to the symbol typed into the alert dialog on its own', () => {
+    expect(subscribedSymbols({ ...none, alertDraft: 'AMD' })).toEqual(['AMD']);
   });
 });
 
@@ -82,6 +91,15 @@ describe('useQuoteSubscriptions', () => {
 
     act(() => {
       useUiStore.getState().selectSymbol('AMD');
+    });
+    expect(setSubscriptions.mock.calls.at(-1)).toEqual([['AAPL', 'AMD']]);
+
+    act(() => {
+      useUiStore.getState().setAlertDraftSymbol('NVDA');
+    });
+    expect(setSubscriptions.mock.calls.at(-1)).toEqual([['AAPL', 'AMD', 'NVDA']]);
+    act(() => {
+      useUiStore.getState().closeAlertDialog();
     });
     expect(setSubscriptions.mock.calls.at(-1)).toEqual([['AAPL', 'AMD']]);
   });

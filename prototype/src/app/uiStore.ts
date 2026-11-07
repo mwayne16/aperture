@@ -16,6 +16,11 @@ export interface UiState {
   /** Symbol shown in the detail panel, or null when nothing is selected. */
   selectedSymbol: string | null;
   alertDialog: AlertDialogState;
+  /**
+   * Valid symbol typed into the open alert dialog, or null. It is subscribed like the selection, so
+   * the dialog can show a live price for a symbol that no watchlist or alert covers yet.
+   */
+  alertDraftSymbol: string | null;
   bottomDockOpen: boolean;
   bottomDockTab: BottomDockTab;
   prototypeControlsOpen: boolean;
@@ -26,6 +31,7 @@ export interface UiState {
   openCreateAlert(presetSymbol?: string | null): void;
   openEditAlert(alertId: string): void;
   closeAlertDialog(): void;
+  setAlertDraftSymbol(symbol: string | null): void;
   setBottomDockOpen(open: boolean): void;
   setBottomDockTab(tab: BottomDockTab): void;
   setPrototypeControlsOpen(open: boolean): void;
@@ -35,6 +41,7 @@ export interface UiState {
 export const useUiStore = create<UiState>()((set) => ({
   selectedSymbol: null,
   alertDialog: { open: false },
+  alertDraftSymbol: null,
   bottomDockOpen: true,
   bottomDockTab: 'alerts',
   prototypeControlsOpen: false,
@@ -50,7 +57,10 @@ export const useUiStore = create<UiState>()((set) => ({
     set({ alertDialog: { open: true, mode: 'edit', alertId } });
   },
   closeAlertDialog: () => {
-    set({ alertDialog: { open: false } });
+    set({ alertDialog: { open: false }, alertDraftSymbol: null });
+  },
+  setAlertDraftSymbol: (symbol) => {
+    set({ alertDraftSymbol: symbol });
   },
   setBottomDockOpen: (open) => {
     set({ bottomDockOpen: open });

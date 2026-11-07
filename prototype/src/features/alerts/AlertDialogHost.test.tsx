@@ -76,6 +76,43 @@ describe('create', () => {
     expect(within(dialog()).getByText('No live price for AMD yet.')).toBeInTheDocument();
   });
 
+  it('subscribes to a typed symbol, so its price and the preview show for any symbol', async () => {
+    const { user, unmount } = setup(() => {
+      useUiStore.getState().openCreateAlert();
+    });
+    const draft = () => useUiStore.getState().alertDraftSymbol;
+    expect(draft()).toBeNull();
+    await user.type(field('Symbol'), 'amd');
+    expect(draft()).toBe('AMD');
+    // The subscription delivers a quote for the typed symbol.
+    setQuote('AMD', 158.3);
+    expect(within(dialog()).getByText('158.30')).toBeInTheDocument();
+    await user.type(field('Target price'), '150');
+    expect(
+      within(dialog()).getByText('Last is already above 150.00, so this alert triggers on the next trade.'),
+    ).toBeInTheDocument();
+
+    // An invalid symbol is not subscribed.
+    await user.clear(field('Symbol'));
+    await user.type(field('Symbol'), 'a b');
+    expect(draft()).toBeNull();
+    await user.clear(field('Symbol'));
+    await user.type(field('Symbol'), 'tsla');
+    expect(draft()).toBe('TSLA');
+    unmount();
+    expect(draft()).toBeNull();
+  });
+
+  it('stops subscribing to the typed symbol when the dialog closes', async () => {
+    const { user } = setup(() => {
+      useUiStore.getState().openCreateAlert('AMD');
+    });
+    expect(useUiStore.getState().alertDraftSymbol).toBe('AMD');
+    await user.click(within(dialog()).getByRole('button', { name: 'Cancel' }));
+    expect(isOpen()).toBe(false);
+    expect(useUiStore.getState().alertDraftSymbol).toBeNull();
+  });
+
   it('validates inline, focuses the first invalid field and sends nothing', async () => {
     const create = vi.spyOn(api, 'createAlert');
     const { user } = setup(() => {

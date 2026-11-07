@@ -123,6 +123,14 @@ function AlertForm({ dialog, original }: AlertFormProps) {
   const symbolCheck = validateSymbol(values.symbol);
   const symbol = symbolCheck.ok ? symbolCheck.value : null;
   const targetPrice = parsePriceInput(values.targetPrice);
+
+  // Subscribe to the symbol in the form, so its price and the preview work for any symbol.
+  useEffect(() => {
+    useUiStore.getState().setAlertDraftSymbol(symbol);
+    return () => {
+      useUiStore.getState().setAlertDraftSymbol(null);
+    };
+  }, [symbol]);
   const changes = original ? toUpdateInput(original, values) : null;
 
   const submit = async (event: SyntheticEvent<HTMLFormElement>) => {
