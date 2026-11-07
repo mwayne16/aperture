@@ -1,0 +1,188 @@
+/*
+ * Watchlist sidebar. It fills the side area: a fixed header and footer around a list that scrolls
+ * on its own. Colors come from tokens only, so both themes work without overrides.
+ */
+
+.wl-sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.wl-sidebar__header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-1);
+  height: var(--h-panel-header);
+  padding: 0 var(--sp-1) 0 var(--sp-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.wl-sidebar__title {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.wl-sidebar__body {
+  flex: 1;
+  min-height: 0;
+  padding: var(--sp-1);
+  overflow-y: auto;
+}
+
+.wl-sidebar__footer {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-tight);
+}
+
+/* ---------------------------------------------------------------- List */
+
+.wl-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.wl-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-sm);
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.wl-item:hover {
+  background-color: var(--bg-hover);
+}
+
+.wl-item.is-active {
+  background-color: var(--bg-selected);
+}
+
+/* Accent bar so the active list reads as selected even without color. */
+.wl-item.is-active::before {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 0;
+  width: 2px;
+  border-radius: 2px;
+  background-color: var(--accent);
+  content: '';
+}
+
+.wl-item__select {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  height: var(--h-row);
+  padding: 0 var(--sp-1) 0 var(--sp-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: var(--fs-md);
+  text-align: left;
+}
+
+.wl-item__select:focus-visible {
+  outline-offset: -2px;
+}
+
+.wl-item__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wl-item.is-active .wl-item__name {
+  font-weight: var(--fw-semibold);
+}
+
+.wl-item__count {
+  flex: none;
+  min-width: 2ch;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  text-align: right;
+}
+
+.wl-item:hover .wl-item__count,
+.wl-item.is-active .wl-item__count {
+  color: var(--text-muted-on-tint);
+}
+
+/* The menu button keeps its space so names don't shift, and shows on hover, focus or while open. */
+.wl-item__menu {
+  margin-right: 2px;
+  opacity: 0;
+}
+
+.wl-item:hover .wl-item__menu,
+.wl-item:focus-within .wl-item__menu,
+.wl-item__menu[aria-expanded='true'] {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .wl-item__menu {
+    opacity: 1;
+  }
+}
+
+/* ---------------------------------------------------------------- States */
+
+.wl-skeleton-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  height: var(--h-row);
+  padding: 0 34px 0 var(--sp-3);
+}
+
+.wl-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-1);
+  padding: 2px 2px 2px var(--sp-2);
+  border-radius: var(--radius-sm);
+  background-color: var(--warning-tint);
+  color: var(--warning-text);
+  font-size: var(--fs-sm);
+}
+
+.wl-banner svg {
+  width: 14px;
+  height: 14px;
+}
+
+.wl-banner__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.wl-dialog__error {
+  margin-top: var(--sp-3);
+  color: var(--loss-text);
+  font-size: var(--fs-sm);
+}
