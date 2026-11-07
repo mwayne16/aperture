@@ -235,11 +235,10 @@ function WatchlistQuotes({ watchlist, refreshError }: WatchlistQuotesProps) {
   return (
     <div className="market" ref={rootRef}>
       <MarketHeader title={name} meta={`${symbols.length} ${symbols.length === 1 ? 'symbol' : 'symbols'}`}>
-        {!isEmpty && (
-          <div className="market__add" data-market-add="">
-            <SymbolSearch variant="add" watchlistId={watchlistId} />
-          </div>
-        )}
+        {/* ** One add box for every state, so text typed while the first symbol saves survives. */}
+        <div className="market__add" data-market-add="">
+          <SymbolSearch variant="add" watchlistId={watchlistId} />
+        </div>
       </MarketHeader>
       {refreshError !== null && (
         <div className="market-notice market-notice--error" role="alert">
@@ -257,17 +256,16 @@ function WatchlistQuotes({ watchlist, refreshError }: WatchlistQuotesProps) {
           <EmptyState
             icon={<ListPlus />}
             title={`${name} is empty`}
-            description="Add a symbol to start monitoring its simulated quotes."
+            description="Use the add box above to start monitoring a symbol's simulated quotes."
             action={
-              <div className="market__empty-add" data-market-add="">
-                <SymbolSearch
-                  variant="add"
-                  watchlistId={watchlistId}
-                  onDone={() => {
-                    setAddFocusRequest((n) => n + 1);
-                  }}
-                />
-              </div>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setAddFocusRequest((n) => n + 1);
+                }}
+              >
+                Add a symbol
+              </Button>
             }
           />
         </div>

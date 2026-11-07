@@ -86,6 +86,8 @@ export function SymbolSearch({ variant, watchlistId, autoFocus = false, onDone }
   /** Option the user moved the highlight to. Null follows the default for the current results. */
   const [chosenKey, setChosenKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** Confirmation for screen readers after the add box saves a symbol. */
+  const [added, setAdded] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const activeWatchlist = useActiveWatchlist();
@@ -162,30 +164,41 @@ export function SymbolSearch({ variant, watchlistId, autoFocus = false, onDone }
     }
   };
 
-  const addToWatchlist = async (symbol: string) => {
+  /** Puts submitted text back to correct it, unless the user has started on the next symbol. */
+  const restore = (submitted: string | null) => {
+    if (submitted !== null && inputRef.current?.value === '') setQuery(submitted);
+  };
+
+  /**
+   * Adds a symbol to the target watchlist. `submittedText` is the add box text when the caller has
+   * already cleared the box; otherwise the current text is taken and the box cleared here.
+   */
+  const addToWatchlist = async (symbol: string, submittedText?: string) => {
     if (busyRef.current) return;
+    const submitted = variant === 'add' ? (submittedText ?? inputRef.current?.value ?? '') : null;
     const watchlist = addTarget(variant, watchlistId);
     if (!watchlist) {
+      restore(submittedText ?? null);
       report('Choose a watchlist first.');
       return;
     }
     const check = validateSymbolForWatchlist(symbol, watchlist.symbols);
     if (!check.ok) {
+      restore(submittedText ?? null);
       report(check.reason);
       return;
     }
     busyRef.current = true;
     setBusy(true);
     // ** The add box clears while the symbol saves, so the user can type the next one meanwhile.
-    const submitted = variant === 'add' ? (inputRef.current?.value ?? '') : null;
-    if (submitted !== null) reset();
+    if (submitted !== null && submittedText === undefined) reset();
     try {
       await useWatchlistStore.getState().addSymbol(watchlist.id, check.value);
       if (variant === 'global') showToast({ tone: 'success', title: `Added ${check.value} to ${watchlist.name}` });
+      else setAdded(`Added ${check.value} to ${watchlist.name}.`);
       onDone?.();
     } catch (failure) {
-      // Bring the text back to correct it, unless the user has started on the next symbol.
-      if (submitted !== null && inputRef.current?.value === '') setQuery(submitted);
+      restore(submitted);
       report(isApiError(failure) ? failure.message : `Couldn't add ${check.value}. Try again.`);
     } finally {
       busyRef.current = false;
@@ -193,14 +206,14 @@ export function SymbolSearch({ variant, watchlistId, autoFocus = false, onDone }
     }
   };
 
-  const commit = async (option: SearchOption, intent: Intent) => {
+  const commit = async (option: SearchOption, intent: Intent, submittedText?: string) => {
     if (variant === 'global' && intent === 'primary') {
       useUiStore.getState().selectSymbol(option.symbol);
       reset();
       onDone?.();
       return;
     }
-    await addToWatchlist(option.symbol);
+    await addToWatchlist(option.symbol, submittedText);
   };
 
   const noMatchReason = (searchTerm: string) => {
@@ -212,15 +225,21 @@ export function SymbolSearch({ variant, watchlistId, autoFocus = false, onDone }
   const commitWhenSearched = async (searchTerm: string, intent: Intent) => {
     if (enterPendingRef.current) return;
     enterPendingRef.current = true;
+    // ** The add box takes the text at Enter and clears, so typing the next symbol right away
+    // doesn't cancel this one. The top bar instead gives up if the user keeps typing.
+    const submitted = variant === 'add' ? (inputRef.current?.value ?? searchTerm) : undefined;
+    if (submitted !== undefined) reset();
     try {
-      const results = await search.searchNow(searchTerm);
-      // The user kept typing, or the search is gone.
-      if (inputRef.current?.value.trim() !== searchTerm) return;
+      const results = await (submitted === undefined ? search.searchNow(searchTerm) : search.lookup(searchTerm));
+      if (submitted === undefined && inputRef.current?.value.trim() !== searchTerm) return;
       // ** A failed search still lets the add box take a valid typed symbol.
       const found = buildOptions(variant, searchTerm, results ?? []);
       const option = found[defaultActiveIndex(found, searchTerm)];
-      if (option) await commit(option, intent);
-      else if (variant === 'add') report(noMatchReason(searchTerm));
+      if (option) await commit(option, intent, submitted);
+      else if (variant === 'add') {
+        restore(submitted ?? null);
+        report(noMatchReason(searchTerm));
+      }
     } finally {
       enterPendingRef.current = false;
     }
@@ -278,6 +297,7 @@ export function SymbolSearch({ variant, watchlistId, autoFocus = false, onDone }
 
   let announcement = '';
   if (error !== null) announcement = error;
+  else if (added !== null) announcement = added;
   else if (open && search.status === 'ready')
     announcement =
       instrumentCount === 0
@@ -319,6 +339,7 @@ export function SymbolSearch({ variant, watchlistId, autoFocus = false, onDone }
             setQuery(event.target.value);
             setChosenKey(null);
             setError(null);
+            setAdded(null);
             setDismissed(false);
           }}
           onKeyDown={onKeyDown}

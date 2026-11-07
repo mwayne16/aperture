@@ -37,8 +37,8 @@ describe('subscribedSymbols', () => {
     ).toEqual(['AAPL', 'AMD', 'MSFT', 'TSLA']);
   });
 
-  it('skips disabled alerts', () => {
-    expect(subscribedSymbols({ ...none, alerts: [alert('AMD', false)] })).toEqual([]);
+  it('includes disabled alerts, so the alerts panel keeps a current price for them', () => {
+    expect(subscribedSymbols({ ...none, alerts: [alert('AMD', false)] })).toEqual(['AMD']);
   });
 
   it('subscribes to the selected symbol even when no watchlist is active', () => {

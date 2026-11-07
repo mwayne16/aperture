@@ -26,6 +26,8 @@ interface InstrumentSearch {
    * Resolves with the results, or null when the search failed or a newer search replaced it.
    */
   searchNow(term: string): Promise<Instrument[] | null>;
+  /** Searches `term` once for a submitted entry. Resolves null on failure; never changes the shown results. */
+  lookup(term: string): Promise<Instrument[] | null>;
 }
 
 function isPrefixRelated(a: string, b: string): boolean {
@@ -70,6 +72,18 @@ export function useInstrumentSearch(query: string): InstrumentSearch {
     return promise;
   }, []);
 
+  const lookup = useCallback(
+    (searchTerm: string): Promise<Instrument[] | null> =>
+      api.searchInstruments(searchTerm, SEARCH_LIMIT).then(
+        (results) => {
+          rememberInstruments(results);
+          return results;
+        },
+        () => null,
+      ),
+    [],
+  );
+
   useEffect(() => {
     if (term === '') {
       // Clearing the box drops any request still running.
@@ -93,17 +107,18 @@ export function useInstrumentSearch(query: string): InstrumentSearch {
     [],
   );
 
-  if (term === '') return { status: 'idle', results: NO_RESULTS, error: null, searchNow };
+  if (term === '') return { status: 'idle', results: NO_RESULTS, error: null, searchNow, lookup };
   if (settled.term !== term) {
     // ** Older results stay up only while the user extends or trims the same text, so the list
     // doesn't blink on every keystroke but never shows matches for an unrelated earlier query.
     const related = isPrefixRelated(settled.term, term);
-    return { status: 'loading', results: related ? settled.results : NO_RESULTS, error: null, searchNow };
+    return { status: 'loading', results: related ? settled.results : NO_RESULTS, error: null, searchNow, lookup };
   }
   return {
     status: settled.error === null ? 'ready' : 'error',
     results: settled.results,
     error: settled.error,
     searchNow,
+    lookup,
   };
 }

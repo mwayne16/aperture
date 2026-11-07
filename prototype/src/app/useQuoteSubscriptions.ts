@@ -16,7 +16,8 @@ interface SubscriptionSources {
 
 /**
  * Symbols the UI needs live quotes for: the active watchlist, the selected symbol, the symbol typed
- * into the alert dialog, and enabled alerts so the alerts panel can show the current price.
+ * into the alert dialog, and every alert's symbol. Disabled alerts are included so the alerts panel
+ * never shows a frozen last price as current.
  * Sorted and unique.
  */
 export function subscribedSymbols({
@@ -28,7 +29,7 @@ export function subscribedSymbols({
   const symbols = new Set(watchlist);
   if (selected !== null) symbols.add(selected);
   if (alertDraft !== null) symbols.add(alertDraft);
-  for (const alert of alerts) if (alert.enabled) symbols.add(alert.symbol);
+  for (const alert of alerts) symbols.add(alert.symbol);
   return [...symbols].sort();
 }
 
