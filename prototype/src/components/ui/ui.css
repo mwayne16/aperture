@@ -886,10 +886,14 @@
 
 /* ---------------------------------------------------------------- Toasts */
 
+/*
+ * Top right, just below the top bar: the bottom edge holds the alerts dock's buttons and the status
+ * bar, which a toast must not cover.
+ */
 .ui-toasts {
   position: fixed;
+  top: calc(var(--h-topbar) + var(--sp-2));
   right: var(--sp-4);
-  bottom: var(--sp-4);
   z-index: var(--z-toast);
   width: 340px;
   max-width: calc(100vw - 32px);
@@ -1226,7 +1230,7 @@
 @keyframes ui-toast-in {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(-6px);
   }
   to {
     opacity: 1;

@@ -84,6 +84,15 @@ describe('ui.css visual contract (adversarial)', () => {
     expect(prop(selector, 'height')).toBe(`var(${token})`);
   });
 
+  it('stacks toasts at the top right below the top bar, clear of the dock and the status bar', () => {
+    expect(prop('.ui-toasts', 'position')).toBe('fixed');
+    expect(prop('.ui-toasts', 'top')).toBe('calc(var(--h-topbar) + var(--sp-2))');
+    expect(prop('.ui-toasts', 'right')).toBe('var(--sp-4)');
+    expect(prop('.ui-toasts', 'bottom')).toBeUndefined();
+    expect(prop('.ui-toasts', 'width')).toBe('340px');
+    expect(prop('.ui-toasts', 'max-width')).toBe('calc(100vw - 32px)');
+  });
+
   it('the panel header stays put and only the body scrolls', () => {
     expect(prop('.ui-panel__header', 'flex')).toBe('none');
     expect(prop('.ui-panel__body', 'overflow') ?? prop('.ui-panel__body', 'overflow-y')).toMatch(

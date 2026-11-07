@@ -12,7 +12,7 @@ const TONE_ICON: Record<ToastTone, typeof Info> = {
   error: CircleX,
 };
 
-/** Bottom-right toast stack (newest at the bottom). Mount once near the app root. */
+/** Toast stack at the top right, below the top bar (newest at the bottom). Mount once near the app root. */
 export function ToastViewport() {
   const toasts = useToastStore((s) => s.toasts);
   // ** If the viewport unmounts while hovered, don't leave the countdowns frozen.

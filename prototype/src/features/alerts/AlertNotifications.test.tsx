@@ -1,6 +1,7 @@
-import { act, render } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ToastViewport } from '../../components/ui/ToastViewport';
 import { dismissAllToasts, useToastStore } from '../../components/ui/toastStore';
 import { realtime, startDataLayer } from '../../data/dataLayer';
 import type { AlertEvent, PriceAlert } from '../../domain/types';
@@ -94,6 +95,40 @@ describe('AlertNotifications', () => {
     act(dismissAllToasts);
     channels.emitAlert({ ...event, id: 'evt-4', triggeredAt: '2026-10-30T18:05:20.000Z' });
     expect(toasts()).toHaveLength(1);
+  });
+
+  it('dismisses a trigger toast on its own after about 8 seconds, pausing while hovered', () => {
+    vi.useFakeTimers();
+    try {
+      const channels = fakeChannels();
+      render(
+        <>
+          <AlertNotifications />
+          <ToastViewport />
+        </>,
+      );
+      channels.emitAlert(event);
+      expect(toasts()).toHaveLength(1);
+      act(() => {
+        vi.advanceTimersByTime(7_900);
+      });
+      expect(toasts()).toHaveLength(1);
+
+      // Reading the toast holds it; leaving lets the countdown finish.
+      const stack = screen.getByRole('region', { name: 'Notifications' });
+      fireEvent.mouseEnter(stack);
+      act(() => {
+        vi.advanceTimersByTime(30_000);
+      });
+      expect(toasts()).toHaveLength(1);
+      fireEvent.mouseLeave(stack);
+      act(() => {
+        vi.advanceTimersByTime(100);
+      });
+      expect(toasts()).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('merges pushed alert state into the store', async () => {
