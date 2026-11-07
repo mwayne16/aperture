@@ -7,6 +7,9 @@ import { resetDemoData } from '../../data/dataLayer';
 import { getQuote } from '../../data/quoteStore';
 import { updateSimulation } from '../../data/simulationStore';
 import { useAlertStore } from '../../features/alerts/alertStore';
+import { useNotificationStore } from '../../features/notifications/notificationStore';
+import { DEFAULT_SETTINGS } from '../../features/settings/settingsRules';
+import { useSettingsStore } from '../../features/settings/settingsStore';
 import { resetShellStores } from '../../features/shell/testUtils';
 import { useUiStore } from '../uiStore';
 
@@ -17,8 +20,9 @@ vi.mock('lightweight-charts', async (importOriginal) => {
 });
 
 /**
- * Alerts end to end on the real mock data layer: the dialog, the dock, server-side evaluation in the
- * mock realtime, trigger toasts and the trigger log, as a user drives them in the full app.
+ * Alerts end to end on the real mock data layer: the dialog, the alerts page, server-side evaluation
+ * in the mock realtime, trigger toasts, the trigger history and the notification inbox, as a user
+ * drives them across pages in the full app.
  */
 
 // ** fireEvent rather than user-event: Testing Library's async wrapper waits on a timer that the fake
@@ -27,13 +31,15 @@ vi.mock('lightweight-charts', async (importOriginal) => {
 let clock = Math.ceil(Date.now() / 1000) * 1000;
 
 beforeEach(async () => {
-  // These flows run on a watchlist page, where the quote table lives.
+  // Flows start on a watchlist page, where the quote table and its row menus live.
   window.location.hash = '#/watchlists';
   // ** Each test starts an hour after the previous one, so trade times the shared mock market kept
   // from earlier tests are always in the past.
   clock += 3_600_000;
   vi.useFakeTimers({ now: clock });
   resetShellStores();
+  useNotificationStore.setState({ notifications: [] });
+  useSettingsStore.setState({ settings: { ...DEFAULT_SETTINGS } });
   updateSimulation({ apiLatencyMs: 0 });
   await resetDemoData();
   act(() => {
@@ -45,6 +51,7 @@ afterEach(() => {
   cleanup();
   vi.useRealTimers();
   resetShellStores();
+  useNotificationStore.setState({ notifications: [] });
   act(() => {
     dismissAllToasts();
   });
@@ -63,16 +70,27 @@ async function startApp() {
   return view;
 }
 
+/** Navigates the way a typed URL or a bookmark would. */
+async function goTo(hash: string) {
+  act(() => {
+    window.location.hash = hash;
+    // ** jsdom queues hashchange on a real timer, which the fake clock never runs.
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+  });
+  await advance(300);
+}
+
 const toastTitles = () => useToastStore.getState().toasts.map((t) => t.title);
 const dialog = () => screen.getByRole('dialog');
 const field = (name: string) => within(dialog()).getByRole('textbox', { name });
 const alertsTab = () => screen.getByRole('tab', { name: /^Alerts/ });
 const alertFor = (symbol: string) => useAlertStore.getState().alerts.find((a) => a.symbol === symbol);
 const eventsFor = (alertId: string) => useAlertStore.getState().events.filter((e) => e.alertId === alertId);
+const alertsTable = () => screen.getByRole('table', { name: 'Price alerts' });
+const inbox = () => useNotificationStore.getState().notifications;
 
 function alertRow(symbol: string): HTMLElement {
-  const table = screen.getByRole('table', { name: 'Price alerts' });
-  const row = within(table).getByRole('button', { name: `${symbol}, show details` }).closest('tr');
+  const row = within(alertsTable()).getByRole('link', { name: `${symbol}, open symbol page` }).closest('tr');
   if (!row) throw new Error(`No alert row for ${symbol}`);
   return row;
 }
@@ -93,12 +111,13 @@ async function submitDialog(label: string) {
   await advance(0);
 }
 
-/** Opens the dock's New alert dialog and creates an alert for `symbol`. */
+/** Opens the alerts page's New alert dialog and creates an alert for `symbol`. */
 async function createAlert(
   symbol: string,
   targetPrice: number,
   options: { condition?: 'Above (≥)' | 'Below (≤)'; enabled?: boolean } = {},
 ) {
+  if (window.location.hash !== '#/alerts') await goTo('#/alerts');
   fireEvent.click(screen.getByRole('button', { name: 'New alert' }));
   type(field('Symbol'), symbol);
   if (options.condition) fireEvent.click(within(dialog()).getByRole('radio', { name: options.condition }));
@@ -118,16 +137,20 @@ async function runFeedUntil(done: () => boolean, maxMs: number, invariant: () =>
   }
 }
 
+/** Opens a watchlist from the sidebar, which makes it the active (subscribed) list. */
 async function showWatchlist(name: RegExp) {
   fireEvent.click(screen.getByRole('button', { name }));
   await advance(500);
 }
 
-// ** Skipped while the alerts dock becomes its own page; the alerts task adapts these flows and restores them.
-describe.skip('alerts end to end (QA)', () => {
-  it('creates an alert from a market row menu that triggers once, with one toast and one log entry', async () => {
+function unreadBadge(): string | null {
+  const link = screen.getByRole('link', { name: /^Notifications/ });
+  return link.querySelector('.sidebar-nav__badge')?.textContent ?? null;
+}
+
+describe('alerts end to end (QA)', () => {
+  it('creates an alert from a market row menu that triggers once, with one toast, one history entry and one notification', async () => {
     await startApp();
-    expect(alertsTab()).toHaveTextContent('Alerts4');
     const last = getQuote('AMD')?.last ?? Number.NaN;
     const target = Math.floor(last) - 5;
 
@@ -137,25 +160,30 @@ describe.skip('alerts end to end (QA)', () => {
     type(field('Target price'), String(target));
     expect(within(dialog()).getByText(/so this alert triggers on the next trade\.$/)).toBeInTheDocument();
     await submitDialog('Create alert');
-
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(alertsTab()).toHaveTextContent('Alerts5');
+
     const alert = alertFor('AMD');
     await runFeedUntil(() => eventsFor(alert!.id).length > 0, 10_000);
     await advance(2000);
-
     expect(eventsFor(alert!.id)).toHaveLength(1);
-    expect(toastTitles().filter((t) => t === `AMD above ${target}.00 · Buy`)).toHaveLength(1);
+    const title = `AMD above ${target}.00 · Buy`;
+    expect(toastTitles().filter((t) => t === title)).toHaveLength(1);
+
+    await goTo('#/alerts');
+    expect(alertsTab()).toHaveTextContent('Alerts5');
     expect(within(alertRow('AMD')).getByText('Triggered, waiting to re-arm')).toBeInTheDocument();
     expect(within(alertRow('AMD')).getByText('Met')).toBeInTheDocument();
 
-    fireEvent.mouseDown(screen.getByRole('tab', { name: /^Trigger log/ }));
-    const log = screen.getByRole('table', { name: /Trigger log/ });
-    const amdRows = within(log)
+    fireEvent.mouseDown(screen.getByRole('tab', { name: /^Trigger history/ }));
+    const history = screen.getByRole('table', { name: /Trigger history/ });
+    const amdRows = within(history)
       .getAllByRole('row')
       .filter((r) => r.textContent.includes('AMD'));
     expect(amdRows).toHaveLength(1);
     expect(amdRows[0]).toHaveTextContent(`Last above${target}.00`);
+
+    expect(inbox().filter((n) => n.title === title)).toHaveLength(1);
+    expect(inbox().find((n) => n.title === title)?.symbol).toBe('AMD');
   });
 
   it('re-arms after the price leaves the condition and fires again, keeping one toast per alert', async () => {
@@ -189,11 +217,14 @@ describe.skip('alerts end to end (QA)', () => {
     expect(armedHistory.filter((armed) => !armed)).toHaveLength(events.length);
     expect(alertFor('AMD')?.triggerCount).toBe(events.length);
     expect(alertFor('AMD')?.lastTriggeredAt).toBe(events[0]?.triggeredAt);
+    // Every trigger lands in the inbox once, however often the toast was replaced.
+    expect(inbox().filter((n) => n.title.startsWith('AMD above'))).toHaveLength(events.length);
   });
 
   it('shows a live simulated price for a typed symbol outside the watchlist, and stops watching it on close', async () => {
     await startApp();
     await showWatchlist(/^Index ETFs,/);
+    await goTo('#/alerts');
     fireEvent.click(screen.getByRole('button', { name: 'New alert' }));
     type(field('Symbol'), 'amd');
     await advance(1500);
@@ -216,6 +247,7 @@ describe.skip('alerts end to end (QA)', () => {
 
   it('keeps a current price for a disabled alert after its symbol leaves the active watchlist', async () => {
     await startApp();
+    await goTo('#/alerts');
     // NVDA is in the active Core Tech list, so its price is live.
     const cell = () => within(alertRow('NVDA')).getAllByRole('cell')[2]!;
     expect(cell()).toHaveTextContent(/^\d+\.\d{2}$/);
@@ -226,14 +258,15 @@ describe.skip('alerts end to end (QA)', () => {
     const before = getQuote('NVDA')?.updatedAt;
     await advance(15_000);
     expect(getQuote('NVDA')?.updatedAt, 'NVDA quote kept updating').not.toBe(before);
+    await goTo('#/alerts');
     expect(cell()).toHaveTextContent(/^\d+\.\d{2}$/);
     // ** A quiet symbol can turn stale on its own; the price is muted exactly when it isn't live.
     expect(cell().classList.contains('is-muted')).toBe(getQuote('NVDA')?.status !== 'live');
   });
 
-  it('creates an alert from the detail panel for the selected symbol', async () => {
+  it('creates an alert from the symbol page and lists it on the alerts page', async () => {
     await startApp();
-    fireEvent.click(screen.getByRole('button', { name: 'TSLA, show details' }));
+    await goTo('#/symbol/TSLA');
     await advance(1000);
     const detail = screen.getByRole('region', { name: 'Stock details' });
     fireEvent.click(within(detail).getByRole('button', { name: 'Create alert' }));
@@ -245,12 +278,19 @@ describe.skip('alerts end to end (QA)', () => {
     fireEvent.click(within(dialog()).getByRole('radio', { name: 'Sell' }));
     await submitDialog('Create alert');
     expect(toastTitles()).toContain('Alert created');
+
+    await goTo('#/alerts');
     expect(alertsTab()).toHaveTextContent('Alerts5');
-    const row = screen
+    const row = within(alertsTable())
       .getAllByRole('row')
       .find((r) => r.textContent.includes('TSLA') && r.textContent.includes('Last ≤ 1.00'));
     expect(row).toBeDefined();
     expect(within(row!).getByText('Sell')).toBeInTheDocument();
+
+    // The symbol link leads back to the symbol page.
+    fireEvent.click(within(row!).getByRole('link', { name: 'TSLA, open symbol page' }));
+    await advance(300);
+    expect(window.location.hash).toBe('#/symbol/TSLA');
   });
 
   it('re-arms a triggered alert when its target is edited, and replaces its toast when it fires again', async () => {
@@ -295,7 +335,7 @@ describe.skip('alerts end to end (QA)', () => {
     expect(within(alertRow('AMD')).getByText('Disabled')).toBeInTheDocument();
   });
 
-  it('deletes an alert while its trigger toast is showing, keeping the toast and log entry as history', async () => {
+  it('deletes an alert while its trigger toast is showing, keeping the toast and history entry', async () => {
     await startApp();
     const last = getQuote('AMD')?.last ?? Number.NaN;
     const alert = await createAlert('AMD', Math.floor(last) - 5);
@@ -308,7 +348,7 @@ describe.skip('alerts end to end (QA)', () => {
     fireEvent.click(within(confirm).getByRole('button', { name: 'Delete' }));
     await advance(0);
 
-    expect(within(screen.getByRole('table', { name: 'Price alerts' })).queryByText('AMD')).not.toBeInTheDocument();
+    expect(within(alertsTable()).queryByText('AMD')).not.toBeInTheDocument();
     expect(alertsTab()).toHaveTextContent('Alerts4');
     expect(toastTitles()).toContain(trigger);
     expect(useToastStore.getState().toasts.filter((t) => t.tone === 'error')).toHaveLength(0);
@@ -317,7 +357,7 @@ describe.skip('alerts end to end (QA)', () => {
     expect(alertFor('AMD')).toBeUndefined();
   });
 
-  it('shows the seeded alerts in the dock again after Reset demo data', async () => {
+  it('shows the seeded alerts again after Reset demo data in Settings', async () => {
     await startApp();
     await createAlert('AMD', 1);
     await chooseMenuItem(within(alertRow('MSFT')).getByRole('button', { name: /^Actions for MSFT/ }), 'Delete');
@@ -327,22 +367,70 @@ describe.skip('alerts end to end (QA)', () => {
     await advance(0);
     expect(alertsTab()).toHaveTextContent('Alerts4');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Simulation controls' }));
+    await goTo('#/settings');
     fireEvent.click(screen.getByRole('button', { name: 'Reset demo data…' }));
     fireEvent.click(within(screen.getByRole('dialog', { name: 'Reset demo data?' })).getByRole('button', { name: 'Reset demo data' }));
     await advance(500);
-    // ** The controls stay open after a reset; close them so the dock is no longer behind a modal.
-    fireEvent.click(within(screen.getByRole('dialog', { name: 'Simulation controls' })).getByRole('button', { name: 'Done' }));
-    await advance(0);
-
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(toastTitles()).toContain('Demo data reset');
+
+    await goTo('#/alerts');
     expect(alertsTab()).toHaveTextContent('Alerts4');
-    const symbols = within(screen.getByRole('table', { name: 'Price alerts' }))
-      .getAllByRole('button', { name: /, show details$/ })
-      .map((b) => b.textContent);
+    const symbols = within(alertsTable())
+      .getAllByRole('link', { name: /, open symbol page$/ })
+      .map((link) => link.textContent);
     expect(symbols).toEqual(['AAPL', 'MSFT', 'NVDA', 'TSLA']);
     expect(within(alertRow('AAPL')).getByRole('switch')).toBeChecked();
     expect(within(alertRow('NVDA')).getByRole('switch')).not.toBeChecked();
     expect(within(alertRow('MSFT')).getByText('Never')).toBeInTheDocument();
+  });
+
+  it('records triggers and one coalesced entry for a dropped connection in Notifications, with the sidebar badge', async () => {
+    await startApp();
+    expect(unreadBadge()).toBeNull();
+    const last = getQuote('AMD')?.last ?? Number.NaN;
+    const alert = await createAlert('AMD', Math.floor(last) - 5);
+    await runFeedUntil(() => eventsFor(alert.id).length > 0, 10_000);
+    expect(unreadBadge()).toBe('1');
+
+    // The feed drops twice in quick succession: one inbox entry describes both.
+    for (let drop = 0; drop < 2; drop++) {
+      fireEvent.click(screen.getByRole('button', { name: 'Simulation controls' }));
+      fireEvent.click(screen.getByRole('radio', { name: 'Disconnected' }));
+      await advance(3000);
+      fireEvent.click(screen.getByRole('radio', { name: 'Live' }));
+      fireEvent.click(within(screen.getByRole('dialog', { name: 'Simulation controls' })).getByRole('button', { name: 'Done' }));
+      await advance(2000);
+    }
+    const connection = inbox().filter((n) => n.kind === 'connection');
+    expect(connection).toHaveLength(1);
+    expect(connection[0]).toMatchObject({ title: 'Connection restored', read: false });
+    expect(connection[0]?.body).toMatch(/dropped 2 times since .* and is connected again\./);
+    expect(unreadBadge()).toBe('2');
+
+    await goTo('#/notifications');
+    expect(screen.getByRole('heading', { level: 1, name: 'Notifications' })).toBeInTheDocument();
+    fireEvent.mouseDown(screen.getByRole('tab', { name: /^Connection/ }));
+    expect(screen.getByText(/dropped 2 times since/)).toBeInTheDocument();
+    fireEvent.mouseDown(screen.getByRole('tab', { name: /^All/ }));
+
+    const title = `AMD above ${Math.floor(last) - 5}.00 · Buy`;
+    fireEvent.click(screen.getByRole('link', { name: title }));
+    await advance(300);
+    expect(window.location.hash).toBe('#/symbol/AMD');
+    expect(unreadBadge()).toBe('1');
+  });
+
+  it('stops trigger toasts once they are turned off in Settings, while the inbox keeps every trigger', async () => {
+    await startApp();
+    await goTo('#/settings');
+    fireEvent.click(screen.getByRole('switch', { name: 'Trigger toasts' }));
+    expect(useSettingsStore.getState().settings.triggerToasts).toBe(false);
+
+    const last = getQuote('AMD')?.last ?? Number.NaN;
+    const alert = await createAlert('AMD', Math.floor(last) - 5);
+    await runFeedUntil(() => eventsFor(alert.id).length > 0, 10_000);
+    expect(toastTitles().filter((t) => t.startsWith('AMD above'))).toEqual([]);
+    expect(inbox().filter((n) => n.title.startsWith('AMD above'))).toHaveLength(1);
   });
 });

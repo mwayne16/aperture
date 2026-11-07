@@ -1,0 +1,147 @@
+/*
+ * Notification inbox. Colors come from tokens.css only, so both themes work without overrides here.
+ */
+
+.notifications-page {
+  max-width: 960px;
+}
+
+.notifications-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background-color: var(--bg-panel);
+}
+
+.notifications-card__header {
+  padding: 0 var(--sp-2);
+  border-bottom: 1px solid var(--border);
+}
+
+/* The header draws the divider, so the tab strip's own bottom border would double it. */
+.notifications-card__header .ui-tabs {
+  height: 40px;
+  border-bottom: 0;
+}
+
+.notifications-card__panel {
+  min-height: 160px;
+}
+
+.notifications-card__panel:focus-visible {
+  outline-offset: -2px;
+}
+
+.notice-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.notice {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: start;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--border-subtle);
+  cursor: default;
+}
+
+.notice:last-child {
+  border-bottom: 0;
+}
+
+.notice:hover {
+  background-color: var(--bg-hover);
+}
+
+.notice.is-unread {
+  background-color: var(--accent-tint);
+}
+
+/* Unread entries carry an accent bar on the left edge, so the state doesn't rely on the tint alone. */
+.notice.is-unread::before {
+  position: absolute;
+  top: var(--sp-2);
+  bottom: var(--sp-2);
+  left: 0;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background-color: var(--accent);
+  content: '';
+}
+
+.notice__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-raised);
+  color: var(--text-muted);
+}
+
+.notice[data-kind='alert'] .notice__icon {
+  color: var(--accent-text);
+}
+
+.notice__icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.notice__content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.notice__title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-medium);
+}
+
+.notice.is-unread .notice__title {
+  font-weight: var(--fw-semibold);
+}
+
+.notice__link {
+  border-radius: var(--radius-sm);
+  color: inherit;
+  text-decoration: none;
+}
+
+.notice__link:hover {
+  color: var(--accent-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.notice__body {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-normal);
+}
+
+.notice__time {
+  padding-top: 2px;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+
+.notice__actions {
+  display: flex;
+  gap: 2px;
+}

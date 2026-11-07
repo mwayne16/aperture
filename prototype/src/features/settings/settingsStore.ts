@@ -1,32 +1,50 @@
 import { create } from 'zustand';
-import type { ChartRange } from '../../domain/types';
+import { DEFAULT_SETTINGS, parseStoredSettings, validPatch, type Settings } from './settingsRules';
 
-interface Settings {
-  /** Range a stock chart opens with. */
-  defaultChartRange: ChartRange;
-  chartStyle: 'candles' | 'line';
-  /** Show a toast when an alert triggers. The notification inbox records triggers either way. */
-  triggerToasts: boolean;
+export const SETTINGS_STORAGE_KEY = 'aperture.settings';
+
+function readStoredSettings(): Settings {
+  try {
+    return parseStoredSettings(window.localStorage.getItem(SETTINGS_STORAGE_KEY));
+  } catch {
+    return { ...DEFAULT_SETTINGS };
+  }
 }
 
-const DEFAULT_SETTINGS: Settings = { defaultChartRange: '1D', chartStyle: 'candles', triggerToasts: true };
+function writeStoredSettings(settings: Settings): void {
+  try {
+    window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+  } catch {
+    // ** Storage can be blocked (private mode, quota). The in-memory settings still apply.
+  }
+}
 
 /**
- * App preferences other features read, such as chart defaults. The theme lives in
- * components/ui/theme.ts. The settings feature owns this store and may add persistence.
+ * App preferences other features read, such as chart defaults and trigger toasts. Saved to
+ * localStorage on every change and validated on load, so a stored value this version doesn't
+ * understand falls back to its default. The theme lives in components/ui/theme.ts.
  */
 interface SettingsState {
   settings: Settings;
+  /** Applies the valid fields of `patch`; invalid values are ignored. */
   update(patch: Partial<Settings>): void;
   reset(): void;
 }
 
-export const useSettingsStore = create<SettingsState>()((set) => ({
-  settings: DEFAULT_SETTINGS,
+export const useSettingsStore = create<SettingsState>()((set, get) => ({
+  settings: readStoredSettings(),
   update: (patch) => {
-    set((s) => ({ settings: { ...s.settings, ...patch } }));
+    const valid = validPatch(patch);
+    const current = get().settings;
+    const changed = (Object.keys(valid) as (keyof Settings)[]).some((key) => valid[key] !== current[key]);
+    if (!changed) return;
+    const settings = { ...current, ...valid };
+    writeStoredSettings(settings);
+    set({ settings });
   },
   reset: () => {
-    set({ settings: DEFAULT_SETTINGS });
+    const settings = { ...DEFAULT_SETTINGS };
+    writeStoredSettings(settings);
+    set({ settings });
   },
 }));

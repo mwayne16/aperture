@@ -1,84 +1,7 @@
 /*
- * Alerts dock, alert table, trigger log and the alert dialog form.
+ * Alerts page (summary cards, the alert table and trigger history) and the alert dialog form.
  * Colors come from tokens.css only, so both themes work without overrides here.
  */
-
-/* ---------------------------------------------------------------- Dock */
-
-.alerts-dock {
-  display: flex;
-  flex-direction: column;
-  height: 240px;
-  min-height: 0;
-  background-color: var(--bg-panel);
-}
-
-.alerts-dock.is-collapsed {
-  height: var(--h-panel-header);
-}
-
-.alerts-dock__bar {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: var(--sp-2);
-  height: var(--h-panel-header);
-  padding: 0 var(--sp-2) 0 var(--sp-1);
-  border-bottom: 1px solid var(--border);
-}
-
-.alerts-dock.is-collapsed .alerts-dock__bar {
-  border-bottom: 0;
-}
-
-/* The bar draws the divider, so the tab strip's own bottom border would double it. */
-.alerts-dock__bar .ui-tabs {
-  border-bottom: 0;
-}
-
-.alerts-dock__spacer {
-  flex: 1;
-}
-
-.alerts-dock__body {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.alerts-dock__note {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: 6px;
-  min-height: 24px;
-  padding: 2px var(--sp-3);
-  border-bottom: 1px solid var(--border-subtle);
-  color: var(--text-muted);
-  font-size: var(--fs-xs);
-  line-height: var(--lh-tight);
-}
-
-.alerts-dock__note svg {
-  width: 13px;
-  height: 13px;
-}
-
-.alerts-dock__note--warning {
-  background-color: var(--warning-tint);
-  color: var(--warning-text);
-}
-
-.alerts-dock__scroll {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-}
-
-.alerts-dock__scroll:focus-visible {
-  outline-offset: -2px;
-}
 
 /* ---------------------------------------------------------------- Tables */
 
@@ -119,13 +42,10 @@
 }
 
 .alerts-symbol {
-  padding: 0;
-  border: 0;
   border-radius: var(--radius-sm);
-  background: none;
   color: var(--text-primary);
   font-weight: var(--fw-semibold);
-  cursor: pointer;
+  text-decoration: none;
 }
 
 .alerts-symbol:hover {
@@ -269,13 +189,148 @@
   margin-top: 2px;
 }
 
-/* ------------------------------------------------------------------ Alerts page */
+/* ---------------------------------------------------------------- Page */
 
-.alerts-page__panel {
+.alerts-notice {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-lg);
+  background-color: var(--warning-tint);
+  color: var(--warning-text);
+  font-size: var(--fs-sm);
+}
+
+.alerts-notice svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+}
+
+.alerts-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--sp-4);
+  margin: 0;
+}
+
+.alerts-summary__card {
   display: flex;
   flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+  padding: var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background-color: var(--bg-panel);
+}
+
+.alerts-summary__label {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+}
+
+.alerts-summary__icon {
+  display: inline-flex;
+  color: var(--accent-text);
+}
+
+.alerts-summary__icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.alerts-summary__value {
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+}
+
+.alerts-summary__caption {
+  overflow: hidden;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alerts-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background-color: var(--bg-panel);
+}
+
+.alerts-card__header {
+  padding: 0 var(--sp-2);
+  border-bottom: 1px solid var(--border);
+}
+
+/* The header draws the divider, so the tab strip's own bottom border would double it. */
+.alerts-card__header .ui-tabs {
+  height: 40px;
+  border-bottom: 0;
+}
+
+.alerts-card__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+  padding: var(--sp-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.alerts-card__search {
+  width: 220px;
+}
+
+.alerts-card__spacer {
+  flex: 1;
+}
+
+.alerts-card__panel {
+  min-height: 160px;
+  overflow-x: auto;
+}
+
+.alerts-card__panel:focus-visible {
+  outline-offset: -2px;
+}
+
+/* The page scrolls, so table headers don't need to stick inside the card. */
+.alerts-card__panel .ui-table th {
+  position: static;
+}
+
+.alerts-card__panel .ui-table td {
+  height: 36px;
+}
+
+/* The note is the first column to go when the card gets narrow; the edit dialog still shows it. */
+@media (max-width: 1279px) {
+  .alerts-table .alerts-table__note {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .alerts-summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

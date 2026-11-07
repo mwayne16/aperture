@@ -5,6 +5,9 @@ import { ToastViewport } from '../../components/ui/ToastViewport';
 import { dismissAllToasts, useToastStore } from '../../components/ui/toastStore';
 import { realtime, startDataLayer } from '../../data/dataLayer';
 import type { AlertEvent, PriceAlert } from '../../domain/types';
+import { useNotificationStore } from '../notifications/notificationStore';
+import { DEFAULT_SETTINGS } from '../settings/settingsRules';
+import { useSettingsStore } from '../settings/settingsStore';
 import { AlertNotifications } from './AlertNotifications';
 import { useAlertStore } from './alertStore';
 import { resetAlertsTestState } from './alertsTestHarness';
@@ -53,6 +56,8 @@ const toasts = () => useToastStore.getState().toasts;
 
 beforeEach(async () => {
   await resetAlertsTestState();
+  useSettingsStore.setState({ settings: { ...DEFAULT_SETTINGS } });
+  useNotificationStore.setState({ notifications: [] });
 });
 
 describe('AlertNotifications', () => {
@@ -63,7 +68,8 @@ describe('AlertNotifications', () => {
         <AlertNotifications />
       </StrictMode>,
     );
-    expect(channels.onAlert.size).toBe(1);
+    // ** One alert listener for toasts and history, and one for the notification inbox it starts.
+    expect(channels.onAlert.size).toBe(2);
     expect(channels.onUpdated.size).toBe(1);
 
     channels.emitAlert(event);
@@ -76,9 +82,27 @@ describe('AlertNotifications', () => {
       },
     ]);
     expect(useAlertStore.getState().events.map((e) => e.id)).toEqual(['evt-1']);
+    expect(useNotificationStore.getState().notifications.map((n) => n.title)).toEqual(['AAPL above 200.00 · Buy']);
 
     channels.emitAlert({ ...event, id: 'evt-2', alertId: 'alert-seed-tsla', symbol: 'TSLA' });
     expect(toasts()).toHaveLength(2);
+  });
+
+  it('skips the toast when trigger toasts are off, but still records the trigger and the notification', () => {
+    const channels = fakeChannels();
+    useSettingsStore.getState().update({ triggerToasts: false });
+    render(<AlertNotifications />);
+    channels.emitAlert(event);
+    expect(toasts()).toEqual([]);
+    expect(useAlertStore.getState().events.map((e) => e.id)).toEqual(['evt-1']);
+    expect(useNotificationStore.getState().notifications).toHaveLength(1);
+
+    // Turning toasts back on applies to the next trigger without a remount.
+    act(() => {
+      useSettingsStore.getState().update({ triggerToasts: true });
+    });
+    channels.emitAlert({ ...event, id: 'evt-2' });
+    expect(toasts()).toHaveLength(1);
   });
 
   it('keeps one toast per alert, showing its latest trigger, while the log keeps every event', () => {

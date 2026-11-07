@@ -1,53 +1,92 @@
 import { create } from 'zustand';
+import {
+  normalizeInbox,
+  parseStoredInbox,
+  serializeInbox,
+  type AppNotification,
+} from './notificationRules';
 
-type NotificationKind = 'alert' | 'connection' | 'system';
+export const NOTIFICATIONS_STORAGE_KEY = 'aperture.notifications';
 
-interface AppNotification {
-  id: string;
-  kind: NotificationKind;
-  title: string;
-  body: string;
-  /** Epoch ms. */
-  at: number;
-  read: boolean;
-  /** Symbol the notification is about, so the inbox can link to its page. */
-  symbol: string | null;
+type NewNotification = Omit<AppNotification, 'read'>;
+
+function readStoredInbox(): AppNotification[] {
+  try {
+    return parseStoredInbox(window.localStorage.getItem(NOTIFICATIONS_STORAGE_KEY));
+  } catch {
+    return [];
+  }
 }
 
-/** Most notifications kept; older ones drop off the end. */
-const MAX_NOTIFICATIONS = 200;
+function writeStoredInbox(notifications: readonly AppNotification[]): void {
+  try {
+    window.localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, serializeInbox(notifications));
+  } catch {
+    // ** Storage can be blocked (private mode, quota). The inbox still works for this session.
+  }
+}
 
 /**
- * In-app notification inbox, newest first and unique by id. The notifications feature owns what
- * feeds it (alert triggers, connection changes) and may add persistence.
+ * In-app notification inbox, newest first, unique by id and capped. notificationFeed.ts fills it
+ * from alert triggers and connection changes. It is saved to localStorage on every change and
+ * validated on load, so a corrupt or outdated entry is dropped instead of breaking the page.
  */
 interface NotificationState {
   notifications: AppNotification[];
-  add(notification: Omit<AppNotification, 'read'>): void;
+  /** Adds an unread entry unless one with the same id exists, so a re-delivered event is ignored. */
+  add(notification: NewNotification): void;
+  /** Adds or replaces the entry with this id and marks it unread, e.g. a connection outage that changed. */
+  upsert(notification: NewNotification): void;
   markRead(id: string): void;
   markAllRead(): void;
+  remove(id: string): void;
   clear(): void;
 }
 
 export const useNotificationStore = create<NotificationState>()((set) => ({
-  notifications: [],
+  notifications: readStoredInbox(),
   add: (notification) => {
     set((s) =>
       s.notifications.some((n) => n.id === notification.id)
         ? s
-        : { notifications: [{ ...notification, read: false }, ...s.notifications].slice(0, MAX_NOTIFICATIONS) },
+        : { notifications: normalizeInbox([{ ...notification, read: false }, ...s.notifications]) },
     );
   },
+  upsert: (notification) => {
+    set((s) => ({
+      notifications: normalizeInbox([
+        { ...notification, read: false },
+        ...s.notifications.filter((n) => n.id !== notification.id),
+      ]),
+    }));
+  },
   markRead: (id) => {
-    set((s) => ({ notifications: s.notifications.map((n) => (n.id === id ? { ...n, read: true } : n)) }));
+    set((s) =>
+      s.notifications.some((n) => n.id === id && !n.read)
+        ? { notifications: s.notifications.map((n) => (n.id === id ? { ...n, read: true } : n)) }
+        : s,
+    );
   },
   markAllRead: () => {
-    set((s) => ({ notifications: s.notifications.map((n) => (n.read ? n : { ...n, read: true })) }));
+    set((s) =>
+      s.notifications.some((n) => !n.read)
+        ? { notifications: s.notifications.map((n) => (n.read ? n : { ...n, read: true })) }
+        : s,
+    );
+  },
+  remove: (id) => {
+    set((s) =>
+      s.notifications.some((n) => n.id === id) ? { notifications: s.notifications.filter((n) => n.id !== id) } : s,
+    );
   },
   clear: () => {
-    set({ notifications: [] });
+    set((s) => (s.notifications.length === 0 ? s : { notifications: [] }));
   },
 }));
+
+useNotificationStore.subscribe((state, previous) => {
+  if (state.notifications !== previous.notifications) writeStoredInbox(state.notifications);
+});
 
 export function useUnreadCount(): number {
   return useNotificationStore((s) => s.notifications.reduce((count, n) => (n.read ? count : count + 1), 0));

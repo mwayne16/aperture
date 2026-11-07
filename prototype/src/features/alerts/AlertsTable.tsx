@@ -1,4 +1,4 @@
-import { BellPlus, Ellipsis, Pencil, Plus, RotateCw, Trash2, TriangleAlert } from 'lucide-react';
+import { BellPlus, Ellipsis, Pencil, Plus, RotateCw, SearchX, Trash2, TriangleAlert } from 'lucide-react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { useUiStore } from '../../app/uiStore';
 import { Button } from '../../components/ui/Button';
@@ -24,7 +24,9 @@ import {
   targetDistance,
   type AlertStatus,
 } from './alertDisplay';
+import { filterAlerts, type StatusFilter } from './alertFilters';
 import { useAlertStore } from './alertStore';
+import { AlertSymbolLink } from './AlertSymbolLink';
 import { AlertTagBadge } from './AlertTagBadge';
 
 const STATUS_TONE: Record<AlertStatus, 'accent' | 'warning' | 'muted'> = {
@@ -33,22 +35,39 @@ const STATUS_TONE: Record<AlertStatus, 'accent' | 'warning' | 'muted'> = {
   disabled: 'muted',
 };
 
+const NO_IDS: ReadonlySet<string> = new Set();
+
 /**
  * Opens the create dialog from the empty state. The empty state disappears once the alert exists and
- * the dialog returns focus to whatever opened it, so focus first moves to the dock's New alert button.
+ * the dialog returns focus to whatever opened it, so focus first moves to the page's New alert button.
  */
-function openCreateFromEmptyState(event: MouseEvent<HTMLButtonElement>): void {
-  event.currentTarget.closest('.alerts-dock')?.querySelector<HTMLElement>('[data-alerts-new]')?.focus();
-  const ui = useUiStore.getState();
-  ui.openCreateAlert(ui.selectedSymbol);
+function openCreateFromEmptyState(): void {
+  document.querySelector<HTMLElement>('[data-alerts-new]')?.focus();
+  useUiStore.getState().openCreateAlert(null);
 }
 
-/** Alerts tab: the alert table with its loading, error and empty states, and delete confirmation. */
-export function AlertsTable() {
-  const status = useAlertStore((s) => s.status);
+interface AlertsTableProps {
+  status: StatusFilter;
+  query: string;
+  onClearFilters: () => void;
+}
+
+/** The alert table with its loading, error and empty states, filters, and delete confirmation. */
+export function AlertsTable({ status, query, onClearFilters }: AlertsTableProps) {
+  const loadStatus = useAlertStore((s) => s.status);
   const error = useAlertStore((s) => s.error);
   const alerts = useAlertStore((s) => s.alerts);
-  const sorted = useMemo(() => sortAlerts(alerts), [alerts]);
+  const filterKey = `${status}|${query}`;
+  // ** A row the user just toggled stays visible until the filters change, even if it no longer
+  // matches the status filter, so the switch doesn't vanish (and drop focus) mid-click.
+  const [kept, setKept] = useState<{ filterKey: string; ids: ReadonlySet<string> }>({ filterKey, ids: NO_IDS });
+  // Any filter change forgets the kept rows, including a change that later returns to the same filters.
+  if (kept.filterKey !== filterKey) setKept({ filterKey, ids: NO_IDS });
+  const keepIds = kept.filterKey === filterKey ? kept.ids : NO_IDS;
+  const visible = useMemo(
+    () => sortAlerts(filterAlerts(alerts, { status, query, keep: keepIds })),
+    [alerts, status, query, keepIds],
+  );
   const [confirming, setConfirming] = useState<PriceAlert | null>(null);
   // Kept after the dialog closes so its message doesn't blank out while it animates away.
   const [lastConfirming, setLastConfirming] = useState<PriceAlert | null>(null);
@@ -60,24 +79,35 @@ export function AlertsTable() {
     setLastConfirming(alert);
   }, []);
 
+  const keepVisible = useCallback(
+    (id: string) => {
+      setKept((current) => {
+        const ids = new Set(current.filterKey === filterKey ? current.ids : NO_IDS);
+        ids.add(id);
+        return { filterKey, ids };
+      });
+    },
+    [filterKey],
+  );
+
   const confirmDelete = () => {
     if (!confirming) return;
-    const index = sorted.findIndex((a) => a.id === confirming.id);
-    const neighbor = sorted[index + 1] ?? sorted[index - 1];
+    const index = visible.findIndex((a) => a.id === confirming.id);
+    const neighbor = visible[index + 1] ?? visible[index - 1];
     focusAfterDelete.current = neighbor?.id ?? '';
     setConfirming(null);
     void useAlertStore.getState().remove(confirming.id);
   };
 
   // ** The deleted row's menu button opened the dialog, so focus would fall to <body> once the row is
-  // gone. Move it to the neighboring row's actions, or to the empty state's New alert button.
+  // gone. Move it to the neighboring row's actions, or to the empty state's action.
   useEffect(() => {
     const id = focusAfterDelete.current;
     if (id === null) return;
     focusAfterDelete.current = null;
     const target =
       id === ''
-        ? emptyActionRef.current
+        ? (emptyActionRef.current ?? document.querySelector<HTMLElement>('[data-alerts-new]'))
         : document.querySelector<HTMLElement>(`[data-alert-actions="${CSS.escape(id)}"]`);
     target?.focus();
   }, [alerts]);
@@ -89,12 +119,11 @@ export function AlertsTable() {
   };
 
   let content;
-  if ((status === 'idle' || status === 'loading') && alerts.length === 0) {
+  if ((loadStatus === 'idle' || loadStatus === 'loading') && alerts.length === 0) {
     content = <AlertsSkeleton />;
-  } else if (status === 'error' && alerts.length === 0) {
+  } else if (loadStatus === 'error' && alerts.length === 0) {
     content = (
       <EmptyState
-        compact
         icon={<TriangleAlert />}
         title="Couldn't load alerts"
         description={error ?? undefined}
@@ -108,18 +137,11 @@ export function AlertsTable() {
   } else if (alerts.length === 0) {
     content = (
       <EmptyState
-        compact
         icon={<BellPlus />}
         title="No alerts yet"
         description="Get notified when a symbol's last trade crosses a price you choose."
         action={
-          <Button
-            ref={emptyActionRef}
-            size="sm"
-            variant="primary"
-            icon={<Plus />}
-            onClick={openCreateFromEmptyState}
-          >
+          <Button ref={emptyActionRef} size="sm" variant="primary" icon={<Plus />} onClick={openCreateFromEmptyState}>
             New alert
           </Button>
         }
@@ -128,7 +150,7 @@ export function AlertsTable() {
   } else {
     content = (
       <>
-        {status === 'error' && (
+        {loadStatus === 'error' && (
           <div className="alerts-banner" role="alert">
             <TriangleAlert aria-hidden="true" />
             <span>Couldn&apos;t refresh alerts. {error}</span>
@@ -137,41 +159,54 @@ export function AlertsTable() {
             </Button>
           </div>
         )}
-        <table className="ui-table alerts-table">
-          <caption className="visually-hidden">Price alerts</caption>
-          <thead>
-            <tr>
-              <th scope="col">Symbol</th>
-              <th scope="col">Condition</th>
-              <th scope="col" className="is-num">
-                Current
-              </th>
-              <th scope="col" className="is-num" title="Move from Current to the target">
-                To target
-              </th>
-              <th scope="col">Tag</th>
-              <th scope="col">Status</th>
-              <th scope="col">Enabled</th>
-              <th scope="col" className="is-num">
-                Last triggered (ET)
-              </th>
-              <th scope="col" className="is-num">
-                Updated (ET)
-              </th>
-              <th scope="col" className="alerts-table__note">
-                Note
-              </th>
-              <th scope="col" className="alerts-table__actions">
-                <span className="visually-hidden">Actions</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {sorted.map((alert) => (
-              <AlertRow key={alert.id} alert={alert} onDelete={askDelete} />
-            ))}
-          </tbody>
-        </table>
+        {visible.length === 0 ? (
+          <EmptyState
+            icon={<SearchX />}
+            title="No alerts match these filters"
+            description="Try another status or symbol."
+            action={
+              <Button ref={emptyActionRef} size="sm" onClick={onClearFilters}>
+                Clear filters
+              </Button>
+            }
+          />
+        ) : (
+          <table className="ui-table alerts-table">
+            <caption className="visually-hidden">Price alerts</caption>
+            <thead>
+              <tr>
+                <th scope="col">Symbol</th>
+                <th scope="col">Condition</th>
+                <th scope="col" className="is-num">
+                  Current
+                </th>
+                <th scope="col" className="is-num" title="Move from Current to the target">
+                  To target
+                </th>
+                <th scope="col">Label</th>
+                <th scope="col">Status</th>
+                <th scope="col">Enabled</th>
+                <th scope="col" className="is-num">
+                  Last triggered (ET)
+                </th>
+                <th scope="col" className="is-num">
+                  Updated (ET)
+                </th>
+                <th scope="col" className="alerts-table__note">
+                  Note
+                </th>
+                <th scope="col" className="alerts-table__actions">
+                  <span className="visually-hidden">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((alert) => (
+                <AlertRow key={alert.id} alert={alert} onDelete={askDelete} onToggle={keepVisible} />
+              ))}
+            </tbody>
+          </table>
+        )}
       </>
     );
   }
@@ -224,9 +259,10 @@ function AlertsSkeleton() {
 interface AlertRowProps {
   alert: PriceAlert;
   onDelete: (alert: PriceAlert) => void;
+  onToggle: (id: string) => void;
 }
 
-const AlertRow = memo(function AlertRow({ alert, onDelete }: AlertRowProps) {
+const AlertRow = memo(function AlertRow({ alert, onDelete, onToggle }: AlertRowProps) {
   const status = alertStatus(alert);
   const condition = conditionText(alert.condition, alert.targetPrice);
   const name = `${alert.symbol} ${condition}`;
@@ -234,16 +270,7 @@ const AlertRow = memo(function AlertRow({ alert, onDelete }: AlertRowProps) {
   return (
     <tr data-status={status}>
       <td>
-        <button
-          type="button"
-          className="alerts-symbol"
-          aria-label={`${alert.symbol}, show details`}
-          onClick={() => {
-            useUiStore.getState().selectSymbol(alert.symbol);
-          }}
-        >
-          {alert.symbol}
-        </button>
+        <AlertSymbolLink symbol={alert.symbol} />
       </td>
       <td className="num alerts-table__condition">{condition}</td>
       <LiveCells
@@ -262,6 +289,7 @@ const AlertRow = memo(function AlertRow({ alert, onDelete }: AlertRowProps) {
         <Switch
           checked={alert.enabled}
           onChange={(enabled) => {
+            onToggle(alert.id);
             void useAlertStore.getState().setEnabled(alert.id, enabled);
           }}
           label={`Enabled: ${name}`}
@@ -326,7 +354,6 @@ function LiveCells({ symbol, condition, targetPrice, enabled }: LiveCellsProps) 
   const distance = targetDistance(condition, targetPrice, last);
 
   let priceTitle: string | undefined;
-  // ** Only enabled alerts subscribe to quotes, so a disabled alert may have no price at all.
   if (last === null) priceTitle = enabled ? 'No price yet' : 'No live price while the alert is disabled';
   else if (stale) priceTitle = 'Stale: no recent trades';
 
