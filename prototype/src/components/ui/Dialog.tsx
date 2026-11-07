@@ -128,7 +128,9 @@ function DialogSurface({
         onCloseAutoFocus={restoreFocus}
         onPointerDownOutside={dismissOnlyFromBackdrop}
       >
-        <header className="ui-dialog__header">
+        {/* ** Plain divs: header and footer elements would add banner and contentinfo landmarks
+            next to the app's own while the dialog is open. */}
+        <div className="ui-dialog__header">
           <div className="ui-dialog__heading">
             <RadixDialog.Title className="ui-dialog__title">{title}</RadixDialog.Title>
             {description && (
@@ -138,16 +140,16 @@ function DialogSurface({
             )}
           </div>
           <IconButton label="Close" icon={<X />} size="sm" onClick={onClose} className="ui-dialog__close" />
-        </header>
+        </div>
         {children != null && (
           <div ref={bodyRef} className="ui-dialog__body">
             {children}
           </div>
         )}
         {footer != null && (
-          <footer ref={footerRef} className="ui-dialog__footer">
+          <div ref={footerRef} className="ui-dialog__footer">
             {footer}
-          </footer>
+          </div>
         )}
       </RadixDialog.Content>
     </RadixDialog.Overlay>

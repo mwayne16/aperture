@@ -71,6 +71,16 @@ describe('Dialog', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
+  it('adds no banner or contentinfo landmark of its own', async () => {
+    const { dialog } = await openDialog();
+    expect(within(dialog).queryByRole('banner')).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole('contentinfo')).not.toBeInTheDocument();
+    expect(dialog.querySelector('.ui-dialog__header')).toHaveTextContent('Rename watchlist');
+    expect(
+      within(dialog.querySelector<HTMLElement>('.ui-dialog__footer')!).getAllByRole('button'),
+    ).toHaveLength(2);
+  });
+
   it('is a labelled modal portaled to document.body', async () => {
     const { dialog } = await openDialog(
       <Harness description="Shown in the sidebar." footer={footer}>
