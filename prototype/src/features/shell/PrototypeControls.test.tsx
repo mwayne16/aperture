@@ -85,6 +85,9 @@ describe('PrototypeControls', () => {
       updateSimulation({ apiLatencyMs: 0 });
     });
     const fail = screen.getByRole('switch', { name: 'Fail the next API call' });
+    expect(fail).toHaveAccessibleDescription(
+      'The next request fails as unavailable, then this switches itself off.',
+    );
     await user.click(fail);
     expect(fail).toBeChecked();
     await act(async () => {
@@ -98,7 +101,7 @@ describe('PrototypeControls', () => {
     const history = screen.getByRole('radiogroup', { name: 'History scenario' });
     await user.click(within(history).getByRole('radio', { name: 'Error' }));
     expect(getSimulation().historyScenario).toBe('error');
-    expect(screen.getByText('Chart history requests fail with a provider error.')).toBeInTheDocument();
+    expect(history).toHaveAccessibleDescription('Chart history requests fail with a provider error.');
   });
 
   it('restores the default settings', async () => {
@@ -153,7 +156,11 @@ describe('Reset demo data', () => {
         },
       });
     });
-    await user.click(screen.getByRole('button', { name: 'Reset demo data…' }));
+    const open = screen.getByRole('button', { name: 'Reset demo data…' });
+    expect(open).toHaveAccessibleDescription(
+      'Restores the seeded watchlists and alerts. Simulation settings are kept.',
+    );
+    await user.click(open);
     const confirm = screen.getByRole('dialog', { name: 'Reset demo data?' });
     await user.click(within(confirm).getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByRole('dialog', { name: 'Reset demo data?' })).not.toBeInTheDocument();

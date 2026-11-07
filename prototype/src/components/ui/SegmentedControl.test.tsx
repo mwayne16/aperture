@@ -104,6 +104,24 @@ describe('SegmentedControl', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it('takes the group description from aria-describedby', () => {
+    render(
+      <>
+        <SegmentedControl
+          options={OPTIONS}
+          value="1W"
+          onChange={vi.fn()}
+          aria-label="Chart range"
+          aria-describedby="range-hint"
+        />
+        <p id="range-hint">Bars cover the selected period.</p>
+      </>,
+    );
+    expect(screen.getByRole('radiogroup', { name: 'Chart range' })).toHaveAccessibleDescription(
+      'Bars cover the selected period.',
+    );
+  });
+
   it('enters on the first option when the value matches none', async () => {
     const user = userEvent.setup();
     render(

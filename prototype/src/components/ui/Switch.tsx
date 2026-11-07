@@ -10,10 +10,19 @@ interface SwitchProps {
   /** Keep the label for assistive tech only (aria-label) and render just the track. */
   hideLabel?: boolean;
   disabled?: boolean;
+  /** Ids of elements that describe the switch, such as a hint below it. */
+  'aria-describedby'?: string;
 }
 
 /** On/off toggle with role="switch". Space (and Enter, as a native button) toggles. */
-export function Switch({ checked, onChange, label, hideLabel = false, disabled = false }: SwitchProps) {
+export function Switch({
+  checked,
+  onChange,
+  label,
+  hideLabel = false,
+  disabled = false,
+  'aria-describedby': describedBy,
+}: SwitchProps) {
   const id = useId();
   const labelId = `${id}label`;
   return (
@@ -25,6 +34,7 @@ export function Switch({ checked, onChange, label, hideLabel = false, disabled =
         disabled={disabled}
         aria-label={hideLabel ? label : undefined}
         aria-labelledby={hideLabel ? undefined : labelId}
+        aria-describedby={describedBy}
         className={cx('ui-switch__track', checked && 'is-checked')}
       >
         <RadixSwitch.Thumb className="ui-switch__thumb" aria-hidden="true" />

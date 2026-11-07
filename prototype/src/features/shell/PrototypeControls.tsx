@@ -148,11 +148,14 @@ function SimulationForm() {
             <Switch
               label="Fail the next API call"
               checked={simulation.failNextApiCall}
+              aria-describedby={`${id}fail-hint`}
               onChange={(failNextApiCall) => {
                 updateSimulation({ failNextApiCall });
               }}
             />
-            <p className="shell-hint">The next request fails as unavailable, then this switches itself off.</p>
+            <p id={`${id}fail-hint`} className="shell-hint">
+              The next request fails as unavailable, then this switches itself off.
+            </p>
           </div>
         </div>
 
@@ -161,13 +164,16 @@ function SimulationForm() {
           <SegmentedControl
             size="sm"
             aria-label="History scenario"
+            aria-describedby={`${id}history-hint`}
             options={HISTORY_OPTIONS}
             value={simulation.historyScenario}
             onChange={(historyScenario) => {
               updateSimulation({ historyScenario });
             }}
           />
-          <p className="shell-hint">{HISTORY_SCENARIO_INFO[simulation.historyScenario].description}</p>
+          <p id={`${id}history-hint`} className="shell-hint">
+            {HISTORY_SCENARIO_INFO[simulation.historyScenario].description}
+          </p>
         </div>
 
         <div className="shell-controls__section">
@@ -231,6 +237,7 @@ function RangeField({ label, value, range, step, display, spoken, hint, onChange
 }
 
 function ResetDemoData() {
+  const hintId = useId();
   const [confirming, setConfirming] = useState(false);
   const [resetting, setResetting] = useState(false);
   // ** A ref, not state, so a second confirm in the same frame can't start another reset.
@@ -261,10 +268,13 @@ function ResetDemoData() {
 
   return (
     <div className="shell-controls__reset">
-      <p className="shell-hint">Restores the seeded watchlists and alerts. Simulation settings are kept.</p>
+      <p id={hintId} className="shell-hint">
+        Restores the seeded watchlists and alerts. Simulation settings are kept.
+      </p>
       <Button
         icon={<RotateCcw />}
         aria-haspopup="dialog"
+        aria-describedby={hintId}
         onClick={() => {
           setConfirming(true);
         }}

@@ -19,6 +19,8 @@ interface SegmentedControlProps<T extends string> {
   onChange: (value: T) => void;
   size?: ControlSize;
   'aria-label': string;
+  /** Ids of elements that describe the group, such as a hint below it. */
+  'aria-describedby'?: string;
   disabled?: boolean;
 }
 
@@ -32,6 +34,7 @@ export function SegmentedControl<T extends string>({
   onChange,
   size = 'md',
   'aria-label': ariaLabel,
+  'aria-describedby': describedBy,
   disabled = false,
 }: SegmentedControlProps<T>) {
   const { groupHandlers, movedByKeyboard } = useKeyboardFocusMove();
@@ -45,6 +48,7 @@ export function SegmentedControl<T extends string>({
     <ToggleGroup.Root
       type="single"
       aria-label={ariaLabel}
+      aria-describedby={describedBy}
       aria-disabled={disabled || undefined}
       value={value}
       // ** Radix reports '' when the checked option is pressed again. A radio group stays checked.

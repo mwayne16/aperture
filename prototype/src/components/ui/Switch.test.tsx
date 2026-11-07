@@ -58,6 +58,18 @@ describe('Switch', () => {
     expect(screen.queryByText('Extended hours')).not.toBeInTheDocument();
   });
 
+  it('takes its description from aria-describedby', () => {
+    render(
+      <>
+        <Switch checked={false} onChange={vi.fn()} label="Sound" aria-describedby="sound-hint" />
+        <p id="sound-hint">Plays a chime when an alert fires.</p>
+      </>,
+    );
+    expect(screen.getByRole('switch', { name: 'Sound' })).toHaveAccessibleDescription(
+      'Plays a chime when an alert fires.',
+    );
+  });
+
   it('does not toggle while disabled', async () => {
     const onChange = vi.fn();
     const user = userEvent.setup();
