@@ -21,7 +21,7 @@ describe('TopBar', () => {
   it('shows the brand and hosts the global symbol search', () => {
     render(<TopBar />);
     expect(screen.getByRole('heading', { level: 1, name: 'Aperture' })).toBeInTheDocument();
-    expect(document.querySelector('[data-placeholder="SymbolSearch"]')).toHaveTextContent('global');
+    expect(screen.getByRole('combobox', { name: 'Search symbols' })).toBeInTheDocument();
   });
 
   it('marks the data as simulated and explains why on keyboard focus', async () => {

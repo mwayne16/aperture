@@ -9,7 +9,7 @@ import { vi } from 'vitest';
 
 type Options = Record<string, unknown>;
 
-export interface MockPriceLine {
+interface MockPriceLine {
   options: Options;
   applyOptions: (options: Options) => void;
 }

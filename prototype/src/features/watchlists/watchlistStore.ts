@@ -14,7 +14,7 @@ import {
   undoReorder,
 } from './watchlistRules';
 
-export type LoadStatus = 'idle' | 'loading' | 'ready' | 'error';
+type LoadStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 /**
  * Watchlist state backed by `api` from data/dataLayer.ts.

@@ -79,6 +79,8 @@ describe('app chrome flows (QA)', () => {
     await user.tab();
     expect(document.activeElement).toHaveTextContent('Simulated data');
     await user.tab();
+    expect(screen.getByRole('combobox', { name: 'Search symbols' })).toHaveFocus();
+    await user.tab();
     expect(screen.getByRole('radio', { name: 'System' })).toHaveFocus();
     await user.keyboard('{ArrowRight}');
     expect(screen.getByRole('radio', { name: 'Dark' })).toHaveFocus();

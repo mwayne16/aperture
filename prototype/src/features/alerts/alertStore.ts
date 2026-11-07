@@ -4,7 +4,7 @@ import { isApiError } from '../../data/api';
 import { api } from '../../data/dataLayer';
 import type { AlertEvent, CreateAlertInput, PriceAlert, UpdateAlertInput } from '../../domain/types';
 
-export type LoadStatus = 'idle' | 'loading' | 'ready' | 'error';
+type LoadStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 /** Max trigger events kept in memory for the log. */
 export const MAX_ALERT_EVENTS = 50;
@@ -24,7 +24,7 @@ export const MAX_ALERT_EVENTS = 50;
  * - recordEvent keeps events newest-first, unique by event id, capped at MAX_ALERT_EVENTS.
  *   Returns false for a duplicate id so callers can skip a second notification.
  */
-export interface AlertState {
+interface AlertState {
   status: LoadStatus;
   error: string | null;
   alerts: PriceAlert[];
