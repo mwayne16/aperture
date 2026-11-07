@@ -7,7 +7,10 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
 ## Current phase
 - Phase 0: interactive prototype in `prototype/`. **It is an approval gate.** Do not start
   backend, database, Docker or Electron scaffolding until the user has approved the prototype in chat.
-  Status (2026-11-07): prototype complete and presented; **awaiting the user's approval**.
+  Status (2026-11-07): first prototype reviewed; **changes requested, not approved**. The user wants a
+  multi-page app (sidebar navigation, dashboard, a discover page for stocks and crypto, a full-page stock
+  view, notifications, settings) designed as a **Figma prototype first**, using their reference
+  screenshots for structure. Keep the stock panel's design, which they liked.
 - Track phase status in this section. Update it whenever a phase is approved or completed.
 
 ## Machine constraints (Windows, low C: drive)
@@ -37,6 +40,10 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
   compile, and write the evidence here.
 - Vite 8, React 19, Vitest 5, ESLint 10 flat config with typescript-eslint strict type-checked rules.
 - Charts: `lightweight-charts` v5 (TradingView, Apache-2.0).
+- Market data: Alpaca **free plan, IEX feed** (decided 2026-11-07; the user has no Alpaca account yet).
+  IEX quotes and trades are real-time but cover only the IEX exchange, so label them "IEX" and never as
+  consolidated prices or volume. Alpaca provides no fundamentals (market cap, P/E, EPS): don't show them
+  unless another source is added.
 - UI primitives: `radix-ui` provides focus, layering and keyboard behavior for Dialog, Menu, Tooltip,
   SegmentedControl, Tabs and Switch. Features import our `components/ui/*` wrappers, never Radix directly.
 - Client state: `zustand` stores. Live quotes use per-symbol selectors so one tick re-renders one row.
