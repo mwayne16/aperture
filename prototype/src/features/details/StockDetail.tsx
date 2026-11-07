@@ -1,5 +1,7 @@
-import { BellPlus, ChartLine, RotateCw, SearchX } from 'lucide-react';
+import { BellPlus, ChartLine, Maximize2, RotateCw, SearchX } from 'lucide-react';
 import { useRef, useState } from 'react';
+import { useLocation } from 'wouter';
+import { paths } from '../../app/routes';
 import { useUiStore } from '../../app/uiStore';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -15,11 +17,16 @@ import './details.css';
 
 const DEFAULT_RANGE: ChartRange = '1D';
 
+interface StockDetailProps {
+  /** Show a button that opens the symbol's full page, for the quick view beside a table. */
+  expandable?: boolean;
+}
+
 /**
  * Detail panel for the selected symbol: identity, live quote, stats and the history chart.
  * The chosen chart range carries over when the selection changes.
  */
-export function StockDetail() {
+export function StockDetail({ expandable = false }: StockDetailProps) {
   const selected = useUiStore((s) => s.selectedSymbol);
   const [range, setRange] = useState<ChartRange>(DEFAULT_RANGE);
 
@@ -37,16 +44,20 @@ export function StockDetail() {
 
   const symbol = normalizeSymbol(selected);
   // ** Keyed by symbol so every request, tooltip and timer from the previous symbol is dropped at once.
-  return <SymbolDetail key={symbol} symbol={symbol} range={range} onRangeChange={setRange} />;
+  return (
+    <SymbolDetail key={symbol} symbol={symbol} range={range} onRangeChange={setRange} expandable={expandable} />
+  );
 }
 
 interface SymbolDetailProps {
   symbol: string;
   range: ChartRange;
   onRangeChange: (range: ChartRange) => void;
+  expandable: boolean;
 }
 
-function SymbolDetail({ symbol, range, onRangeChange }: SymbolDetailProps) {
+function SymbolDetail({ symbol, range, onRangeChange, expandable }: SymbolDetailProps) {
+  const [, navigate] = useLocation();
   const { view, retry } = useInstrument(symbol);
   const identityRef = useRef<HTMLDivElement>(null);
   const unknown = view.status === 'ready' && view.instrument === null;
@@ -69,15 +80,27 @@ function SymbolDetail({ symbol, range, onRangeChange }: SymbolDetailProps) {
           <InstrumentLine view={view} onRetry={retryInstrument} />
         </div>
         {!unknown && (
-          <Button
-            size="sm"
-            icon={<BellPlus />}
-            onClick={() => {
-              useUiStore.getState().openCreateAlert(symbol);
-            }}
-          >
-            Create alert
-          </Button>
+          <div className="details__actions">
+            <Button
+              size="sm"
+              icon={<BellPlus />}
+              onClick={() => {
+                useUiStore.getState().openCreateAlert(symbol);
+              }}
+            >
+              Create alert
+            </Button>
+            {expandable && (
+              <IconButton
+                label={`Open ${symbol} full page`}
+                icon={<Maximize2 />}
+                size="sm"
+                onClick={() => {
+                  navigate(paths.symbol(symbol));
+                }}
+              />
+            )}
+          </div>
         )}
       </div>
       {unknown ? (

@@ -18,9 +18,9 @@ afterEach(() => {
 const connectionStatus = () => screen.getByRole('status');
 
 describe('TopBar', () => {
-  it('shows the brand and hosts the global symbol search', () => {
+  it('shows where the user is and hosts the global symbol search', () => {
     render(<TopBar />);
-    expect(screen.getByRole('heading', { level: 1, name: 'Aperture' })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent('Dashboard');
     expect(screen.getByRole('combobox', { name: 'Search symbols' })).toBeInTheDocument();
   });
 
@@ -116,7 +116,7 @@ describe('TopBar', () => {
         <TopBar />
       </StrictMode>,
     );
-    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.getAllByRole('navigation', { name: 'Breadcrumb' })).toHaveLength(1);
     unmount();
     expect(vi.getTimerCount()).toBe(0);
   });

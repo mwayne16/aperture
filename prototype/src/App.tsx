@@ -1,50 +1,60 @@
+import { useEffect, useRef } from 'react';
+import { Route, Router, Switch, useLocation } from 'wouter';
+import { useHashLocation } from 'wouter/use-hash-location';
+import { NotFoundPage } from './app/NotFoundPage';
+import { PlannedPage } from './app/PlannedPage';
+import { routes } from './app/routes';
 import { useAppStartup } from './app/useAppStartup';
 import { useGlobalShortcuts } from './app/useGlobalShortcuts';
 import { useQuoteSubscriptions } from './app/useQuoteSubscriptions';
 import { ToastViewport } from './components/ui/ToastViewport';
 import { AlertDialogHost } from './features/alerts/AlertDialogHost';
 import { AlertNotifications } from './features/alerts/AlertNotifications';
-import { AlertsPanel } from './features/alerts/AlertsPanel';
-import { StockDetail } from './features/details/StockDetail';
-import { MarketTable } from './features/market/MarketTable';
+import { AlertsPage } from './features/alerts/AlertsPage';
+import { StockPage } from './features/details/StockPage';
+import { NotificationsPage } from './features/notifications/NotificationsPage';
+import { SettingsPage } from './features/settings/SettingsPage';
 import { PrototypeControls } from './features/shell/PrototypeControls';
+import { Sidebar } from './features/shell/Sidebar';
 import { StatusBar } from './features/shell/StatusBar';
 import { TopBar } from './features/shell/TopBar';
-import { WatchlistSidebar } from './features/watchlists/WatchlistSidebar';
+import { WatchlistPage } from './features/watchlists/WatchlistPage';
 import './app/layout.css';
 
-/**
- * Application layout. Each area hosts one feature. This component owns the landmarks and the area
- * sizes, so features render only their content and handle their own scrolling.
- */
+/** The app with hash routing, so page links keep working when the desktop build loads from a file. */
 export function App() {
+  return (
+    <Router hook={useHashLocation}>
+      <AppShell />
+    </Router>
+  );
+}
+
+/**
+ * Application layout: the sidebar, then the top bar, the current page and the status bar. This
+ * component owns the landmarks; pages render their content and handle their own scrolling.
+ */
+function AppShell() {
   useAppStartup();
   useQuoteSubscriptions();
   useGlobalShortcuts();
+  const contentRef = useScrollTopOnNavigation();
 
   return (
-    <div className="layout">
-      <header className="layout__top">
+    <div className="shell">
+      <aside className="shell__side" aria-label="Navigation">
+        <Sidebar />
+      </aside>
+      <header className="shell__top">
         <TopBar />
       </header>
-      <aside className="layout__side" aria-label="Watchlists">
-        <WatchlistSidebar />
-      </aside>
-      <main className="layout__main">
-        <section className="layout__market" aria-label="Market">
-          <MarketTable />
-        </section>
-        <section className="layout__detail" aria-label="Stock details">
-          <StockDetail />
-        </section>
+      <main ref={contentRef} className="shell__content">
+        <Pages />
       </main>
-      <section className="layout__dock" aria-label="Alerts">
-        <AlertsPanel />
-      </section>
-      <footer className="layout__status">
+      <footer className="shell__status">
         <StatusBar />
       </footer>
-      <div className="layout__overlays">
+      <div className="shell__overlays">
         <PrototypeControls />
         <AlertDialogHost />
         <AlertNotifications />
@@ -52,4 +62,34 @@ export function App() {
       </div>
     </div>
   );
+}
+
+function Pages() {
+  return (
+    <Switch>
+      <Route path={routes.dashboard}>
+        <PlannedPage title="Dashboard" description="Market status, your watchlists, movers and news at a glance." />
+      </Route>
+      <Route path={routes.discover}>
+        <PlannedPage title="Discover" description="Browse stocks, ETFs and crypto." />
+      </Route>
+      <Route path={routes.watchlists} component={WatchlistPage} />
+      <Route path={routes.watchlist} component={WatchlistPage} />
+      <Route path={routes.symbol} component={StockPage} />
+      <Route path={routes.alerts} component={AlertsPage} />
+      <Route path={routes.notifications} component={NotificationsPage} />
+      <Route path={routes.settings} component={SettingsPage} />
+      <Route component={NotFoundPage} />
+    </Switch>
+  );
+}
+
+/** Each page starts at the top, instead of keeping the previous page's scroll position. */
+function useScrollTopOnNavigation() {
+  const ref = useRef<HTMLElement>(null);
+  const [location] = useLocation();
+  useEffect(() => {
+    if (ref.current) ref.current.scrollTop = 0;
+  }, [location]);
+  return ref;
 }

@@ -9,7 +9,7 @@ import { useWatchlistStore } from './features/watchlists/watchlistStore';
 
 afterEach(() => {
   act(() => {
-    useWatchlistStore.setState({ watchlists: [], activeId: null });
+    useWatchlistStore.setState({ status: 'idle', watchlists: [], activeId: null });
     useUiStore.setState({ selectedSymbol: null, searchFocusRequest: 0 });
   });
   vi.restoreAllMocks();
@@ -19,12 +19,26 @@ describe('App layout', () => {
   it('gives every area a landmark', () => {
     render(<App />);
     expect(screen.getByRole('banner')).toBeInTheDocument();
-    expect(screen.getByRole('complementary', { name: 'Watchlists' })).toBeInTheDocument();
+    expect(screen.getByRole('complementary', { name: 'Navigation' })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Main' })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toBeInTheDocument();
     expect(screen.getByRole('main')).toBeInTheDocument();
+    expect(screen.getByRole('contentinfo')).toBeInTheDocument();
+  });
+
+  it('shows the watchlist page with its table and quick view', () => {
+    window.location.hash = '#/watchlists/wl';
+    act(() => {
+      useWatchlistStore.setState({
+        status: 'ready',
+        watchlists: [{ id: 'wl', name: 'Test', symbols: ['AAPL'], createdAt: '', updatedAt: '' }],
+        activeId: 'wl',
+      });
+    });
+    render(<App />);
     expect(screen.getByRole('region', { name: 'Market' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Stock details' })).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Alerts' })).toBeInTheDocument();
-    expect(screen.getByRole('contentinfo')).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent('WatchlistsTest');
   });
 
   it('connects the realtime feed while mounted and disconnects on unmount', () => {
@@ -45,6 +59,45 @@ describe('App layout', () => {
       useUiStore.getState().selectSymbol('NVDA');
     });
     expect(setSubscriptions).toHaveBeenLastCalledWith(['AAPL', 'MSFT', 'NVDA']);
+  });
+});
+
+describe('navigation', () => {
+  it('marks the current page in the sidebar and follows links', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveAttribute('aria-current', 'page');
+    await user.click(screen.getByRole('link', { name: 'Settings' }));
+    expect(window.location.hash).toBe('#/settings');
+    expect(screen.getByRole('heading', { level: 1, name: 'Settings' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'Dashboard' })).not.toHaveAttribute('aria-current');
+  });
+
+  it('sends a watchlist address without an id to the active list', () => {
+    window.location.hash = '#/watchlists';
+    act(() => {
+      useWatchlistStore.setState({
+        status: 'ready',
+        watchlists: [{ id: 'wl', name: 'Test', symbols: [], createdAt: '', updatedAt: '' }],
+        activeId: 'wl',
+      });
+    });
+    render(<App />);
+    expect(window.location.hash).toBe('#/watchlists/wl');
+  });
+
+  it('opens a symbol page from its address, selecting the symbol', () => {
+    window.location.hash = '#/symbol/BTC%2FUSD';
+    render(<App />);
+    expect(useUiStore.getState().selectedSymbol).toBe('BTC/USD');
+    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent('CryptoBTC/USD');
+  });
+
+  it('shows a not-found page for an unknown address', () => {
+    window.location.hash = '#/nowhere';
+    render(<App />);
+    expect(screen.getByRole('heading', { level: 1, name: 'Page not found' })).toBeInTheDocument();
   });
 });
 

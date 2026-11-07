@@ -1,16 +1,16 @@
 /*
- * App layout: top bar, then watchlists beside the market table and stock detail, then the alerts
- * dock and the status bar. Areas clip their content; features scroll inside their own area.
+ * App layout: the sidebar runs the full height on the left; the top bar, the current page and the
+ * status bar stack on the right. The page area scrolls; pages that fill it (a table beside a panel)
+ * set their own height to 100%.
  */
-.layout {
+.shell {
   display: grid;
   grid-template-areas:
-    'top top'
-    'side main'
-    'side dock'
-    'status status';
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
-  grid-template-columns: 232px minmax(0, 1fr);
+    'side top'
+    'side content'
+    'side status';
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-columns: 240px minmax(0, 1fr);
   position: relative;
   height: 100%;
   min-height: 0;
@@ -18,7 +18,7 @@
 }
 
 /* Dialogs, drawers and toasts position themselves, so they never take a grid cell. */
-.layout__overlays {
+.shell__overlays {
   position: absolute;
   top: 0;
   left: 0;
@@ -26,69 +26,60 @@
   height: 0;
 }
 
-.layout__top,
-.layout__side,
-.layout__main,
-.layout__market,
-.layout__detail,
-.layout__dock,
-.layout__status {
+.shell__side,
+.shell__top,
+.shell__content,
+.shell__status {
   min-width: 0;
   min-height: 0;
-  overflow: hidden;
 }
 
-.layout__top {
-  grid-area: top;
-  border-bottom: 1px solid var(--border);
-  background-color: var(--bg-chrome);
-}
-
-.layout__side {
+.shell__side {
   grid-area: side;
-  display: flex;
-  flex-direction: column;
+  overflow: hidden;
   border-right: 1px solid var(--border);
   background-color: var(--bg-chrome);
 }
 
-.layout__main {
-  grid-area: main;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 400px;
+.shell__top {
+  grid-area: top;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border);
+  background-color: var(--bg-chrome);
 }
 
-.layout__market,
-.layout__detail {
-  display: flex;
-  flex-direction: column;
-  background-color: var(--bg-panel);
+.shell__content {
+  grid-area: content;
+  overflow: auto;
 }
 
-.layout__detail {
-  border-left: 1px solid var(--border);
-}
-
-.layout__dock {
-  grid-area: dock;
-  display: flex;
-  flex-direction: column;
-  border-top: 1px solid var(--border);
-  background-color: var(--bg-panel);
-}
-
-.layout__status {
+.shell__status {
   grid-area: status;
+  overflow: hidden;
   border-top: 1px solid var(--border);
   background-color: var(--bg-chrome);
 }
 
+/* A scrolling page: a header, then cards stacked with even gaps. */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  max-width: 1600px;
+  padding: var(--sp-5) var(--sp-6) var(--sp-6);
+}
+
+.page-link {
+  color: var(--accent-text);
+  font-weight: var(--fw-medium);
+}
+
 @media (max-width: 1200px) {
-  .layout {
-    grid-template-columns: 200px minmax(0, 1fr);
+  .shell {
+    grid-template-columns: 208px minmax(0, 1fr);
   }
 
-  .layout__main {
-    grid-template-columns: minmax(0, 1fr) 340px;
+  .page {
+    padding: var(--sp-4);
   }
 }

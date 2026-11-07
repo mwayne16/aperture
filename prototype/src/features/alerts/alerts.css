@@ -268,3 +268,14 @@
   height: 14px;
   margin-top: 2px;
 }
+
+/* ------------------------------------------------------------------ Alerts page */
+
+.alerts-page__panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background-color: var(--bg-panel);
+}

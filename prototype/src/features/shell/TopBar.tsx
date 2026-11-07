@@ -1,4 +1,4 @@
-import { Aperture, FlaskConical, Monitor, Moon, SlidersHorizontal, Sun } from 'lucide-react';
+import { FlaskConical, Monitor, Moon, SlidersHorizontal, Sun } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useUiStore } from '../../app/uiStore';
 import { Badge, type BadgeTone } from '../../components/ui/Badge';
@@ -10,6 +10,7 @@ import { useTheme, type ThemePreference } from '../../components/ui/theme';
 import { useConnection, useConnectionStore } from '../../data/connectionStore';
 import { formatClock } from '../../lib/format';
 import { SymbolSearch } from '../market/SymbolSearch';
+import { Breadcrumbs } from './Breadcrumbs';
 import { connectionDetails, describeConnection } from './connectionStatus';
 import { MARKET_SESSION_LABELS, marketSession, type MarketSession } from './marketSession';
 import { useFeedStatus } from './useFeedStatus';
@@ -17,17 +18,14 @@ import { useNow } from './useNow';
 import './shell.css';
 
 /**
- * Top bar content: brand, global search, the simulated-data marker, connection status, the New York
- * market clock, the theme control and the simulation controls button. One 40px row; below ~1100px
- * the lower-priority labels collapse to icons but keep their accessible names.
+ * Top bar content: breadcrumbs, the simulated-data marker, global search, connection status, the New
+ * York market clock, the theme control and the simulation controls button. One 40px row; below
+ * ~1100px the lower-priority labels collapse to icons but keep their accessible names.
  */
 export function TopBar() {
   return (
     <div className="shell-topbar">
-      <h1 className="shell-brand">
-        <Aperture className="shell-brand__mark" aria-hidden="true" />
-        <span className="shell-collapse">Aperture</span>
-      </h1>
+      <Breadcrumbs />
       <SimulatedMarker />
       <div className="shell-topbar__search">
         <SymbolSearch variant="global" />

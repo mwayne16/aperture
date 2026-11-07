@@ -13,6 +13,8 @@ import { resetShellStores, watch } from './testUtils';
 let clock = Math.ceil(Date.now() / 1000) * 1000;
 
 beforeEach(() => {
+  // These flows run on a watchlist page, where the quote table lives.
+  window.location.hash = '#/watchlists';
   // ** Each test starts an hour after the previous one, so trade times the shared mock market kept
   // from earlier tests are always in the past.
   clock += 3_600_000;
@@ -142,7 +144,7 @@ describe('app chrome on the simulated feed (QA)', () => {
     );
     watch(['AAPL']);
     advance(1000);
-    expect(screen.getAllByRole('heading', { level: 1, name: 'Aperture' })).toHaveLength(1);
+    expect(screen.getAllByRole('navigation', { name: 'Main' })).toHaveLength(1);
     expect(topStatus()).toHaveTextContent('Connected');
     expect(statusBar().getByText('1 symbol subscribed')).toBeInTheDocument();
     view.unmount();

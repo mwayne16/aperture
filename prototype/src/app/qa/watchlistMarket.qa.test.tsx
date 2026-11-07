@@ -57,6 +57,8 @@ async function openRowMenu(user: ReturnType<typeof userEvent.setup>, label: stri
 }
 
 beforeEach(async () => {
+  // These flows run on a watchlist page, where the quote table lives.
+  window.location.hash = '#/watchlists';
   resetShellStores();
   updateSimulation({ apiLatencyMs: 0 });
   await resetDemoData();

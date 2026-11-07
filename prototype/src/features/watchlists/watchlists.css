@@ -186,3 +186,32 @@
   color: var(--loss-text);
   font-size: var(--fs-sm);
 }
+
+/* ------------------------------------------------------------------ Watchlist page */
+
+.watchlist-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 400px;
+  height: 100%;
+  min-height: 0;
+}
+
+.watchlist-page__market,
+.watchlist-page__detail {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background-color: var(--bg-panel);
+}
+
+.watchlist-page__detail {
+  border-left: 1px solid var(--border);
+}
+
+@media (max-width: 1200px) {
+  .watchlist-page {
+    grid-template-columns: minmax(0, 1fr) 340px;
+  }
+}

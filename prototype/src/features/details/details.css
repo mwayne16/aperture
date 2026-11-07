@@ -303,3 +303,22 @@
   color: var(--text-muted);
   text-align: right;
 }
+
+.details__actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+/* ------------------------------------------------------------------ Stock page */
+
+.stock-page__panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 640px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background-color: var(--bg-panel);
+}

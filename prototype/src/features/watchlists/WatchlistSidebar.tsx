@@ -1,5 +1,7 @@
 import { AlertTriangle, Ellipsis, ListPlus, Pencil, Plus, RotateCw, Trash2 } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
+import { useLocation } from 'wouter';
+import { paths } from '../../app/routes';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
@@ -53,6 +55,11 @@ export function WatchlistSidebar() {
   const error = useWatchlistStore((s) => s.error);
   const watchlists = useWatchlistStore((s) => s.watchlists);
   const activeId = useWatchlistStore((s) => s.activeId);
+  const [, navigate] = useLocation();
+  const openWatchlist = (id: string) => {
+    useWatchlistStore.getState().setActive(id);
+    navigate(paths.watchlist(id));
+  };
   const titleId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
@@ -147,6 +154,7 @@ export function WatchlistSidebar() {
               watchlist={watchlist}
               active={watchlist.id === activeId}
               tabbable={watchlist.id === tabStopId}
+              onOpen={openWatchlist}
               onFocusWithin={setFocusId}
               onRename={openNameDialog}
               onDelete={setDeleteTarget}
@@ -260,6 +268,8 @@ interface WatchlistItemProps {
   active: boolean;
   /** Whether this item holds the list's single Tab stop. */
   tabbable: boolean;
+  /** Makes the list active and shows its page. */
+  onOpen: (id: string) => void;
   onFocusWithin: (id: string) => void;
   onRename: (watchlist: Watchlist) => void;
   onDelete: (watchlist: Watchlist) => void;
@@ -269,6 +279,7 @@ function WatchlistItem({
   watchlist,
   active,
   tabbable,
+  onOpen,
   onFocusWithin,
   onRename,
   onDelete,
@@ -302,7 +313,7 @@ function WatchlistItem({
         aria-keyshortcuts="F2 Delete"
         tabIndex={tabbable ? 0 : -1}
         onClick={() => {
-          useWatchlistStore.getState().setActive(watchlist.id);
+          onOpen(watchlist.id);
         }}
         onKeyDown={onKeyDown}
       >
