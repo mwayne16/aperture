@@ -22,15 +22,26 @@ export function subscribedSymbols(
   return [...symbols].sort();
 }
 
-/** Keeps the realtime subscriptions in step with what the UI shows. */
-export function useQuoteSubscriptions(): void {
+/**
+ * The symbols the app keeps subscribed. The list keeps its identity until the set of symbols
+ * changes, so alert pushes or watchlist edits that keep the same symbols don't look like a change.
+ */
+export function useSubscribedSymbols(): readonly string[] {
   const watchlist = useActiveWatchlist()?.symbols ?? NO_SYMBOLS;
   const selected = useUiStore((s) => s.selectedSymbol);
   const alerts = useAlertStore((s) => s.alerts);
-  // ** A string key, so the effect runs only when the set of symbols changes, not on every new array.
-  const key = useMemo(() => subscribedSymbols(watchlist, selected, alerts).join(','), [watchlist, selected, alerts]);
+  // ** Symbols never contain a comma, so the joined string identifies the set.
+  const key = useMemo(
+    () => subscribedSymbols(watchlist, selected, alerts).join(','),
+    [watchlist, selected, alerts],
+  );
+  return useMemo(() => (key === '' ? NO_SYMBOLS : key.split(',')), [key]);
+}
 
+/** Keeps the realtime subscriptions in step with what the UI shows. */
+export function useQuoteSubscriptions(): void {
+  const symbols = useSubscribedSymbols();
   useEffect(() => {
-    realtime.setSubscriptions(key === '' ? [] : key.split(','));
-  }, [key]);
+    realtime.setSubscriptions(symbols);
+  }, [symbols]);
 }

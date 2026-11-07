@@ -7,7 +7,7 @@ import { useConnection } from '../../data/connectionStore';
 import { useSimulation } from '../../data/simulationStore';
 import { describeConnection, formatLastMessage, formatRetry } from './connectionStatus';
 import { FEED_SCENARIO_INFO } from './simulationOptions';
-import { useQuoteFreshness, useSubscribedSymbols } from './useFeedStatus';
+import { useFeedStatus } from './useFeedStatus';
 import { useNow } from './useNow';
 import './shell.css';
 
@@ -18,8 +18,8 @@ import './shell.css';
 export function StatusBar() {
   const connection = useConnection();
   const scenario = useSimulation().feedScenario;
-  const symbols = useSubscribedSymbols();
-  const view = describeConnection(connection, useQuoteFreshness(symbols));
+  const { symbols, freshness } = useFeedStatus();
+  const view = describeConnection(connection, freshness);
   const now = useNow();
   const nextRetryAt = connection.state === 'reconnecting' ? connection.nextRetryAt : null;
 

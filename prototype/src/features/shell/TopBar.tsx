@@ -12,7 +12,7 @@ import { formatClock } from '../../lib/format';
 import { SymbolSearch } from '../market/SymbolSearch';
 import { connectionDetails, describeConnection } from './connectionStatus';
 import { MARKET_SESSION_LABELS, marketSession, type MarketSession } from './marketSession';
-import { useQuoteFreshness, useSubscribedSymbols } from './useFeedStatus';
+import { useFeedStatus } from './useFeedStatus';
 import { useNow } from './useNow';
 import './shell.css';
 
@@ -59,7 +59,7 @@ function SimulatedMarker() {
 
 function ConnectionIndicator() {
   const connection = useConnection();
-  const freshness = useQuoteFreshness(useSubscribedSymbols());
+  const { freshness } = useFeedStatus();
   const view = describeConnection(connection, freshness);
   return (
     // The tooltip repeats details the status bar shows, so a hover-only trigger loses nothing.
