@@ -7,6 +7,7 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
 ## Current phase
 - Phase 0: interactive prototype in `prototype/`. **It is an approval gate.** Do not start
   backend, database, Docker or Electron scaffolding until the user has approved the prototype in chat.
+  Status (2026-11-07): prototype complete and presented; **awaiting the user's approval**.
 - Track phase status in this section. Update it whenever a phase is approved or completed.
 
 ## Machine constraints (Windows, low C: drive)
@@ -125,5 +126,8 @@ From `prototype/`:
   Resume can re-run finished agents live, and two writers then collide in one worktree.
 - An agent that starts a dev server must kill its own PID (`taskkill //PID <pid> //T //F`) and confirm
   the port is free. Orphaned Vite servers lock rolldown's binary, and `npm ci` then half-deletes node_modules.
+- Parallel agent fan-outs die on the plan's session limit, and three runs lost their QA stage that
+  way. Builders commit after every step and resume from their branch. Keep parallel QA small, or run
+  the integration walk inline.
 - Tool parameters decode `\uXXXX`, so writing a regex escape through Edit/Write can insert the literal
   character instead. Check the bytes, or use a `\p{...}` class or `String.fromCharCode` instead.
