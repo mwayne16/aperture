@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react';
 import { Route, Router, Switch, useLocation } from 'wouter';
 import { useHashLocation } from 'wouter/use-hash-location';
 import { NotFoundPage } from './app/NotFoundPage';
-import { PlannedPage } from './app/PlannedPage';
 import { routes } from './app/routes';
 import { useAppStartup } from './app/useAppStartup';
 import { useGlobalShortcuts } from './app/useGlobalShortcuts';
@@ -11,7 +10,9 @@ import { ToastViewport } from './components/ui/ToastViewport';
 import { AlertDialogHost } from './features/alerts/AlertDialogHost';
 import { AlertNotifications } from './features/alerts/AlertNotifications';
 import { AlertsPage } from './features/alerts/AlertsPage';
+import { DashboardPage } from './features/dashboard/DashboardPage';
 import { StockPage } from './features/details/StockPage';
+import { DiscoverPage } from './features/discover/DiscoverPage';
 import { NotificationsPage } from './features/notifications/NotificationsPage';
 import { SettingsPage } from './features/settings/SettingsPage';
 import { PrototypeControls } from './features/shell/PrototypeControls';
@@ -67,12 +68,8 @@ function AppShell() {
 function Pages() {
   return (
     <Switch>
-      <Route path={routes.dashboard}>
-        <PlannedPage title="Dashboard" description="Market status, your watchlists, movers and news at a glance." />
-      </Route>
-      <Route path={routes.discover}>
-        <PlannedPage title="Discover" description="Browse stocks, ETFs and crypto." />
-      </Route>
+      <Route path={routes.dashboard} component={DashboardPage} />
+      <Route path={routes.discover} component={DiscoverPage} />
       <Route path={routes.watchlists} component={WatchlistPage} />
       <Route path={routes.watchlist} component={WatchlistPage} />
       <Route path={routes.symbol} component={StockPage} />
