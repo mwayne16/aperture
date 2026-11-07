@@ -1,0 +1,305 @@
+/*
+ * Stock detail panel: identity header, live quote with stats, and the history chart.
+ * The panel scrolls as a whole; the chart takes the remaining height but never shrinks below a
+ * readable size.
+ */
+
+.details {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.details--empty {
+  justify-content: center;
+}
+
+/* ---------------------------------------------------------------- Header */
+
+.details__header {
+  display: flex;
+  flex: none;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-3) var(--sp-2);
+}
+
+.details__identity {
+  min-width: 0;
+}
+
+/* Focus targets for Retry, not controls: they hold focus without a ring while content reloads. */
+.details__identity:focus,
+.details-chart__body:focus {
+  outline: none;
+}
+
+.details__title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.details__symbol {
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-semibold);
+  letter-spacing: -0.01em;
+}
+
+.details__instrument {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 20px;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.details__instrument.is-error {
+  color: var(--warning-text);
+}
+
+.details__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.details__exchange {
+  flex: none;
+}
+
+.details__exchange::before {
+  margin-right: 6px;
+  color: var(--text-faint);
+  content: '·';
+}
+
+/* ---------------------------------------------------------------- Quote */
+
+.details-quote {
+  flex: none;
+  padding: 0 var(--sp-3) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.details-quote__notice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: var(--sp-2);
+  padding: 6px var(--sp-2);
+  border-radius: var(--radius-sm);
+  background-color: var(--warning-tint);
+  color: var(--warning-text);
+  font-size: var(--fs-sm);
+}
+
+.details-quote__notice svg {
+  width: 14px;
+  height: 14px;
+}
+
+.details-quote__headline {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.details-quote__price-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px var(--sp-3);
+}
+
+.details-quote__last {
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+  letter-spacing: -0.02em;
+}
+
+.details-quote__last.is-dimmed {
+  color: var(--text-muted);
+}
+
+.details-quote__change {
+  color: var(--text-muted);
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-medium);
+}
+
+.details-quote__change.is-gain,
+.price-chart__tooltip-change.is-gain {
+  color: var(--gain-text);
+}
+
+.details-quote__change.is-loss,
+.price-chart__tooltip-change.is-loss {
+  color: var(--loss-text);
+}
+
+.details-quote__status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-3);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.details-quote__status-label {
+  display: inline-flex;
+}
+
+.details-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: var(--sp-4);
+  margin-top: var(--sp-3);
+}
+
+.details-stats__item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--fs-sm);
+}
+
+.details-stats__item dt {
+  flex: none;
+  color: var(--text-muted);
+}
+
+.details-stats__item dd {
+  min-width: 0;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------- Chart */
+
+.details-chart {
+  display: flex;
+  flex: 1 0 auto;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-height: 340px;
+  padding: var(--sp-3) var(--sp-3) var(--sp-2);
+}
+
+.details-chart__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+
+.details-section-title {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+}
+
+.details-chart__meta,
+.details-chart__note {
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+}
+
+/* Ranges share the full width so all ten fit the narrow panel. */
+.details-chart__ranges .ui-segmented {
+  display: flex;
+  width: 100%;
+}
+
+.details-chart__ranges .ui-segmented__item {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.details-chart__body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 240px;
+}
+
+.details-chart__body > .ui-empty {
+  flex: 1;
+}
+
+.details-chart__state {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.price-chart {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.price-chart__canvas {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-sm);
+}
+
+/* The canvas paints over an inset outline, so the ring sits just outside the chart. */
+.price-chart__canvas:focus-visible {
+  outline-offset: 2px;
+}
+
+.price-chart__tooltip {
+  position: absolute;
+  z-index: 2;
+  width: 176px;
+  padding: var(--sp-2) 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-raised);
+  box-shadow: var(--shadow-popover);
+  font-size: var(--fs-xs);
+  pointer-events: none;
+}
+
+.price-chart__tooltip-time {
+  margin-bottom: var(--sp-1);
+  font-weight: var(--fw-semibold);
+}
+
+.price-chart__tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  line-height: 1.5;
+}
+
+.price-chart__tooltip-row dt {
+  color: var(--text-muted);
+}
+
+.price-chart__tooltip-change {
+  margin-top: var(--sp-1);
+  padding-top: var(--sp-1);
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  text-align: right;
+}
