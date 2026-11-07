@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { breadcrumbsFor } from './breadcrumbs';
 import { decodeParam, paths } from './routes';
 
-const names = (id: string) => (id === 'wl-core' ? 'Core Tech' : null);
+const names = {
+  watchlistName: (id: string) => (id === 'wl-core' ? 'Core Tech' : null),
+  assetClass: (symbol: string) => (symbol === 'SPY' ? ('etf' as const) : null),
+};
 
 describe('breadcrumbsFor', () => {
   it('names each top-level page', () => {
@@ -31,6 +34,10 @@ describe('breadcrumbsFor', () => {
       { label: 'BTC/USD' },
     ]);
     expect(breadcrumbsFor(paths.symbol('AAPL'), names)[0]).toEqual({ label: 'Stocks', href: '/discover/stocks' });
+  });
+
+  it('links an ETF back to the ETFs tab once its asset class is known', () => {
+    expect(breadcrumbsFor(paths.symbol('SPY'), names)[0]).toEqual({ label: 'ETFs', href: '/discover/etfs' });
   });
 });
 

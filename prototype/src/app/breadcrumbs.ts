@@ -1,4 +1,5 @@
-import { decodeParam, DISCOVER_TAB_LABELS, isDiscoverTab, paths } from './routes';
+import type { AssetClass } from '../domain/types';
+import { decodeParam, DISCOVER_TAB_LABELS, isDiscoverTab, paths, type DiscoverTab } from './routes';
 
 export interface Crumb {
   label: string;
@@ -6,11 +7,21 @@ export interface Crumb {
   href?: string;
 }
 
+interface CrumbLookups {
+  /** A watchlist's name, or null for an unknown id. */
+  watchlistName: (id: string) => string | null;
+  /** A symbol's asset class, or null while it is unknown. */
+  assetClass: (symbol: string) => AssetClass | null;
+}
+
+const TAB_FOR_CLASS: Record<AssetClass, DiscoverTab> = { stock: 'stocks', etf: 'etfs', crypto: 'crypto' };
+
 /**
- * Breadcrumbs for a path, ending with the current page. `watchlistName` resolves a watchlist id to its
- * name; an unknown id falls back to "Watchlist" so the trail never shows a raw id.
+ * Breadcrumbs for a path, ending with the current page. An unknown watchlist id falls back to
+ * "Watchlist" so the trail never shows a raw id. A symbol links back to its Discover tab; until its
+ * asset class is known, a pair like "BTC/USD" counts as crypto and anything else as a stock.
  */
-export function breadcrumbsFor(path: string, watchlistName: (id: string) => string | null): Crumb[] {
+export function breadcrumbsFor(path: string, { watchlistName, assetClass }: CrumbLookups): Crumb[] {
   const [, section = '', param] = path.split('/');
   switch (section) {
     case '':
@@ -26,11 +37,8 @@ export function breadcrumbsFor(path: string, watchlistName: (id: string) => stri
     }
     case 'symbol': {
       const symbol = decodeParam(param) ?? '';
-      const crypto = symbol.includes('/');
-      return [
-        { label: crypto ? 'Crypto' : 'Stocks', href: paths.discover(crypto ? 'crypto' : 'stocks') },
-        { label: symbol || 'Details' },
-      ];
+      const tab = TAB_FOR_CLASS[assetClass(symbol) ?? (symbol.includes('/') ? 'crypto' : 'stock')];
+      return [{ label: DISCOVER_TAB_LABELS[tab], href: paths.discover(tab) }, { label: symbol || 'Details' }];
     }
     case 'alerts':
       return [{ label: 'Alerts' }];
