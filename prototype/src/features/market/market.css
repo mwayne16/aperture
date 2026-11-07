@@ -1,0 +1,420 @@
+/*
+ * Market table and symbol search. Colors come from tokens.css only.
+ * The table fills the Market section and scrolls inside it; the header and notices stay put.
+ */
+
+.market {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  container-type: inline-size;
+}
+
+/* ------------------------------------------------------------------ Header */
+
+.market__header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 44px;
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.market__heading {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.market__title {
+  overflow: clip;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.market__meta {
+  flex: none;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.market__add {
+  flex: none;
+  width: 240px;
+}
+
+.market__empty-add {
+  width: 280px;
+  text-align: left;
+}
+
+/* ------------------------------------------------------------------ Notices */
+
+.market-notice {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 30px;
+  padding: 4px var(--sp-3);
+  border-bottom: 1px solid var(--border);
+  background-color: var(--warning-tint);
+  color: var(--text-primary);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-tight);
+}
+
+.market-notice svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--warning-text);
+}
+
+.market-notice--error {
+  background-color: var(--loss-tint);
+}
+
+.market-notice--error svg {
+  color: var(--loss-text);
+}
+
+.market-notice__title {
+  font-weight: var(--fw-medium);
+}
+
+.market-notice__detail {
+  min-width: 0;
+  overflow: clip;
+  color: var(--text-muted-on-tint);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.market-notice__retry,
+.market-notice__action {
+  flex: none;
+  margin-left: auto;
+}
+
+.market-notice__retry {
+  color: var(--text-muted-on-tint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------ Body and table */
+
+.market__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  /* Keyboard focus scrolls rows clear of the sticky column headers. */
+  scroll-padding-top: var(--h-row);
+}
+
+.market__body--center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Fixed layout keeps columns from shifting as prices change width. */
+.market-table {
+  min-width: 800px;
+  table-layout: fixed;
+}
+
+.market-col--last {
+  width: 80px;
+}
+
+.market-col--change {
+  width: 72px;
+}
+
+.market-col--pct {
+  width: 80px;
+}
+
+.market-col--bid,
+.market-col--ask {
+  width: 72px;
+}
+
+.market-col--volume {
+  width: 64px;
+}
+
+.market-col--status {
+  width: 100px;
+}
+
+.market-col--updated {
+  width: 72px;
+}
+
+.market-col--actions {
+  width: 36px;
+}
+
+/* Narrow windows drop bid and ask first; the detail panel still shows them. */
+@container (max-width: 799px) {
+  .market-table {
+    min-width: 656px;
+  }
+
+  .market-table .market-col--bid,
+  .market-table .market-col--ask {
+    display: none;
+  }
+}
+
+.market-row:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+/* The symbol always shows in full; the company name gives way. Clip (not hidden) so nothing can
+   scroll the text sideways. */
+.market-row__label {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.market-row__symbol {
+  flex: none;
+  font-weight: var(--fw-semibold);
+}
+
+.market-row__name {
+  flex: 1;
+  min-width: 0;
+  overflow: clip;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  text-overflow: ellipsis;
+}
+
+.market-row__name .ui-skeleton {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.market-row__last {
+  font-weight: var(--fw-medium);
+}
+
+/* Stale and unavailable values are kept but greyed, so they don't read as current prices. */
+.market-row.is-dimmed .market-row__value {
+  color: var(--text-muted);
+}
+
+.market-row__actions {
+  text-align: right;
+}
+
+.ui-table td.market-row__actions {
+  padding-right: var(--sp-2);
+  padding-left: 0;
+}
+
+/* The row menu shows on hover, focus and selection so idle rows stay quiet. */
+.market-row__menu {
+  vertical-align: middle;
+  opacity: 0;
+}
+
+.market-row:hover .market-row__menu,
+.market-row:focus-within .market-row__menu,
+.market-row[aria-selected='true'] .market-row__menu,
+.market-row__menu[aria-expanded='true'] {
+  opacity: 1;
+}
+
+.market-skeleton-row td .ui-skeleton {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* ------------------------------------------------------------------ Symbol search */
+
+.symsearch {
+  position: relative;
+  min-width: 0;
+}
+
+.symsearch__anchor {
+  position: relative;
+}
+
+.symsearch .ui-input__control {
+  padding-right: 28px;
+}
+
+.symsearch--global .ui-input__control {
+  padding-right: 60px;
+}
+
+.symsearch__trailing {
+  position: absolute;
+  top: 0;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: var(--h-control);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.symsearch__error {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: var(--z-popover);
+  max-width: 320px;
+  padding: 5px 8px;
+  border: 1px solid var(--loss);
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-raised);
+  box-shadow: var(--shadow-popover);
+  color: var(--loss-text);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-tight);
+}
+
+.symsearch-popup {
+  position: fixed;
+  z-index: var(--z-popover);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-raised);
+  box-shadow: var(--shadow-popover);
+  animation: ui-fade-in var(--dur-fast) var(--ease-out);
+}
+
+.symsearch__list {
+  flex: 1;
+  min-height: 0;
+  padding: var(--sp-1);
+  overflow-y: auto;
+}
+
+.symsearch__option {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 30px;
+  padding: 0 var(--sp-2);
+  border-radius: var(--radius-sm);
+  cursor: default;
+}
+
+.symsearch__option.is-active {
+  background-color: var(--bg-selected);
+}
+
+.symsearch__symbol {
+  flex: none;
+  min-width: 52px;
+  font-weight: var(--fw-semibold);
+}
+
+.symsearch__name {
+  flex: 1;
+  min-width: 0;
+  overflow: clip;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.symsearch__option.is-active .symsearch__name {
+  color: var(--text-muted-on-tint);
+}
+
+.symsearch__exchange {
+  flex: none;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.02em;
+}
+
+.symsearch__in-list,
+.symsearch__add {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-xs);
+}
+
+.symsearch__in-list {
+  color: var(--gain-text);
+}
+
+.symsearch__in-list svg,
+.symsearch__add svg {
+  width: 12px;
+  height: 12px;
+}
+
+.symsearch__add {
+  height: 20px;
+  padding: 0 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-control);
+  color: var(--text-primary);
+  visibility: hidden;
+}
+
+.symsearch__option:hover .symsearch__add,
+.symsearch__option.is-active .symsearch__add {
+  visibility: visible;
+}
+
+.symsearch__add:hover {
+  border-color: var(--border-hover);
+  background-color: var(--bg-control-hover);
+}
+
+.symsearch-popup__message {
+  padding: var(--sp-2) var(--sp-3);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
+.symsearch-popup__footer {
+  display: flex;
+  flex: none;
+  gap: var(--sp-3);
+  padding: 6px var(--sp-3);
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+}
+
+.symsearch-popup__footer .ui-kbd {
+  margin-right: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .symsearch-popup {
+    animation: none;
+  }
+}
