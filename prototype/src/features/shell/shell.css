@@ -527,8 +527,10 @@
 
 /* ------------------------------------------------------------------ Breadcrumbs */
 
+/* The trail keeps its width before the search box gives way; very long trails still truncate. */
 .shell-crumbs {
-  flex: 0 1 auto;
+  flex: 0 0 auto;
+  max-width: 40%;
   min-width: 0;
 }
 

@@ -7,10 +7,10 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
 ## Current phase
 - Phase 0: interactive prototype in `prototype/`. **It is an approval gate.** Do not start
   backend, database, Docker or Electron scaffolding until the user has approved the prototype in chat.
-  Status (2026-11-07): first prototype reviewed; **changes requested, not approved**. The user wants a
-  multi-page app (sidebar navigation, dashboard, a discover page for stocks and crypto, a full-page stock
-  view, notifications, settings) designed as a **Figma prototype first**, using their reference
-  screenshots for structure. Keep the stock panel's design, which they liked.
+  Status (2026-11-13): the first prototype was reviewed and changes were requested. Figma couldn't be
+  authorized, so at the user's request the redesign went straight into the working prototype: a
+  multi-page app with sidebar navigation, a dashboard, Discover (stocks, ETFs, crypto), a full stock page
+  with pop-out, Alerts, Notifications and Settings. **Awaiting the user's review and approval.**
 - Track phase status in this section. Update it whenever a phase is approved or completed.
 
 ## Machine constraints (Windows, low C: drive)
