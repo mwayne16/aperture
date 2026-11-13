@@ -268,8 +268,8 @@ describe('alerts end to end (QA)', () => {
     await startApp();
     await goTo('#/symbol/TSLA');
     await advance(1000);
-    const detail = screen.getByRole('region', { name: 'Stock details' });
-    fireEvent.click(within(detail).getByRole('button', { name: 'Create alert' }));
+    // The symbol page has one Create alert action, in its header.
+    fireEvent.click(screen.getByRole('button', { name: 'Create alert' }));
     expect(dialog()).toHaveAccessibleName('New alert');
     expect(field('Symbol')).toHaveValue('TSLA');
     expect(field('Target price')).toHaveFocus();
