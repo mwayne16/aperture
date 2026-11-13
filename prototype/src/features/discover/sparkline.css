@@ -1,0 +1,50 @@
+/* One-day sparkline. The line takes the gain or loss color; neutral lines stay muted. */
+
+.sparkline {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  vertical-align: middle;
+}
+
+.sparkline.is-gain {
+  color: var(--gain);
+}
+
+.sparkline.is-loss {
+  color: var(--loss);
+}
+
+.sparkline__svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.sparkline__line {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.sparkline__area {
+  fill: currentColor;
+  opacity: 0.1;
+}
+
+.sparkline__baseline {
+  stroke: var(--border-strong);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.sparkline__none {
+  color: var(--text-faint);
+  font-size: var(--fs-sm);
+}

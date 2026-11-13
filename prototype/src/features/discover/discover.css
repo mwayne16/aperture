@@ -1,0 +1,276 @@
+/*
+ * Discover page: one card holding the asset-class tabs, a toolbar and the instrument table.
+ * The page scrolls as a whole, so the card clips instead of scrolling and the table header sticks
+ * to the top of the page area.
+ */
+
+.discover-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: clip;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background-color: var(--bg-panel);
+}
+
+.discover-card .ui-tabs {
+  height: 40px;
+  padding: 0 var(--sp-2);
+}
+
+.discover-card__panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.discover-card__panel:focus-visible {
+  outline-offset: -2px;
+}
+
+.discover-card__body {
+  min-width: 0;
+}
+
+/* ------------------------------------------------------------------ Toolbar */
+
+.discover-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.discover-toolbar__filter {
+  flex: 0 1 280px;
+}
+
+.discover-toolbar__count,
+.discover-toolbar__note,
+.discover-toolbar__asof {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+
+.discover-toolbar__spacer {
+  flex: 1;
+}
+
+.discover-toolbar__asof {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.discover-notice {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 34px;
+  padding: 2px var(--sp-2) 2px var(--sp-4);
+  border-bottom: 1px solid var(--border);
+  background-color: var(--loss-tint);
+  font-size: var(--fs-sm);
+}
+
+.discover-notice svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--loss-text);
+}
+
+.discover-notice__text {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ------------------------------------------------------------------ Table */
+
+.discover-table {
+  table-layout: auto;
+}
+
+.discover-table td {
+  height: 36px;
+}
+
+.discover-table th {
+  height: 32px;
+}
+
+.discover-table .discover-col--symbol {
+  width: 100%;
+  max-width: 0;
+}
+
+.discover-table .discover-col--last,
+.discover-table .discover-col--change,
+.discover-table .discover-col--changePct,
+.discover-table .discover-col--volume {
+  min-width: 84px;
+}
+
+.discover-table .discover-col--trend {
+  width: 96px;
+  text-align: center;
+}
+
+.discover-table .discover-col--watch {
+  width: 44px;
+  text-align: center;
+}
+
+.discover-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  margin: 0 -4px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+}
+
+.discover-sort.is-num {
+  flex-direction: row-reverse;
+}
+
+.discover-sort:hover,
+.discover-sort.is-active {
+  color: var(--text-primary);
+}
+
+.discover-sort:hover {
+  background-color: var(--bg-hover);
+}
+
+.discover-sort__icon {
+  width: 12px;
+  height: 12px;
+  stroke-width: 2;
+  opacity: 0.5;
+}
+
+.discover-sort.is-active .discover-sort__icon {
+  color: var(--accent-text);
+  opacity: 1;
+}
+
+.discover-row td {
+  cursor: pointer;
+}
+
+/* The link holds keyboard focus, so the whole row lights up while it does. */
+.discover-row:has(.discover-row__link:focus-visible) td {
+  background-color: var(--bg-selected);
+}
+
+.discover-row__link {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.discover-row__link:focus-visible {
+  outline: none;
+}
+
+.discover-row:has(.discover-row__link:focus-visible) td:first-child {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.discover-row__symbol {
+  flex: none;
+  min-width: 72px;
+  font-weight: var(--fw-semibold);
+}
+
+.discover-row__name {
+  min-width: 0;
+  overflow: clip;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  text-overflow: ellipsis;
+}
+
+.discover-row__last {
+  font-weight: var(--fw-medium);
+}
+
+.discover-row__placeholder {
+  display: inline-flex;
+  justify-content: flex-end;
+}
+
+.discover-star {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--h-control-sm);
+  height: var(--h-control-sm);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-faint);
+  vertical-align: middle;
+}
+
+.discover-star svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 1.85;
+}
+
+.discover-star:hover:not([aria-disabled='true']) {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.discover-star.is-on {
+  color: var(--warning);
+}
+
+.discover-star.is-on svg {
+  fill: currentColor;
+}
+
+.discover-star[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ------------------------------------------------------------------ Loading */
+
+.discover-skeleton {
+  display: flex;
+  flex-direction: column;
+}
+
+.discover-skeleton__row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  height: 36px;
+  padding: 0 var(--sp-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+@media (max-width: 1200px) {
+  .discover-toolbar {
+    padding: var(--sp-3);
+  }
+}
