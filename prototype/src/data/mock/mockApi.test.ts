@@ -8,6 +8,7 @@ import { RETENTION_FLOOR_MS } from './history';
 import { createMockMarket } from './market';
 import { createMockApi, DEFAULT_SEARCH_LIMIT, HISTORY_DELAY_MS, MAX_SEARCH_LIMIT } from './mockApi';
 import { createRepository } from './repository';
+import { SEED_WATCHLIST_SYMBOLS } from './seed';
 import { createSimulationSource } from './simulationSource';
 
 /** Wednesday 2026-10-21 15:00 UTC = 11:00 New York (EDT). */
@@ -46,184 +47,132 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('watchlists', () => {
-  it('lists the seed', async () => {
-    const { api } = setup();
-    expect((await api.listWatchlists()).map((w) => w.name)).toEqual([
-      'Core Tech',
-      'Index ETFs',
-      'Financials',
-      'Ideas',
-    ]);
-  });
+/** As many distinct valid symbols as a watchlist holds, none of them in the seed. */
+function fullList(): string[] {
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  return Array.from(
+    { length: MAX_WATCHLIST_SYMBOLS },
+    (_, i) => `Q${letters[Math.floor(i / 26)]}${letters[i % 26]}`,
+  );
+}
 
-  it('creates a trimmed, empty watchlist that persists', async () => {
-    const { api, repo } = setup();
-    const created = await api.createWatchlist({ name: '  Energy  ' });
-    expect(created).toMatchObject({ name: 'Energy', symbols: [] });
-    expect(created.createdAt).toBe(created.updatedAt);
-    expect(repo.getWatchlist(created.id)).toEqual(created);
-    expect((await api.listWatchlists()).at(-1)?.name).toBe('Energy');
-  });
-
-  it.each([
-    ['blank', '   '],
-    ['too long', 'x'.repeat(41)],
-    ['not a string', 42 as unknown as string],
-  ])('rejects a %s name with VALIDATION_ERROR on the name field', async (_label, name) => {
+describe('watchlist', () => {
+  it('returns the seeded watchlist', async () => {
     const { api } = setup();
-    const error = await apiError(api.createWatchlist({ name }), 'VALIDATION_ERROR', 400);
-    expect(error.details).toEqual([{ field: 'name', message: expect.any(String) as string }]);
-  });
-
-  it('accepts exactly 40 characters', async () => {
-    const { api } = setup();
-    await expect(api.createWatchlist({ name: 'x'.repeat(40) })).resolves.toMatchObject({
-      name: 'x'.repeat(40),
+    expect(await api.getWatchlist()).toEqual({
+      symbols: [...SEED_WATCHLIST_SYMBOLS],
+      updatedAt: new Date(NOW).toISOString(),
     });
-  });
-
-  it('rejects a duplicate name ignoring case and whitespace with CONFLICT', async () => {
-    const { api } = setup();
-    const error = await apiError(api.createWatchlist({ name: ' core TECH ' }), 'CONFLICT', 409);
-    expect(error.details[0]?.field).toBe('name');
-  });
-
-  it('renames, allows a case-only rename of itself, and rejects another list name', async () => {
-    const { api } = setup();
-    const renamed = await api.renameWatchlist('wl-ideas', 'Watch closely');
-    expect(renamed.name).toBe('Watch closely');
-    await expect(api.renameWatchlist('wl-ideas', 'WATCH CLOSELY')).resolves.toMatchObject({
-      name: 'WATCH CLOSELY',
-    });
-    await apiError(api.renameWatchlist('wl-ideas', 'financials'), 'CONFLICT', 409);
-    await apiError(api.renameWatchlist('wl-ideas', ''), 'VALIDATION_ERROR', 400);
-    await apiError(api.renameWatchlist('missing', 'Name'), 'NOT_FOUND', 404);
-  });
-
-  it('deletes and then reports NOT_FOUND for the same id', async () => {
-    const { api } = setup();
-    await expect(api.deleteWatchlist('wl-ideas')).resolves.toBeUndefined();
-    expect((await api.listWatchlists()).map((w) => w.id)).not.toContain('wl-ideas');
-    await apiError(api.deleteWatchlist('wl-ideas'), 'NOT_FOUND', 404);
   });
 
   it('adds a normalized symbol at the end, including symbols outside the simulated universe', async () => {
-    const { api } = setup();
-    const updated = await api.addSymbol('wl-ideas', ' brk.b ');
+    const { api, repo } = setup();
+    repo.saveWatchlist({ ...repo.getWatchlist(), symbols: [] });
+    const updated = await api.addSymbol(' brk.b ');
     expect(updated.symbols).toEqual(['BRK.B']);
-    expect((await api.addSymbol('wl-ideas', 'zzzz')).symbols).toEqual(['BRK.B', 'ZZZZ']);
+    expect((await api.addSymbol('zzzz')).symbols).toEqual(['BRK.B', 'ZZZZ']);
+    expect(repo.getWatchlist().symbols).toEqual(['BRK.B', 'ZZZZ']);
   });
 
-  it('rejects bad symbols, duplicates, unknown lists and full lists', async () => {
+  it('rejects bad symbols, duplicates and a full list', async () => {
     const { api, repo } = setup();
-    const bad = await apiError(api.addSymbol('wl-ideas', 'TOOLONG'), 'VALIDATION_ERROR', 400);
+    const bad = await apiError(api.addSymbol('TOOLONG'), 'VALIDATION_ERROR', 400);
     expect(bad.details[0]?.field).toBe('symbol');
-    await apiError(api.addSymbol('wl-ideas', ''), 'VALIDATION_ERROR', 400);
-    await apiError(api.addSymbol('wl-ideas', 'ÄPL'), 'VALIDATION_ERROR', 400);
-    const dup = await apiError(api.addSymbol('wl-core-tech', 'aapl'), 'CONFLICT', 409);
+    await apiError(api.addSymbol(''), 'VALIDATION_ERROR', 400);
+    await apiError(api.addSymbol('ÄPL'), 'VALIDATION_ERROR', 400);
+    const dup = await apiError(api.addSymbol('aapl'), 'CONFLICT', 409);
     expect(dup.details[0]?.field).toBe('symbol');
-    await apiError(api.addSymbol('missing', 'AAPL'), 'NOT_FOUND', 404);
 
-    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    const many = Array.from(
-      { length: MAX_WATCHLIST_SYMBOLS },
-      (_, i) => `Q${letters[Math.floor(i / 26)]}${letters[i % 26]}`,
-    );
-    const ideas = repo.getWatchlist('wl-ideas')!;
-    repo.saveWatchlist({ ...ideas, symbols: many });
-    await apiError(api.addSymbol('wl-ideas', 'AAPL'), 'VALIDATION_ERROR', 400);
+    const many = fullList();
+    repo.saveWatchlist({ ...repo.getWatchlist(), symbols: many });
+    const full = await apiError(api.addSymbol('AAPL'), 'VALIDATION_ERROR', 400);
+    expect(full.details[0]?.field).toBe('symbol');
     // A duplicate in a full list reports the duplicate.
-    await apiError(api.addSymbol('wl-ideas', many[0]!), 'CONFLICT', 409);
+    await apiError(api.addSymbol(many[0]!), 'CONFLICT', 409);
   });
 
   it('removes a symbol (normalizing input) and rejects symbols not in the list', async () => {
+    const { api, repo } = setup();
+    const updated = await api.removeSymbol(' nvda');
+    expect(updated.symbols).toEqual(SEED_WATCHLIST_SYMBOLS.filter((s) => s !== 'NVDA'));
+    expect(repo.getWatchlist()).toEqual(updated);
+    await apiError(api.removeSymbol('NVDA'), 'NOT_FOUND', 404);
+    await apiError(api.removeSymbol(''), 'NOT_FOUND', 404);
+  });
+
+  it('can be emptied and filled again', async () => {
     const { api } = setup();
-    const updated = await api.removeSymbol('wl-core-tech', ' nvda');
-    expect(updated.symbols).not.toContain('NVDA');
-    expect(updated.symbols).toHaveLength(9);
-    await apiError(api.removeSymbol('wl-core-tech', 'NVDA'), 'NOT_FOUND', 404);
-    await apiError(api.removeSymbol('missing', 'AAPL'), 'NOT_FOUND', 404);
+    for (const symbol of SEED_WATCHLIST_SYMBOLS) await api.removeSymbol(symbol);
+    expect((await api.getWatchlist()).symbols).toEqual([]);
+    expect((await api.addSymbol('SPY')).symbols).toEqual(['SPY']);
   });
 
   describe('reorderSymbols', () => {
-    const current = ['SPY', 'QQQ', 'IWM', 'DIA', 'VTI', 'XLK', 'XLF'];
+    const current = [...SEED_WATCHLIST_SYMBOLS];
 
     it('accepts an exact permutation (normalizing case)', async () => {
       const { api } = setup();
       const reversed = [...current].reverse();
-      const updated = await api.reorderSymbols(
-        'wl-index-etfs',
-        reversed.map((s) => s.toLowerCase()),
-      );
+      const updated = await api.reorderSymbols(reversed.map((s) => s.toLowerCase()));
       expect(updated.symbols).toEqual(reversed);
-      expect((await api.listWatchlists())[1]?.symbols).toEqual(reversed);
+      expect((await api.getWatchlist()).symbols).toEqual(reversed);
     });
 
     it('accepts the identical order', async () => {
       const { api } = setup();
-      await expect(api.reorderSymbols('wl-index-etfs', current)).resolves.toMatchObject({ symbols: current });
+      await expect(api.reorderSymbols(current)).resolves.toMatchObject({ symbols: current });
     });
 
     it.each([
       ['a missing symbol', current.slice(1), 'symbols'],
-      ['an extra symbol', [...current, 'AAPL'], 'symbols.7'],
-      ['a duplicate replacing one', [...current.slice(0, 6), 'SPY'], 'symbols.6'],
-      ['a foreign symbol replacing one', [...current.slice(0, 6), 'AAPL'], 'symbols.6'],
+      ['an extra symbol', [...current, 'SPY'], 'symbols.10'],
+      ['a duplicate replacing one', [...current.slice(0, 9), 'AAPL'], 'symbols.9'],
+      ['a foreign symbol replacing one', [...current.slice(0, 9), 'SPY'], 'symbols.9'],
       ['an empty list', [], 'symbols'],
-      ['a non-string entry', [...current.slice(0, 6), 7], 'symbols.6'],
+      ['a non-string entry', [...current.slice(0, 9), 7], 'symbols.9'],
     ])('rejects %s with VALIDATION_ERROR', async (_label, symbols, field) => {
       const { api, repo } = setup();
-      const before = repo.getWatchlist('wl-index-etfs');
-      const error = await apiError(
-        api.reorderSymbols('wl-index-etfs', symbols as string[]),
-        'VALIDATION_ERROR',
-        400,
-      );
+      const before = repo.getWatchlist();
+      const error = await apiError(api.reorderSymbols(symbols as string[]), 'VALIDATION_ERROR', 400);
       expect(error.details.map((d) => d.field)).toContain(field);
-      expect(repo.getWatchlist('wl-index-etfs')).toEqual(before);
+      expect(repo.getWatchlist()).toEqual(before);
     });
 
-    it('rejects a non-array and an unknown list', async () => {
+    it('rejects a non-array', async () => {
       const { api } = setup();
-      await apiError(
-        api.reorderSymbols('wl-index-etfs', 'SPY' as unknown as string[]),
-        'VALIDATION_ERROR',
-        400,
-      );
-      await apiError(api.reorderSymbols('missing', []), 'NOT_FOUND', 404);
+      await apiError(api.reorderSymbols('AAPL' as unknown as string[]), 'VALIDATION_ERROR', 400);
     });
 
     it('accepts an empty permutation of an empty list', async () => {
-      const { api } = setup();
-      await expect(api.reorderSymbols('wl-ideas', [])).resolves.toMatchObject({ symbols: [] });
+      const { api, repo } = setup();
+      repo.saveWatchlist({ ...repo.getWatchlist(), symbols: [] });
+      await expect(api.reorderSymbols([])).resolves.toMatchObject({ symbols: [] });
     });
   });
 
-  it('changes updatedAt on every successful mutation and never changes createdAt', async () => {
+  it('changes updatedAt on every successful mutation', async () => {
     const { api } = setup();
-    const created = await api.createWatchlist({ name: 'Timeline' });
     const steps = [
-      () => api.addSymbol(created.id, 'AAPL'),
-      () => api.addSymbol(created.id, 'MSFT'),
-      () => api.reorderSymbols(created.id, ['MSFT', 'AAPL']),
-      () => api.renameWatchlist(created.id, 'Timeline'),
-      () => api.removeSymbol(created.id, 'AAPL'),
+      () => api.addSymbol('SPY'),
+      () => api.addSymbol('QQQ'),
+      () => api.reorderSymbols(['QQQ', 'SPY', ...SEED_WATCHLIST_SYMBOLS]),
+      () => api.removeSymbol('SPY'),
     ];
-    let previous = created;
+    let previous = await api.getWatchlist();
     for (const step of steps) {
       const next = await step();
-      expect(next.createdAt).toBe(created.createdAt);
       expect(Date.parse(next.updatedAt)).toBeGreaterThan(Date.parse(previous.updatedAt));
       previous = next;
     }
   });
 
-  it('leaves updatedAt unchanged when a mutation fails', async () => {
+  it('leaves the watchlist and updatedAt unchanged when a mutation fails', async () => {
     const { api, repo } = setup();
-    const before = repo.getWatchlist('wl-core-tech')!;
-    await apiError(api.addSymbol('wl-core-tech', 'AAPL'), 'CONFLICT');
-    expect(repo.getWatchlist('wl-core-tech')).toEqual(before);
+    const before = repo.getWatchlist();
+    await apiError(api.addSymbol('AAPL'), 'CONFLICT');
+    await apiError(api.removeSymbol('SPY'), 'NOT_FOUND');
+    await apiError(api.reorderSymbols(['AAPL']), 'VALIDATION_ERROR');
+    expect(repo.getWatchlist()).toEqual(before);
   });
 });
 
@@ -430,7 +379,7 @@ describe('simulation controls', () => {
     vi.useFakeTimers();
     const { api } = setup({ apiLatencyMs: 350 });
     let settled = false;
-    const promise = api.listWatchlists().then((v) => {
+    const promise = api.getWatchlist().then((v) => {
       settled = true;
       return v;
     });
@@ -438,7 +387,7 @@ describe('simulation controls', () => {
     expect(settled).toBe(false);
     await vi.advanceTimersByTimeAsync(1);
     expect(settled).toBe(true);
-    await expect(promise).resolves.toHaveLength(4);
+    await expect(promise).resolves.toMatchObject({ symbols: SEED_WATCHLIST_SYMBOLS });
 
     let searched = false;
     void api.searchInstruments('a').then(() => (searched = true));
@@ -451,20 +400,20 @@ describe('simulation controls', () => {
   it('applies the mutation only after the latency', async () => {
     vi.useFakeTimers();
     const { api, repo } = setup({ apiLatencyMs: 1000 });
-    const promise = api.deleteWatchlist('wl-ideas');
+    const promise = api.removeSymbol('NFLX');
     await vi.advanceTimersByTimeAsync(500);
-    expect(repo.getWatchlist('wl-ideas')).toBeDefined();
+    expect(repo.getWatchlist().symbols).toContain('NFLX');
     await vi.advanceTimersByTimeAsync(500);
     await promise;
-    expect(repo.getWatchlist('wl-ideas')).toBeUndefined();
+    expect(repo.getWatchlist().symbols).not.toContain('NFLX');
   });
 
   it('fails exactly the next call with UNAVAILABLE, resets the flag, and does not apply the mutation', async () => {
     const { api, simulation, repo } = setup({ failNextApiCall: true });
-    await apiError(api.createWatchlist({ name: 'Never' }), 'UNAVAILABLE', 503);
+    await apiError(api.addSymbol('SPY'), 'UNAVAILABLE', 503);
     expect(simulation.get().failNextApiCall).toBe(false);
-    expect(repo.listWatchlists().map((w) => w.name)).not.toContain('Never');
-    await expect(api.createWatchlist({ name: 'Works' })).resolves.toMatchObject({ name: 'Works' });
+    expect(repo.getWatchlist().symbols).not.toContain('SPY');
+    expect((await api.addSymbol('SPY')).symbols).toContain('SPY');
   });
 
   it('fails only one of two concurrent calls', async () => {

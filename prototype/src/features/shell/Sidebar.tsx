@@ -1,10 +1,11 @@
-import { Aperture, Bell, BellRing, Compass, LayoutDashboard, Settings, type LucideIcon } from 'lucide-react';
+import { Aperture, Bell, BellRing, Compass, LayoutDashboard, Settings, Star, type LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
 import { paths } from '../../app/routes';
+import { Badge } from '../../components/ui/Badge';
 import { cx } from '../../components/ui/cx';
 import { useUnreadCount } from '../notifications/notificationStore';
-import { WatchlistSidebar } from '../watchlists/WatchlistSidebar';
+import { WatchlistSection } from '../watchlists/WatchlistSection';
 import './shell.css';
 
 interface NavItemProps {
@@ -49,7 +50,7 @@ function UnreadBadge() {
   );
 }
 
-/** App navigation: brand, the main pages, preferences, and the watchlists. */
+/** App navigation: brand, the main pages, preferences, and the watchlist. */
 export function Sidebar() {
   return (
     <div className="sidebar">
@@ -62,6 +63,7 @@ export function Sidebar() {
       <nav className="sidebar-nav" aria-label="Main">
         <NavSection label="Main menu">
           <NavItem href={paths.dashboard} icon={LayoutDashboard} label="Dashboard" matches={(p) => p === '/'} />
+          <NavItem href={paths.watchlist} icon={Star} label="Watchlist" matches={(p) => p === paths.watchlist} />
           <NavItem
             href={paths.discover()}
             icon={Compass}
@@ -81,8 +83,12 @@ export function Sidebar() {
           <NavItem href={paths.settings} icon={Settings} label="Settings" matches={(p) => p === paths.settings} />
         </NavSection>
       </nav>
-      <div className="sidebar__watchlists">
-        <WatchlistSidebar />
+      <WatchlistSection />
+      <div className="sidebar__footer">
+        <Badge tone="warning" size="sm">
+          Simulated
+        </Badge>
+        <span>Saved in this browser</span>
       </div>
     </div>
   );

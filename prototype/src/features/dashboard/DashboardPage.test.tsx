@@ -124,64 +124,52 @@ describe('Markets strip', () => {
 });
 
 describe('Your watchlist card', () => {
-  it('lists the active watchlist with live prices and links to it', async () => {
+  it('lists the watchlist with live prices and links to it', async () => {
     await act(() => useWatchlistStore.getState().load());
     setQuotes([{ ...quote('AAPL', 'live'), last: 235.59, changePct: 0.5 }]);
     renderDashboard();
     const watchlist = card('Your watchlist');
-    expect(within(watchlist).getByText('Core Tech')).toBeInTheDocument();
     const aapl = within(watchlist).getByRole('link', { name: /^AAPL/ });
     expect(aapl).toHaveAttribute('href', '/symbol/AAPL');
     expect(aapl).toHaveTextContent('235.59');
     expect(aapl).toHaveTextContent('+0.50%');
     expect(await within(watchlist).findByRole('link', { name: /^AAPL Apple Inc\./ })).toBeInTheDocument();
-    // Core Tech holds ten symbols; eight fit, the rest are a link away.
+    // The seeded watchlist holds ten symbols; eight fit, the rest are a link away.
     expect(within(watchlist).getAllByRole('listitem')).toHaveLength(8);
-    expect(within(watchlist).getByRole('link', { name: '2 more in “Core Tech”' })).toHaveAttribute(
+    expect(within(watchlist).getByRole('link', { name: '2 more in your watchlist' })).toHaveAttribute(
       'href',
-      '/watchlists/wl-core-tech',
+      '/watchlist',
     );
-    expect(within(watchlist).getByRole('link', { name: 'Open watchlist' })).toHaveAttribute(
-      'href',
-      '/watchlists/wl-core-tech',
-    );
+    expect(within(watchlist).getByRole('link', { name: 'Open watchlist' })).toHaveAttribute('href', '/watchlist');
   });
 
-  it('points an empty list to Discover', async () => {
-    await act(() => useWatchlistStore.getState().load());
+  it('points an empty watchlist to Discover', () => {
     act(() => {
-      useWatchlistStore.getState().setActive('wl-ideas');
+      useWatchlistStore.setState({ status: 'ready', watchlist: { symbols: [], updatedAt: '' } });
     });
     renderDashboard();
     const watchlist = card('Your watchlist');
-    expect(within(watchlist).getByText('“Ideas” is empty')).toBeInTheDocument();
+    expect(within(watchlist).getByText('Your watchlist is empty')).toBeInTheDocument();
     expect(within(watchlist).getByRole('link', { name: 'Discover' })).toHaveAttribute(
       'href',
       '/discover/stocks',
     );
+    expect(within(watchlist).getByRole('link', { name: 'Open watchlist' })).toHaveAttribute('href', '/watchlist');
   });
 
-  it('says so when there are no watchlists', () => {
-    act(() => {
-      useWatchlistStore.setState({ status: 'ready', watchlists: [], activeId: null });
-    });
-    renderDashboard();
-    expect(within(card('Your watchlist')).getByText('No watchlists yet')).toBeInTheDocument();
-  });
-
-  it('shows an error with Retry when watchlists fail to load', async () => {
+  it('shows an error with Retry when the watchlist fails to load', async () => {
     const user = userEvent.setup();
-    vi.spyOn(api, 'listWatchlists').mockRejectedValueOnce(unavailable());
+    vi.spyOn(api, 'getWatchlist').mockRejectedValueOnce(unavailable());
     await act(() => useWatchlistStore.getState().load());
     renderDashboard();
     const watchlist = card('Your watchlist');
     const alert = within(watchlist).getByRole('alert');
-    expect(alert).toHaveTextContent("Couldn't load watchlists");
+    expect(alert).toHaveTextContent("Couldn't load your watchlist");
     await user.click(within(alert).getByRole('button', { name: 'Retry' }));
     expect(await within(watchlist).findByRole('link', { name: /^AAPL/ })).toBeInTheDocument();
   });
 
-  it('shows placeholders while watchlists load', () => {
+  it('shows placeholders while the watchlist loads', () => {
     act(() => {
       useWatchlistStore.setState({ status: 'loading' });
     });

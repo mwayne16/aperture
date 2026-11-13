@@ -6,14 +6,15 @@ import { App } from '../../App';
 import { dismissAllToasts } from '../../components/ui/toastStore';
 import { api, resetDemoData } from '../../data/dataLayer';
 import { parsePersisted, STORAGE_KEY } from '../../data/mock/repository';
+import { SEED_WATCHLIST_SYMBOLS } from '../../data/mock/seed';
 import { useQuoteStore } from '../../data/quoteStore';
 import { updateSimulation } from '../../data/simulationStore';
 import { MAX_WATCHLIST_SYMBOLS } from '../../domain/symbols';
 import { resetShellStores } from '../../features/shell/testUtils';
 
 /**
- * Watchlists and the market table together, through the whole app on the real mock data layer:
- * the sidebar picks the list, the table and subscriptions follow it, and changes persist.
+ * The watchlist and the market table together, through the whole app on the real mock data layer:
+ * the table, the sidebar and the live subscriptions follow the list, and changes persist.
  */
 
 vi.mock('lightweight-charts', async (importOriginal) => {
@@ -24,23 +25,22 @@ vi.mock('lightweight-charts', async (importOriginal) => {
 
 const FEED_TIMEOUT = { timeout: 3000 };
 
-const grid = (name: string) => screen.findByRole('grid', { name: `Quotes in ${name}` }, FEED_TIMEOUT);
+const grid = () => screen.findByRole('grid', { name: 'Quotes in your watchlist' }, FEED_TIMEOUT);
 const rowSymbols = () =>
   [...document.querySelectorAll<HTMLElement>('tr[data-symbol]')].map((r) => r.dataset.symbol);
+const sidebarSymbols = () =>
+  [...document.querySelectorAll<HTMLElement>('[data-watch-symbol]')].map((r) => r.dataset.watchSymbol);
 const row = (symbol: string) => {
   const element = document.querySelector<HTMLElement>(`tr[data-symbol="${symbol}"]`);
   if (!element) throw new Error(`No row for ${symbol}`);
   return element;
 };
-const listButton = (name: RegExp) => screen.getByRole('button', { name });
-const addBox = (name: string) => screen.getByRole('combobox', { name: `Add symbol to ${name}` });
+const addBox = () => screen.getByRole('combobox', { name: 'Add symbol to watchlist' });
 const detailHeading = () =>
   within(screen.getByRole('region', { name: 'Stock details' })).getByRole('heading', { level: 2 });
 
-function persistedSymbols(id: string): string[] | undefined {
-  return parsePersisted(localStorage.getItem(STORAGE_KEY), new Date().toISOString())?.watchlists.find(
-    (w) => w.id === id,
-  )?.symbols;
+function persistedSymbols(): string[] | undefined {
+  return parsePersisted(localStorage.getItem(STORAGE_KEY), new Date().toISOString())?.watchlist.symbols;
 }
 
 /** Restarts the app the way a reload does: fresh stores, same browser storage. */
@@ -57,8 +57,8 @@ async function openRowMenu(user: ReturnType<typeof userEvent.setup>, label: stri
 }
 
 beforeEach(async () => {
-  // These flows run on a watchlist page, where the quote table lives.
-  window.location.hash = '#/watchlists';
+  // These flows run on the watchlist page, where the quote table lives.
+  window.location.hash = '#/watchlist';
   resetShellStores();
   updateSimulation({ apiLatencyMs: 0 });
   await resetDemoData();
@@ -71,17 +71,21 @@ afterEach(() => {
   });
 });
 
-describe('watchlists and the market table (QA)', () => {
-  it('switches the table and the live quotes to the chosen list and restores it after a reload', async () => {
+describe('the watchlist and the market table (QA)', () => {
+  it('streams live quotes for the watchlist and a symbol added to it, and keeps the list after a reload', async () => {
     const user = userEvent.setup();
     const { unmount } = render(<App />);
-    await grid('Core Tech');
+    await grid();
+    expect(rowSymbols()).toEqual(SEED_WATCHLIST_SYMBOLS);
 
-    await user.click(listButton(/^Index ETFs,/));
-    await grid('Index ETFs');
-    expect(rowSymbols()).toEqual(['SPY', 'QQQ', 'IWM', 'DIA', 'VTI', 'XLK', 'XLF']);
+    await user.type(addBox(), 'spy');
+    await screen.findByRole('option', { name: /^SPY, SPDR/ }, FEED_TIMEOUT);
+    await user.keyboard('{Enter}');
     await waitFor(() => {
-      for (const symbol of ['SPY', 'QQQ', 'IWM', 'DIA', 'VTI', 'XLK', 'XLF']) {
+      expect(rowSymbols()).toContain('SPY');
+    });
+    await waitFor(() => {
+      for (const symbol of [...SEED_WATCHLIST_SYMBOLS, 'SPY']) {
         expect(useQuoteStore.getState().quotes[symbol]?.last).toEqual(expect.any(Number));
       }
     }, FEED_TIMEOUT);
@@ -90,60 +94,56 @@ describe('watchlists and the market table (QA)', () => {
     }, FEED_TIMEOUT);
 
     reload(unmount);
-    await grid('Index ETFs');
-    expect(listButton(/^Index ETFs,/)).toHaveAttribute('aria-current', 'true');
+    await grid();
+    expect(rowSymbols()).toEqual([...SEED_WATCHLIST_SYMBOLS, 'SPY']);
   });
 
-  it('moves the table to the next list when the active list is deleted, and remembers it', async () => {
+  it('keeps a watchlist emptied from the table empty after a reload instead of reseeding it', async () => {
+    for (const symbol of SEED_WATCHLIST_SYMBOLS.slice(1)) await api.removeSymbol(symbol);
     const user = userEvent.setup();
     const { unmount } = render(<App />);
-    await grid('Core Tech');
+    await grid();
+    expect(rowSymbols()).toEqual(['AAPL']);
 
-    const menu = await openRowMenu(user, 'Actions for Core Tech');
-    await user.click(within(menu).getByRole('menuitem', { name: 'Delete' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Delete watchlist?' });
-    await user.click(within(dialog).getByRole('button', { name: 'Delete' }));
-
-    await grid('Index ETFs');
-    expect(listButton(/^Index ETFs,/)).toHaveAttribute('aria-current', 'true');
-    expect(screen.queryByRole('button', { name: /^Core Tech,/ })).not.toBeInTheDocument();
+    const menu = await openRowMenu(user, 'Actions for AAPL');
+    await user.click(within(menu).getByRole('menuitem', { name: 'Remove from watchlist' }));
+    expect(await screen.findByText('Your watchlist is empty')).toBeInTheDocument();
     await waitFor(() => {
-      expect(persistedSymbols('wl-core-tech')).toBeUndefined();
+      expect(persistedSymbols()).toEqual([]);
     });
 
     reload(unmount);
-    await grid('Index ETFs');
+    expect(await screen.findByText('Your watchlist is empty', {}, FEED_TIMEOUT)).toBeInTheDocument();
+    expect(rowSymbols()).toEqual([]);
   });
 
   it('keeps an order changed through the row menu, and a removal, across a reload', async () => {
     const user = userEvent.setup();
     const { unmount } = render(<App />);
-    await grid('Core Tech');
-    await user.click(listButton(/^Financials,/));
-    await grid('Financials');
+    await grid();
 
-    let menu = await openRowMenu(user, 'Actions for BAC');
+    let menu = await openRowMenu(user, 'Actions for MSFT');
     await user.click(within(menu).getByRole('menuitem', { name: 'Move up' }));
-    menu = await openRowMenu(user, 'Actions for GS');
+    menu = await openRowMenu(user, 'Actions for NVDA');
     await user.click(within(menu).getByRole('menuitem', { name: 'Remove from watchlist' }));
 
-    const expected = ['BAC', 'JPM', 'MS', 'V', 'MA', 'BRK.B'];
+    const expected = ['MSFT', 'AAPL', 'GOOGL', 'AMZN', 'META', 'TSLA', 'AMD', 'AVGO', 'NFLX'];
     expect(rowSymbols()).toEqual(expected);
+    // The sidebar shows the same list as the table.
+    expect(sidebarSymbols()).toEqual(expected);
     await waitFor(() => {
-      expect(persistedSymbols('wl-financials')).toEqual(expected);
+      expect(persistedSymbols()).toEqual(expected);
     });
 
     reload(unmount);
-    await grid('Financials');
+    await grid();
     expect(rowSymbols()).toEqual(expected);
   });
 
-  it('adds with Shift+Enter in the top bar to the list that is active now', async () => {
+  it('adds with Shift+Enter in the top bar to the watchlist and saves it', async () => {
     const user = userEvent.setup();
     render(<App />);
-    await grid('Core Tech');
-    await user.click(listButton(/^Index ETFs,/));
-    await grid('Index ETFs');
+    await grid();
 
     const search = screen.getByRole('combobox', { name: 'Search symbols' });
     await user.type(search, 'intc');
@@ -153,21 +153,21 @@ describe('watchlists and the market table (QA)', () => {
     await waitFor(() => {
       expect(rowSymbols()).toContain('INTC');
     });
-    expect(await screen.findByText('Added INTC to Index ETFs')).toBeInTheDocument();
-    expect(persistedSymbols('wl-core-tech')).not.toContain('INTC');
+    expect(await screen.findByText('Added INTC to your watchlist')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(persistedSymbols()?.at(-1)).toBe('INTC');
+    });
   });
 
   it('explains duplicates, bad symbols and a failed save in the add box, then saves on retry', async () => {
     const user = userEvent.setup();
     render(<App />);
-    await grid('Core Tech');
-    await user.click(listButton(/^Financials,/));
-    await grid('Financials');
-    const box = addBox('Financials');
+    await grid();
+    const box = addBox();
 
-    await user.type(box, 'jpm{Enter}');
+    await user.type(box, 'aapl{Enter}');
     expect(
-      await screen.findByText('JPM is already in this watchlist.', { selector: 'p' }),
+      await screen.findByText('AAPL is already in this watchlist.', { selector: 'p' }),
     ).toBeInTheDocument();
 
     await user.clear(box);
@@ -190,25 +190,23 @@ describe('watchlists and the market table (QA)', () => {
     expect(box).toHaveValue('');
   });
 
-  it('refuses to add to a full list in the add box and the top bar', async () => {
-    const full = await api.createWatchlist({ name: 'Full' });
+  it('refuses to add to a full watchlist in the add box and the top bar', async () => {
     const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    for (let i = 0; i < MAX_WATCHLIST_SYMBOLS; i++) {
-      await api.addSymbol(full.id, `Q${letters[Math.floor(i / 26)] ?? 'Z'}${letters[i % 26] ?? 'Z'}`);
+    for (let i = SEED_WATCHLIST_SYMBOLS.length; i < MAX_WATCHLIST_SYMBOLS; i++) {
+      await api.addSymbol(`Q${letters[Math.floor(i / 26)] ?? 'Z'}${letters[i % 26] ?? 'Z'}`);
     }
-    localStorage.setItem('aperture.activeWatchlist', full.id);
     const user = userEvent.setup();
     render(<App />);
-    await grid('Full');
+    await grid();
     expect(rowSymbols()).toHaveLength(MAX_WATCHLIST_SYMBOLS);
 
-    await user.type(addBox('Full'), 'nvda{Enter}');
+    await user.type(addBox(), 'intc{Enter}');
     expect(
       await screen.findByText('This watchlist is full (100 symbols max).', { selector: 'p' }),
     ).toBeInTheDocument();
 
-    await user.type(screen.getByRole('combobox', { name: 'Search symbols' }), 'nvda');
-    await screen.findByRole('option', { name: /^NVDA, NVIDIA/ }, FEED_TIMEOUT);
+    await user.type(screen.getByRole('combobox', { name: 'Search symbols' }), 'intc');
+    await screen.findByRole('option', { name: /^INTC, Intel/ }, FEED_TIMEOUT);
     await user.keyboard('{Shift>}{Enter}{/Shift}');
     expect(
       await screen.findByText('This watchlist is full (100 symbols max).', { selector: '.ui-toast__title' }),
@@ -219,7 +217,7 @@ describe('watchlists and the market table (QA)', () => {
   it('drives the detail panel from row clicks and the arrow keys', async () => {
     const user = userEvent.setup();
     render(<App />);
-    await grid('Core Tech');
+    await grid();
 
     await user.click(within(row('MSFT')).getByText('MSFT'));
     expect(detailHeading()).toHaveTextContent('MSFT');

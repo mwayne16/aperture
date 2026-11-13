@@ -3,7 +3,6 @@ import { breadcrumbsFor } from './breadcrumbs';
 import { decodeParam, paths } from './routes';
 
 const names = {
-  watchlistName: (id: string) => (id === 'wl-core' ? 'Core Tech' : null),
   assetClass: (symbol: string) => (symbol === 'SPY' ? ('etf' as const) : null),
 };
 
@@ -23,9 +22,8 @@ describe('breadcrumbsFor', () => {
     expect(breadcrumbsFor('/discover', names).at(-1)).toEqual({ label: 'Stocks' });
   });
 
-  it('names a watchlist, never showing a raw id', () => {
-    expect(breadcrumbsFor(paths.watchlist('wl-core'), names).at(-1)).toEqual({ label: 'Core Tech' });
-    expect(breadcrumbsFor(paths.watchlist('gone'), names).at(-1)).toEqual({ label: 'Watchlist' });
+  it('names the watchlist page', () => {
+    expect(breadcrumbsFor(paths.watchlist, names)).toEqual([{ label: 'Watchlist' }]);
   });
 
   it('decodes crypto pairs and links back to the matching discover tab', () => {

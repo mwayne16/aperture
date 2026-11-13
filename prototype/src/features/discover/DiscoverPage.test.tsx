@@ -32,7 +32,7 @@ function renderDiscover(path = '/discover/stocks', { strict = false } = {}) {
   return { ...utils, location, currentPath };
 }
 
-async function loadWatchlists(): Promise<void> {
+async function loadWatchlist(): Promise<void> {
   await act(() => useWatchlistStore.getState().load());
 }
 
@@ -193,9 +193,9 @@ describe('DiscoverPage', () => {
     expect(screen.getByText('Symbol page ETH/USD')).toBeInTheDocument();
   });
 
-  it('stars a symbol into the active watchlist and back out without opening the row', async () => {
+  it('stars a symbol into the watchlist and back out without opening the row', async () => {
     const user = userEvent.setup();
-    await loadWatchlists();
+    await loadWatchlist();
     const { currentPath } = renderDiscover();
     await screen.findByRole('link', { name: /^JPM\b/ });
     const star = within(rowFor('JPM')).getByRole('button', { name: 'Watch JPM' });
@@ -203,9 +203,7 @@ describe('DiscoverPage', () => {
 
     await user.click(star);
     await waitFor(() => {
-      expect(useWatchlistStore.getState().watchlists.find((w) => w.name === 'Core Tech')?.symbols).toContain(
-        'JPM',
-      );
+      expect(useWatchlistStore.getState().watchlist?.symbols).toContain('JPM');
     });
     expect(star).toHaveAttribute('aria-pressed', 'true');
     expect(currentPath()).toBe('/discover/stocks');
@@ -213,14 +211,12 @@ describe('DiscoverPage', () => {
     await user.click(star);
     expect(star).toHaveAttribute('aria-pressed', 'false');
     await waitFor(() => {
-      expect(
-        useWatchlistStore.getState().watchlists.find((w) => w.name === 'Core Tech')?.symbols,
-      ).not.toContain('JPM');
+      expect(useWatchlistStore.getState().watchlist?.symbols).not.toContain('JPM');
     });
   });
 
-  it('shows symbols already in the active list as starred', async () => {
-    await loadWatchlists();
+  it('shows symbols already in the watchlist as starred', async () => {
+    await loadWatchlist();
     renderDiscover();
     await screen.findByRole('link', { name: /^AAPL\b/ });
     expect(within(rowFor('AAPL')).getByRole('button', { name: 'Watch AAPL' })).toHaveAttribute(
@@ -231,24 +227,22 @@ describe('DiscoverPage', () => {
 
   it('reports a failed add and leaves the star off', async () => {
     const user = userEvent.setup();
-    await loadWatchlists();
+    await loadWatchlist();
     vi.spyOn(api, 'addSymbol').mockRejectedValueOnce(unavailable());
     renderDiscover();
     await screen.findByRole('link', { name: /^JPM\b/ });
     const star = within(rowFor('JPM')).getByRole('button', { name: 'Watch JPM' });
     await user.click(star);
     await waitFor(() => {
-      expect(useToastStore.getState().toasts.map((t) => t.title)).toContain(
-        "Couldn't add JPM to “Core Tech”",
-      );
+      expect(useToastStore.getState().toasts.map((t) => t.title)).toContain("Couldn't add JPM to your watchlist");
     });
     expect(star).toHaveAttribute('aria-pressed', 'false');
   });
 
-  it('disables the star, with the reason as its tooltip, when there is no watchlist', async () => {
+  it('disables the star, with the reason as its tooltip, while the watchlist loads', async () => {
     const user = userEvent.setup();
     act(() => {
-      useWatchlistStore.setState({ status: 'ready', watchlists: [], activeId: null });
+      useWatchlistStore.setState({ status: 'loading', watchlist: null });
     });
     const addSymbol = vi.spyOn(useWatchlistStore.getState(), 'addSymbol');
     renderDiscover();
@@ -263,20 +257,16 @@ describe('DiscoverPage', () => {
     within(rowFor('AAPL')).getByRole('link').focus();
     await user.tab();
     expect(star).toHaveFocus();
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('Create a watchlist to star symbols.');
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Your watchlist is loading.');
   });
 
-  it('disables the star when the active list is full', async () => {
+  it('disables the star when the watchlist is full', async () => {
     const full = Array.from(
       { length: MAX_WATCHLIST_SYMBOLS },
       (_, i) => `X${String.fromCharCode(65 + (i % 26))}${Math.floor(i / 26)}`,
     );
     act(() => {
-      useWatchlistStore.setState({
-        status: 'ready',
-        watchlists: [{ id: 'wl-full', name: 'Full', symbols: full, createdAt: '', updatedAt: '' }],
-        activeId: 'wl-full',
-      });
+      useWatchlistStore.setState({ status: 'ready', watchlist: { symbols: full, updatedAt: '' } });
     });
     renderDiscover();
     await screen.findByRole('link', { name: /^AAPL\b/ });

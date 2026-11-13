@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { MAX_WATCHLIST_SYMBOLS } from '../../domain/symbols';
 import type { PriceAlert, Watchlist } from '../../domain/types';
 import { createMockMarket } from './market';
 import { createRepository, parsePersisted, STORAGE_KEY, type StorageLike } from './repository';
@@ -8,7 +9,7 @@ import {
   DEMO_FIRST_TRIGGER_TRADES,
   DEMO_HORIZON_TRADES,
   demoFireTrades,
-  SEED_WATCHLISTS,
+  SEED_WATCHLIST_SYMBOLS,
 } from './seed';
 
 const NOW = Date.UTC(2026, 9, 21, 15, 0);
@@ -20,7 +21,13 @@ function stored(): unknown {
 }
 
 function watchlist(overrides: Partial<Watchlist> = {}): Watchlist {
-  return { id: 'w1', name: 'Mine', symbols: ['AAPL'], createdAt: ISO, updatedAt: ISO, ...overrides };
+  return { symbols: ['AAPL'], updatedAt: ISO, ...overrides };
+}
+
+/** `count` distinct valid symbols, in a fixed order. */
+function tickers(count: number): string[] {
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  return Array.from({ length: count }, (_, i) => `Q${letters[Math.floor(i / 26)]}${letters[i % 26]}`);
 }
 
 function alert(overrides: Partial<PriceAlert> = {}): PriceAlert {
@@ -50,27 +57,11 @@ function persist(payload: unknown): void {
 describe('seed data', () => {
   const seed = buildSeedData({ now: NOW });
 
-  it('has the four demo watchlists in order, with Ideas empty', () => {
-    expect(seed.watchlists.map((w) => w.name)).toEqual(['Core Tech', 'Index ETFs', 'Financials', 'Ideas']);
-    expect(seed.watchlists[0]?.symbols).toEqual([
-      'AAPL',
-      'MSFT',
-      'NVDA',
-      'GOOGL',
-      'AMZN',
-      'META',
-      'TSLA',
-      'AMD',
-      'AVGO',
-      'NFLX',
-    ]);
-    expect(seed.watchlists[1]?.symbols).toEqual(['SPY', 'QQQ', 'IWM', 'DIA', 'VTI', 'XLK', 'XLF']);
-    expect(seed.watchlists[2]?.symbols).toEqual(['JPM', 'BAC', 'GS', 'MS', 'V', 'MA', 'BRK.B']);
-    expect(seed.watchlists[3]?.symbols).toEqual([]);
-    for (const w of seed.watchlists) {
-      expect(w.createdAt).toBe(ISO);
-      expect(w.updatedAt).toBe(ISO);
-    }
+  it('has one watchlist with the ten demo tech symbols in order', () => {
+    expect(seed.watchlist).toEqual({
+      symbols: ['AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'META', 'TSLA', 'AMD', 'AVGO', 'NFLX'],
+      updatedAt: ISO,
+    });
   });
 
   it('has two demo alerts (MSFT above/buy, TSLA below/sell), one far armed alert, and one disabled alert', () => {
@@ -110,7 +101,7 @@ describe('seed data', () => {
 
   it('places the demo alerts on the deterministic path: first trigger in the window, then re-fires minutes apart', () => {
     const market = createMockMarket();
-    // At default settings each Core Tech symbol trades about 1.2 times a second.
+    // At default settings each watchlist symbol trades about 1.2 times a second.
     const twoMinutes = 144;
     for (const alert of seed.alerts.slice(0, 2)) {
       const path = market.peekPrices(alert.symbol, DEMO_HORIZON_TRADES);
@@ -155,75 +146,66 @@ describe('seed data', () => {
     expect(sell.targetPrice).toBe(roundPrice(market.getState('TSLA')!.last * 0.999));
   });
 
-  it('matches the exported watchlist definition', () => {
-    expect(seed.watchlists.map((w) => w.id)).toEqual(SEED_WATCHLISTS.map((w) => w.id));
+  it('matches the exported symbols without sharing the array', () => {
+    const fresh = buildSeedData({ now: NOW });
+    expect(fresh.watchlist.symbols).toEqual(SEED_WATCHLIST_SYMBOLS);
+    fresh.watchlist.symbols.push('ZZZ');
+    expect(SEED_WATCHLIST_SYMBOLS).not.toContain('ZZZ');
+    expect(buildSeedData({ now: NOW }).watchlist.symbols).toEqual(SEED_WATCHLIST_SYMBOLS);
   });
 });
 
 describe('createRepository', () => {
-  it('writes the seed on first run with version 1', () => {
+  it('writes the seed on first run with version 2', () => {
     const repo = createRepository({ now: () => NOW });
-    expect(repo.listWatchlists()).toHaveLength(4);
+    expect(repo.getWatchlist().symbols).toEqual(SEED_WATCHLIST_SYMBOLS);
     expect(repo.listAlerts()).toHaveLength(4);
-    const persisted = stored() as { version: number; watchlists: unknown[]; alerts: unknown[] };
-    expect(persisted.version).toBe(1);
-    expect(persisted.watchlists).toHaveLength(4);
+    const persisted = stored() as Record<string, unknown>;
+    expect(Object.keys(persisted).sort()).toEqual(['alerts', 'version', 'watchlist']);
+    expect(persisted).toMatchObject({
+      version: 2,
+      watchlist: { symbols: SEED_WATCHLIST_SYMBOLS, updatedAt: ISO },
+    });
     expect(persisted.alerts).toHaveLength(4);
   });
 
   it('round-trips mutations through localStorage to a new instance', () => {
     const repo = createRepository({ now: () => NOW });
-    repo.saveWatchlist(watchlist({ id: 'new', name: 'Fresh', symbols: ['F'] }));
+    repo.saveWatchlist(watchlist({ symbols: ['F', 'AAPL'] }));
     repo.saveAlert(alert({ id: 'mine' }));
-    expect(repo.deleteWatchlist('wl-ideas')).toBe(true);
     expect(repo.deleteAlert('alert-seed-msft')).toBe(true);
 
     const reloaded = createRepository({ now: () => NOW });
-    expect(reloaded.listWatchlists().map((w) => w.id)).toEqual([
-      'wl-core-tech',
-      'wl-index-etfs',
-      'wl-financials',
-      'new',
-    ]);
+    expect(reloaded.getWatchlist()).toEqual(watchlist({ symbols: ['F', 'AAPL'] }));
     expect(reloaded.getAlert('mine')).toEqual(alert({ id: 'mine' }));
     expect(reloaded.getAlert('alert-seed-msft')).toBeUndefined();
   });
 
-  it('replaces in place by id and keeps order', () => {
+  it('keeps an empty watchlist instead of reseeding it', () => {
     const repo = createRepository({ now: () => NOW });
-    const core = repo.getWatchlist('wl-core-tech')!;
-    repo.saveWatchlist({ ...core, name: 'Renamed' });
-    expect(repo.listWatchlists().map((w) => w.name)).toEqual([
-      'Renamed',
-      'Index ETFs',
-      'Financials',
-      'Ideas',
-    ]);
+    repo.saveWatchlist(watchlist({ symbols: [] }));
+    expect(createRepository({ now: () => NOW }).getWatchlist().symbols).toEqual([]);
   });
 
-  it('returns false when deleting something that does not exist, without notifying', () => {
+  it('returns false when deleting an alert that does not exist, without notifying', () => {
     const repo = createRepository({ now: () => NOW });
     const listener = vi.fn();
     repo.subscribe(listener);
-    expect(repo.deleteWatchlist('nope')).toBe(false);
     expect(repo.deleteAlert('nope')).toBe(false);
     expect(listener).not.toHaveBeenCalled();
   });
 
   it('returns copies so callers cannot mutate stored state', () => {
     const repo = createRepository({ now: () => NOW });
-    const list = repo.listWatchlists();
-    list[0]!.symbols.push('ZZZ');
-    list[0]!.name = 'Hacked';
+    repo.getWatchlist().symbols.push('ZZZ');
     repo.getAlert('alert-seed-nvda')!.armed = false;
-    const input = watchlist({ id: 'x', name: 'X' });
+    expect(repo.getWatchlist().symbols).toEqual(SEED_WATCHLIST_SYMBOLS);
+    expect(repo.getAlert('alert-seed-nvda')?.armed).toBe(true);
+
+    const input = watchlist();
     repo.saveWatchlist(input);
     input.symbols.push('MSFT');
-
-    expect(repo.getWatchlist('wl-core-tech')?.symbols).not.toContain('ZZZ');
-    expect(repo.getWatchlist('wl-core-tech')?.name).toBe('Core Tech');
-    expect(repo.getAlert('alert-seed-nvda')?.armed).toBe(true);
-    expect(repo.getWatchlist('x')?.symbols).toEqual(['AAPL']);
+    expect(repo.getWatchlist().symbols).toEqual(['AAPL']);
   });
 
   it('notifies listeners after each change and stops after unsubscribe', () => {
@@ -240,23 +222,31 @@ describe('createRepository', () => {
     expect(listener).toHaveBeenCalledTimes(1);
   });
 
+  it('notifies listeners after a watchlist save, with the new watchlist readable', () => {
+    const repo = createRepository({ now: () => NOW });
+    const seen: string[][] = [];
+    repo.subscribe(() => seen.push(repo.getWatchlist().symbols));
+    repo.saveWatchlist(watchlist({ symbols: ['SPY'] }));
+    expect(seen).toEqual([['SPY']]);
+  });
+
   it('reset restores the seed, persists it and notifies', () => {
     const repo = createRepository({ now: () => NOW });
-    repo.deleteWatchlist('wl-core-tech');
+    repo.saveWatchlist(watchlist({ symbols: [] }));
     repo.saveAlert(alert({ id: 'extra' }));
     const listener = vi.fn();
     repo.subscribe(listener);
     repo.reset();
     expect(listener).toHaveBeenCalledTimes(1);
-    expect(repo.listWatchlists()).toHaveLength(4);
+    expect(repo.getWatchlist().symbols).toEqual(SEED_WATCHLIST_SYMBOLS);
     expect(repo.getAlert('extra')).toBeUndefined();
-    expect(createRepository({ now: () => NOW }).listWatchlists()).toHaveLength(4);
+    expect(createRepository({ now: () => NOW }).getWatchlist().symbols).toEqual(SEED_WATCHLIST_SYMBOLS);
   });
 
   it('uses an injected seed and storage key', () => {
-    const seed = { watchlists: [watchlist()], alerts: [] };
+    const seed = { watchlist: watchlist(), alerts: [] };
     const repo = createRepository({ key: 'custom', seed: () => seed, now: () => NOW });
-    expect(repo.listWatchlists()).toEqual([watchlist()]);
+    expect(repo.getWatchlist()).toEqual(watchlist());
     expect(localStorage.getItem('custom')).not.toBeNull();
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
   });
@@ -267,34 +257,31 @@ describe('createRepository', () => {
       ['JSON null', 'null'],
       ['a number', '42'],
       ['an array', '[]'],
-      ['an unknown version', JSON.stringify({ version: 2, watchlists: [], alerts: [] })],
-      ['a missing version', JSON.stringify({ watchlists: [], alerts: [] })],
-      ['non-array watchlists', JSON.stringify({ version: 1, watchlists: {}, alerts: [] })],
-      ['missing alerts', JSON.stringify({ version: 1, watchlists: [] })],
+      ['an unknown version', JSON.stringify({ version: 3, watchlist: { symbols: [] }, alerts: [] })],
+      ['a missing version', JSON.stringify({ watchlist: { symbols: [] }, alerts: [] })],
+      ['a version 2 payload without a watchlist', JSON.stringify({ version: 2, alerts: [] })],
+      [
+        'a watchlist without a symbols list',
+        JSON.stringify({ version: 2, watchlist: { symbols: 'AAPL' }, alerts: [] }),
+      ],
+      [
+        'a version 2 payload with a watchlists array',
+        JSON.stringify({ version: 2, watchlists: [], alerts: [] }),
+      ],
+      ['non-array version 1 watchlists', JSON.stringify({ version: 1, watchlists: {}, alerts: [] })],
+      ['missing alerts', JSON.stringify({ version: 2, watchlist: { symbols: [] } })],
     ])('falls back to the seed for %s and rewrites storage', (_label, raw) => {
       persist(raw);
       const repo = createRepository({ now: () => NOW });
-      expect(repo.listWatchlists().map((w) => w.name)).toContain('Core Tech');
+      expect(repo.getWatchlist().symbols).toEqual(SEED_WATCHLIST_SYMBOLS);
       expect(repo.listAlerts()).toHaveLength(4);
-      expect(stored()).toMatchObject({ version: 1 });
+      expect(stored()).toMatchObject({ version: 2 });
     });
 
-    it('keeps valid entries and drops invalid, duplicate-id and duplicate-name ones', () => {
+    it('keeps valid entries and drops invalid and duplicate ones', () => {
       persist({
-        version: 1,
-        watchlists: [
-          watchlist({
-            id: 'ok',
-            name: 'Keep',
-            symbols: ['aapl', ' msft ', 'AAPL', 'bad symbol!', 7] as string[],
-          }),
-          watchlist({ id: 'ok', name: 'Same id' }),
-          watchlist({ id: 'other', name: 'keep' }),
-          { id: 'no-name', symbols: [] },
-          watchlist({ id: 'blank', name: '   ' }),
-          'garbage',
-          null,
-        ],
+        version: 2,
+        watchlist: watchlist({ symbols: ['aapl', ' msft ', 'AAPL', 'bad symbol!', 7] as string[] }),
         alerts: [
           alert({ id: 'good' }),
           alert({ id: 'good', targetPrice: 1 }),
@@ -307,17 +294,24 @@ describe('createRepository', () => {
         ],
       });
       const repo = createRepository({ now: () => NOW });
-      expect(repo.listWatchlists()).toEqual([
-        watchlist({ id: 'ok', name: 'Keep', symbols: ['AAPL', 'MSFT'] }),
-      ]);
+      expect(repo.getWatchlist()).toEqual(watchlist({ symbols: ['AAPL', 'MSFT'] }));
       expect(repo.listAlerts()).toEqual([alert({ id: 'good' })]);
+    });
+
+    it('caps the watchlist at the symbol limit and repairs a bad updatedAt', () => {
+      const many = tickers(MAX_WATCHLIST_SYMBOLS + 5);
+      persist({ version: 2, watchlist: { symbols: many, updatedAt: 'yesterday' }, alerts: [] });
+      expect(createRepository({ now: () => NOW }).getWatchlist()).toEqual({
+        symbols: many.slice(0, MAX_WATCHLIST_SYMBOLS),
+        updatedAt: ISO,
+      });
     });
 
     it('repairs optional alert fields with safe defaults', () => {
       const { armed: _armed, ...withoutArmed } = alert({ id: 'x' });
       persist({
-        version: 1,
-        watchlists: [],
+        version: 2,
+        watchlist: watchlist({ symbols: [] }),
         alerts: [
           {
             ...withoutArmed,
@@ -355,7 +349,7 @@ describe('createRepository', () => {
         removeItem: vi.fn(),
       };
       const repo = createRepository({ storage, now: () => NOW });
-      expect(repo.listWatchlists()).toHaveLength(4);
+      expect(repo.getWatchlist().symbols).toEqual(SEED_WATCHLIST_SYMBOLS);
     });
 
     it('keeps working from memory when writes throw (quota exceeded)', () => {
@@ -370,13 +364,13 @@ describe('createRepository', () => {
       };
       const repo = createRepository({ storage, now: () => NOW });
       expect(() => {
-        repo.saveWatchlist(watchlist({ id: 'mem', name: 'Memory' }));
+        repo.saveWatchlist(watchlist({ symbols: ['MEM'] }));
       }).not.toThrow();
-      expect(repo.getWatchlist('mem')?.name).toBe('Memory');
+      expect(repo.getWatchlist().symbols).toEqual(['MEM']);
       expect(() => {
         repo.reset();
       }).not.toThrow();
-      expect(repo.getWatchlist('mem')).toBeUndefined();
+      expect(repo.getWatchlist().symbols).toEqual(SEED_WATCHLIST_SYMBOLS);
     });
 
     it('works with no storage at all', () => {
@@ -386,14 +380,78 @@ describe('createRepository', () => {
       expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
     });
   });
+
+  describe('version 1 data with several watchlists', () => {
+    const legacyList = (name: string, symbols: unknown[]) => ({
+      id: `wl-${name}`,
+      name,
+      symbols,
+      createdAt: ISO,
+      updatedAt: ISO,
+    });
+
+    it('merges every list into one watchlist in order, dropping duplicates, and keeps the alerts', () => {
+      persist({
+        version: 1,
+        watchlists: [
+          legacyList('Core', ['AAPL', 'MSFT']),
+          legacyList('Ideas', []),
+          legacyList('ETFs', ['spy', 'AAPL', 'QQQ']),
+          legacyList('More', ['MSFT', 'bad symbol!', 7, 'BRK.B']),
+        ],
+        alerts: [alert({ id: 'kept' })],
+      });
+      const repo = createRepository({ now: () => NOW + 60_000 });
+      expect(repo.getWatchlist()).toEqual({
+        symbols: ['AAPL', 'MSFT', 'SPY', 'QQQ', 'BRK.B'],
+        updatedAt: new Date(NOW + 60_000).toISOString(),
+      });
+      expect(repo.listAlerts()).toEqual([alert({ id: 'kept' })]);
+    });
+
+    it('rewrites storage as version 2 so the merge happens only once', () => {
+      persist({
+        version: 1,
+        watchlists: [legacyList('Core', ['AAPL']), legacyList('ETFs', ['SPY'])],
+        alerts: [],
+      });
+      createRepository({ now: () => NOW });
+      const persisted = stored() as Record<string, unknown>;
+      expect(Object.keys(persisted).sort()).toEqual(['alerts', 'version', 'watchlist']);
+      expect(persisted).toMatchObject({ version: 2, watchlist: { symbols: ['AAPL', 'SPY'] } });
+    });
+
+    it('caps the merged watchlist at the symbol limit, keeping the earliest symbols', () => {
+      const all = tickers(MAX_WATCHLIST_SYMBOLS + 20);
+      persist({
+        version: 1,
+        watchlists: [legacyList('First', all.slice(0, 60)), legacyList('Second', all.slice(60))],
+        alerts: [],
+      });
+      expect(createRepository({ now: () => NOW }).getWatchlist().symbols).toEqual(
+        all.slice(0, MAX_WATCHLIST_SYMBOLS),
+      );
+    });
+
+    it('skips entries that are not lists and gives an empty watchlist when no list has symbols', () => {
+      persist({
+        version: 1,
+        watchlists: ['garbage', null, { name: 'No symbols' }, legacyList('Ideas', [])],
+        alerts: [],
+      });
+      expect(createRepository({ now: () => NOW }).getWatchlist()).toEqual({ symbols: [], updatedAt: ISO });
+    });
+  });
 });
 
 describe('parsePersisted', () => {
   it('returns null for missing data and keeps an empty but valid payload', () => {
     expect(parsePersisted(null, ISO)).toBeNull();
-    expect(parsePersisted(JSON.stringify({ version: 1, watchlists: [], alerts: [] }), ISO)).toEqual({
-      watchlists: [],
-      alerts: [],
-    });
+    expect(
+      parsePersisted(
+        JSON.stringify({ version: 2, watchlist: { symbols: [], updatedAt: ISO }, alerts: [] }),
+        ISO,
+      ),
+    ).toEqual({ watchlist: { symbols: [], updatedAt: ISO }, alerts: [] });
   });
 });

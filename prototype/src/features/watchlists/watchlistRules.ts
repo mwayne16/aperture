@@ -1,32 +1,12 @@
 import { ApiError } from '../../data/api';
-import {
-  normalizeSymbol,
-  validateSymbol,
-  validateSymbolForWatchlist,
-  validateWatchlistName,
-} from '../../domain/symbols';
-import type { Watchlist } from '../../domain/types';
+import { normalizeSymbol, validateSymbol, validateSymbolForWatchlist } from '../../domain/symbols';
 
 /**
- * Pure rules behind the watchlist store: client-side validation that mirrors the API's errors,
- * choosing the active list, and undoing optimistic changes without discarding later ones.
+ * Pure rules behind the watchlist store: client-side validation that mirrors the API's errors, and
+ * undoing optimistic changes without discarding later ones.
  */
 
-/**
- * Validates a watchlist name against the user's other names and returns the trimmed name.
- * Throws the ApiError the backend would send, so forms show it without a round trip.
- */
-export function checkWatchlistName(input: string, otherNames: readonly string[]): string {
-  const result = validateWatchlistName(input, otherNames);
-  if (result.ok) return result.value;
-  // ** A name that is only invalid because of the other names is a duplicate, which the API reports as CONFLICT.
-  const duplicate = validateWatchlistName(input, []).ok;
-  throw new ApiError(duplicate ? 'CONFLICT' : 'VALIDATION_ERROR', result.reason, duplicate ? 409 : 400, [
-    { field: 'name', message: result.reason },
-  ]);
-}
-
-/** Validates a symbol for a list and returns it normalized. Throws the ApiError the backend would send. */
+/** Validates a symbol for the watchlist and returns it normalized. Throws the ApiError the backend would send. */
 export function checkWatchlistSymbol(input: string, existing: readonly string[]): string {
   const result = validateSymbolForWatchlist(input, existing);
   if (result.ok) return result.value;
@@ -35,22 +15,6 @@ export function checkWatchlistSymbol(input: string, existing: readonly string[])
   throw new ApiError(duplicate ? 'CONFLICT' : 'VALIDATION_ERROR', result.reason, duplicate ? 409 : 400, [
     { field: 'symbol', message: result.reason },
   ]);
-}
-
-/** The first candidate id that names a loaded list, else the first list, else null. */
-export function pickActiveId(
-  watchlists: readonly Watchlist[],
-  candidates: readonly (string | null)[],
-): string | null {
-  const found = candidates.find((id) => id !== null && watchlists.some((w) => w.id === id));
-  return found ?? watchlists[0]?.id ?? null;
-}
-
-/** The list that takes over when `id` is deleted: the next one, or the previous one at the end. */
-export function neighbourId(watchlists: readonly Watchlist[], id: string): string | null {
-  const index = watchlists.findIndex((w) => w.id === id);
-  if (index === -1) return null;
-  return (watchlists[index + 1] ?? watchlists[index - 1])?.id ?? null;
 }
 
 /** Puts `item` back at `index` (clamped), unless it is already there. */

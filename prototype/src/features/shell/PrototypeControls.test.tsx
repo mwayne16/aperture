@@ -91,7 +91,7 @@ describe('PrototypeControls', () => {
     await user.click(fail);
     expect(fail).toBeChecked();
     await act(async () => {
-      await api.listWatchlists().catch(() => undefined);
+      await api.getWatchlist().catch(() => undefined);
     });
     expect(fail).not.toBeChecked();
   });
@@ -158,10 +158,13 @@ describe('Reset demo data', () => {
     });
     const open = screen.getByRole('button', { name: 'Reset demo data…' });
     expect(open).toHaveAccessibleDescription(
-      'Restores the seeded watchlists and alerts. Simulation settings are kept.',
+      'Restores the seeded watchlist and alerts. Simulation settings are kept.',
     );
     await user.click(open);
     const confirm = screen.getByRole('dialog', { name: 'Reset demo data?' });
+    expect(confirm).toHaveTextContent(
+      'Your watchlist and alerts return to the seeded demo set. Anything you created or changed is lost.',
+    );
     await user.click(within(confirm).getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByRole('dialog', { name: 'Reset demo data?' })).not.toBeInTheDocument();
     expect(loads).toBe(0);
@@ -173,7 +176,7 @@ describe('Reset demo data', () => {
     act(() => {
       updateSimulation({ apiLatencyMs: 0 });
     });
-    await api.createWatchlist({ name: 'Scratch' });
+    await api.addSymbol('SPY');
     let loads = 0;
     act(() => {
       useWatchlistStore.setState({
@@ -190,9 +193,12 @@ describe('Reset demo data', () => {
     await waitFor(() => {
       expect(toastTitles()).toEqual(['Demo data reset']);
     });
+    expect(useToastStore.getState().toasts[0]?.description).toBe(
+      'Your watchlist and alerts are back to the seeded demo set.',
+    );
     expect(screen.queryByRole('dialog', { name: 'Reset demo data?' })).not.toBeInTheDocument();
     expect(loads).toBe(1);
-    expect((await api.listWatchlists()).map((w) => w.name)).not.toContain('Scratch');
+    expect((await api.getWatchlist()).symbols).not.toContain('SPY');
     // The controls stay open for further changes.
     expect(screen.getByRole('dialog', { name: 'Simulation controls' })).toBeInTheDocument();
   });
@@ -247,7 +253,7 @@ describe('Reset demo data', () => {
         {
           tone: 'warning',
           title: 'Demo data reset, but reloading failed',
-          description: 'Watchlists did not reload: The service is unavailable.',
+          description: 'Watchlist did not reload: The service is unavailable.',
         },
       ]);
     });

@@ -18,16 +18,14 @@ import type {
  * `{ error: { code, message, details? } }`.
  */
 export interface MarketApi {
-  listWatchlists(): Promise<Watchlist[]>;
-  /** Rejects with VALIDATION_ERROR on a bad name and CONFLICT on a duplicate name. */
-  createWatchlist(input: { name: string }): Promise<Watchlist>;
-  renameWatchlist(id: string, name: string): Promise<Watchlist>;
-  deleteWatchlist(id: string): Promise<void>;
-  /** Appends a symbol. Rejects with VALIDATION_ERROR for bad format and CONFLICT for duplicates. */
-  addSymbol(watchlistId: string, symbol: string): Promise<Watchlist>;
-  removeSymbol(watchlistId: string, symbol: string): Promise<Watchlist>;
+  /** The user's single watchlist. */
+  getWatchlist(): Promise<Watchlist>;
+  /** Appends a symbol. Rejects with VALIDATION_ERROR for a bad format or a full list, CONFLICT for a duplicate. */
+  addSymbol(symbol: string): Promise<Watchlist>;
+  /** Rejects with NOT_FOUND when the symbol isn't in the watchlist. */
+  removeSymbol(symbol: string): Promise<Watchlist>;
   /** `symbols` must be a permutation of the current symbols, or it rejects with VALIDATION_ERROR. */
-  reorderSymbols(watchlistId: string, symbols: readonly string[]): Promise<Watchlist>;
+  reorderSymbols(symbols: readonly string[]): Promise<Watchlist>;
 
   listAlerts(): Promise<PriceAlert[]>;
   createAlert(input: CreateAlertInput): Promise<PriceAlert>;

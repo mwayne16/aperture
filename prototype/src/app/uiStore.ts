@@ -2,7 +2,7 @@ import { create } from 'zustand';
 
 /**
  * Cross-feature UI state. Features read and write it through these actions only.
- * Domain data (watchlists, alerts, quotes) lives in feature/data stores, not here.
+ * Domain data (the watchlist, alerts, quotes) lives in feature/data stores, not here.
  */
 
 export type AlertDialogState =

@@ -5,8 +5,6 @@ import {
   type ValidationResult,
   validateSymbol,
   validateSymbolForWatchlist,
-  validateWatchlistName,
-  WATCHLIST_NAME_MAX,
 } from './symbols';
 
 /** Adversarial tests derived from the symbols doc-comment spec. */
@@ -127,52 +125,5 @@ describe('validateSymbolForWatchlist (adversarial)', () => {
 
   it('empty list accepts any valid symbol', () => {
     expect(validateSymbolForWatchlist('f', [])).toEqual({ ok: true, value: 'F' });
-  });
-});
-
-describe('validateWatchlistName (adversarial)', () => {
-  it('trims and returns the trimmed name', () => {
-    expect(validateWatchlistName('  Tech  ', [])).toEqual({ ok: true, value: 'Tech' });
-  });
-
-  it('keeps inner whitespace and case as typed', () => {
-    expect(validateWatchlistName(' My  Big List ', [])).toEqual({ ok: true, value: 'My  Big List' });
-  });
-
-  it.each(['', ' ', '\t\n', ' 　'])('rejects blank %j', (input) => {
-    const r = validateWatchlistName(input, []);
-    expect(r.ok).toBe(false);
-    expectUserFacingSentence(reasonOf(r));
-  });
-
-  it('length limit applies after trimming: 40 ok, 41 rejected', () => {
-    const forty = 'a'.repeat(WATCHLIST_NAME_MAX);
-    expect(validateWatchlistName(`   ${forty}   `, [])).toEqual({ ok: true, value: forty });
-    const r = validateWatchlistName(`${forty}b`, []);
-    expect(r.ok).toBe(false);
-    expectUserFacingSentence(reasonOf(r));
-    expect(validateWatchlistName('a', [])).toEqual({ ok: true, value: 'a' });
-  });
-
-  it('rejects a case-insensitive duplicate of another list', () => {
-    for (const input of ['tech', 'TECH', ' Tech ', 'tEcH']) {
-      const r = validateWatchlistName(input, ['Growth', 'Tech']);
-      expect(r.ok).toBe(false);
-      expectUserFacingSentence(reasonOf(r));
-    }
-  });
-
-  it('allows renaming to a case variant of itself (callers pass only OTHER names)', () => {
-    expect(validateWatchlistName('TECH', ['Growth'])).toEqual({ ok: true, value: 'TECH' });
-  });
-
-  it('a name that only shares a prefix is not a duplicate', () => {
-    expect(validateWatchlistName('Tech 2', ['Tech'])).toEqual({ ok: true, value: 'Tech 2' });
-  });
-
-  it('does not mutate otherNames', () => {
-    const others = Object.freeze(['A']);
-    validateWatchlistName('b', others);
-    expect(others).toEqual(['A']);
   });
 });

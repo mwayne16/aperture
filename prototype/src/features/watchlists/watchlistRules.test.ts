@@ -1,19 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { isApiError } from '../../data/api';
 import { MAX_WATCHLIST_SYMBOLS } from '../../domain/symbols';
-import type { Watchlist } from '../../domain/types';
-import {
-  checkWatchlistName,
-  checkWatchlistSymbol,
-  isPermutation,
-  neighbourId,
-  pickActiveId,
-  reinsertAt,
-  undoReorder,
-} from './watchlistRules';
-
-const list = (id: string): Watchlist => ({ id, name: id, symbols: [], createdAt: '', updatedAt: '' });
-const lists = ['a', 'b', 'c'].map(list);
+import { checkWatchlistSymbol, isPermutation, reinsertAt, undoReorder } from './watchlistRules';
 
 function thrown(fn: () => unknown): unknown {
   try {
@@ -23,26 +11,6 @@ function thrown(fn: () => unknown): unknown {
   }
   throw new Error('expected a throw');
 }
-
-describe('checkWatchlistName', () => {
-  it('returns the trimmed name', () => {
-    expect(checkWatchlistName('  Energy  ', ['Tech'])).toBe('Energy');
-  });
-
-  it('reports a blank name as a validation error on the name field', () => {
-    const error = thrown(() => checkWatchlistName('   ', []));
-    expect(isApiError(error) && error.code).toBe('VALIDATION_ERROR');
-    expect(isApiError(error) && error.details).toEqual([
-      { field: 'name', message: 'Enter a watchlist name.' },
-    ]);
-  });
-
-  it('reports a duplicate (ignoring case) as a conflict', () => {
-    const error = thrown(() => checkWatchlistName('core tech', ['Core Tech']));
-    expect(isApiError(error) && error.code).toBe('CONFLICT');
-    expect(isApiError(error) && error.message).toBe('You already have a watchlist with this name.');
-  });
-});
 
 describe('checkWatchlistSymbol', () => {
   it('returns the normalized symbol', () => {
@@ -66,29 +34,6 @@ describe('checkWatchlistSymbol', () => {
     const full = Array.from({ length: MAX_WATCHLIST_SYMBOLS }, (_, i) => `S${letters(i)}`);
     const error = thrown(() => checkWatchlistSymbol('ZZZZ', full));
     expect(isApiError(error) && error.code).toBe('VALIDATION_ERROR');
-  });
-});
-
-describe('pickActiveId', () => {
-  it('uses the first candidate that still exists', () => {
-    expect(pickActiveId(lists, [null, 'gone', 'b'])).toBe('b');
-  });
-
-  it('falls back to the first list, or null when there are none', () => {
-    expect(pickActiveId(lists, ['gone'])).toBe('a');
-    expect(pickActiveId([], ['a'])).toBeNull();
-  });
-});
-
-describe('neighbourId', () => {
-  it('prefers the next list and falls back to the previous one', () => {
-    expect(neighbourId(lists, 'a')).toBe('b');
-    expect(neighbourId(lists, 'c')).toBe('b');
-  });
-
-  it('returns null for the only list or an unknown id', () => {
-    expect(neighbourId([list('a')], 'a')).toBeNull();
-    expect(neighbourId(lists, 'x')).toBeNull();
   });
 });
 

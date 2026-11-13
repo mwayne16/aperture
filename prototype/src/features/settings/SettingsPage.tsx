@@ -275,7 +275,7 @@ function DataSection() {
       showToast({
         tone: 'success',
         title: 'Demo data reset',
-        description: 'Watchlists and alerts are back to the seeded demo set.',
+        description: 'Your watchlist and alerts are back to the seeded demo set.',
       });
     } else {
       showToast({
@@ -291,7 +291,7 @@ function DataSection() {
       <SettingRow
         label="Demo data"
         hintId={resetHintId}
-        hint="Restores the seeded watchlists and alerts. Settings and notifications are kept."
+        hint="Restores the seeded watchlist and alerts. Settings and notifications are kept."
       >
         <Button
           ref={resetButtonRef}
@@ -345,7 +345,7 @@ function DataSection() {
       <ConfirmDialog
         open={confirming === 'reset'}
         title="Reset demo data?"
-        message="Watchlists and alerts return to the seeded demo set. Anything you created or changed is lost."
+        message="Your watchlist and alerts return to the seeded demo set. Anything you created or changed is lost."
         confirmLabel="Reset demo data"
         tone="danger"
         busy={resetting}

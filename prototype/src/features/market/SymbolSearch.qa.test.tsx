@@ -6,7 +6,7 @@ import { useUiStore } from '../../app/uiStore';
 import { dismissAllToasts } from '../../components/ui/toastStore';
 import { api, resetDemoData } from '../../data/dataLayer';
 import { resetSimulation, updateSimulation } from '../../data/simulationStore';
-import type { Instrument, Watchlist } from '../../domain/types';
+import type { Instrument } from '../../domain/types';
 import { useWatchlistStore } from '../watchlists/watchlistStore';
 import { useInstrumentStore } from './instrumentStore';
 import { SymbolSearch } from './SymbolSearch';
@@ -15,23 +15,23 @@ const initialWatchlists = useWatchlistStore.getState();
 const initialUi = useUiStore.getState();
 
 /**
- * Loads the seeded demo watchlists from the mock API into the watchlist store, with an addSymbol
+ * Loads the seeded demo watchlist from the mock API into the watchlist store, with an addSymbol
  * that saves through the API and rejects with its ApiError, as the store contract describes.
  */
-async function seedFromApi(activeId = 'wl-financials') {
+async function seedFromApi() {
   await resetDemoData();
-  const watchlists = await api.listWatchlists();
-  const addSymbol = vi.fn(async (id: string, symbol: string) => {
-    const saved = await api.addSymbol(id, symbol);
-    useWatchlistStore.setState((s) => ({ watchlists: s.watchlists.map((w) => (w.id === id ? saved : w)) }));
+  const watchlist = await api.getWatchlist();
+  const addSymbol = vi.fn(async (symbol: string) => {
+    const saved = await api.addSymbol(symbol);
+    useWatchlistStore.setState({ watchlist: saved });
   });
   act(() => {
-    useWatchlistStore.setState({ status: 'ready', error: null, watchlists, activeId, addSymbol });
+    useWatchlistStore.setState({ status: 'ready', error: null, watchlist, addSymbol });
   });
-  return { addSymbol, watchlists };
+  return { addSymbol, watchlist };
 }
 
-const addBox = (name: string) => screen.getByRole('combobox', { name: `Add symbol to ${name}` });
+const addBox = () => screen.getByRole('combobox', { name: 'Add symbol to watchlist' });
 const globalBox = () => screen.getByRole('combobox', { name: 'Search symbols' });
 
 beforeEach(() => {
@@ -52,45 +52,43 @@ describe('SymbolSearch add box with the mock API', () => {
   it('adds the best match when Enter follows a company name before results arrive', async () => {
     const { addSymbol } = await seedFromApi();
     const user = userEvent.setup();
-    render(<SymbolSearch variant="add" watchlistId="wl-financials" />);
-    // "apple" is also a valid ticker, but the user typed a company name.
-    await user.type(addBox('Financials'), 'apple{Enter}');
+    render(<SymbolSearch variant="add" />);
+    // "intel" is also a valid ticker, but the user typed a company name.
+    await user.type(addBox(), 'intel{Enter}');
     await waitFor(() => {
-      expect(addSymbol).toHaveBeenCalledWith('wl-financials', 'AAPL');
+      expect(addSymbol).toHaveBeenCalledWith('INTC');
     });
-    expect(useWatchlistStore.getState().watchlists.find((w) => w.id === 'wl-financials')?.symbols).toContain(
-      'AAPL',
-    );
-    expect(addBox('Financials')).toHaveValue('');
+    expect(useWatchlistStore.getState().watchlist?.symbols).toContain('INTC');
+    expect(addBox()).toHaveValue('');
   });
 
   it('shows the API conflict inline when the list changed elsewhere', async () => {
-    const { addSymbol, watchlists } = await seedFromApi();
-    // The repository already holds MSFT, but this window's copy of the list doesn't know yet.
-    await api.addSymbol('wl-financials', 'MSFT');
+    const { addSymbol, watchlist } = await seedFromApi();
+    // The repository already holds JPM, but this window's copy of the list doesn't know yet.
+    await api.addSymbol('JPM');
     act(() => {
-      useWatchlistStore.setState({ watchlists });
+      useWatchlistStore.setState({ watchlist });
     });
     const user = userEvent.setup();
-    render(<SymbolSearch variant="add" watchlistId="wl-financials" />);
-    await user.type(addBox('Financials'), 'msft');
-    await screen.findByRole('option', { name: /^MSFT, Microsoft/ });
+    render(<SymbolSearch variant="add" />);
+    await user.type(addBox(), 'jpm');
+    await screen.findByRole('option', { name: /^JPM, JPMorgan/ });
     await user.keyboard('{Enter}');
     expect(
-      await screen.findByText('MSFT is already in this watchlist.', { selector: 'p' }),
+      await screen.findByText('JPM is already in this watchlist.', { selector: 'p' }),
     ).toBeInTheDocument();
     expect(addSymbol).toHaveBeenCalledTimes(1);
-    expect(addBox('Financials')).toHaveValue('msft');
-    expect(addBox('Financials')).toHaveAttribute('aria-invalid', 'true');
+    expect(addBox()).toHaveValue('jpm');
+    expect(addBox()).toHaveAttribute('aria-invalid', 'true');
   });
 
   it('reports a duplicate typed before the results arrive without calling the API', async () => {
     const { addSymbol } = await seedFromApi();
     const user = userEvent.setup();
-    render(<SymbolSearch variant="add" watchlistId="wl-financials" />);
-    await user.type(addBox('Financials'), 'brk.b{Enter}');
+    render(<SymbolSearch variant="add" />);
+    await user.type(addBox(), 'nflx{Enter}');
     expect(
-      await screen.findByText('BRK.B is already in this watchlist.', { selector: 'p' }),
+      await screen.findByText('NFLX is already in this watchlist.', { selector: 'p' }),
     ).toBeInTheDocument();
     expect(addSymbol).not.toHaveBeenCalled();
   });
@@ -105,13 +103,13 @@ describe('SymbolSearch add box with the mock API', () => {
         }),
     );
     const user = userEvent.setup();
-    render(<SymbolSearch variant="add" watchlistId="wl-financials" />);
-    await user.type(addBox('Financials'), 'msft');
-    await screen.findByRole('option', { name: /^MSFT, Microsoft/ });
+    render(<SymbolSearch variant="add" />);
+    await user.type(addBox(), 'jpm');
+    await screen.findByRole('option', { name: /^JPM, JPMorgan/ });
     await user.keyboard('{Enter}');
-    expect(addSymbol).toHaveBeenCalledWith('wl-financials', 'MSFT');
+    expect(addSymbol).toHaveBeenCalledWith('JPM');
     // A fast typist starts on the next symbol before the save comes back.
-    await user.type(addBox('Financials'), 'nv');
+    await user.type(addBox(), 'nv');
     expect(document.querySelector('.symsearch .ui-spinner')).not.toBeNull();
     act(() => {
       finish();
@@ -119,20 +117,20 @@ describe('SymbolSearch add box with the mock API', () => {
     await waitFor(() => {
       expect(document.querySelector('.symsearch .ui-spinner')).toBeNull();
     });
-    expect(addBox('Financials')).toHaveValue('nv');
+    expect(addBox()).toHaveValue('nv');
   });
 
   it('recovers when the user keeps typing after a failed search', async () => {
     await seedFromApi();
     updateSimulation({ failNextApiCall: true });
     const user = userEvent.setup();
-    render(<SymbolSearch variant="add" watchlistId="wl-financials" />);
-    await user.type(addBox('Financials'), 'nvi');
+    render(<SymbolSearch variant="add" />);
+    await user.type(addBox(), 'nvi');
     // The visible message; a visually hidden live region announces the same text.
     expect(
       await screen.findByText(/^Search failed\. The service is temporarily unavailable/, { selector: 'p' }),
     ).toBeInTheDocument();
-    await user.type(addBox('Financials'), 'd');
+    await user.type(addBox(), 'd');
     expect(await screen.findByRole('option', { name: /^NVDA, NVIDIA Corporation/ })).toBeInTheDocument();
     expect(screen.queryByText(/^Search failed/, { selector: 'p' })).not.toBeInTheDocument();
   });
@@ -143,18 +141,18 @@ describe('SymbolSearch add box with the mock API', () => {
     const user = userEvent.setup();
     render(
       <StrictMode>
-        <SymbolSearch variant="add" watchlistId="wl-financials" />
+        <SymbolSearch variant="add" />
       </StrictMode>,
     );
-    await user.type(addBox('Financials'), 'amd');
-    await screen.findByRole('option', { name: /^AMD, Advanced Micro Devices/ });
-    expect(search.mock.calls.filter(([term]) => term === 'amd')).toHaveLength(1);
+    await user.type(addBox(), 'ibm');
+    await screen.findByRole('option', { name: /^IBM, International Business Machines/ });
+    expect(search.mock.calls.filter(([term]) => term === 'ibm')).toHaveLength(1);
     await user.keyboard('{Enter}');
     await waitFor(() => {
-      expect(addBox('Financials')).toHaveValue('');
+      expect(addBox()).toHaveValue('');
     });
     expect(addSymbol).toHaveBeenCalledTimes(1);
-    expect(addSymbol).toHaveBeenCalledWith('wl-financials', 'AMD');
+    expect(addSymbol).toHaveBeenCalledWith('IBM');
   });
 });
 
@@ -201,21 +199,20 @@ describe('SymbolSearch global search with the mock API', () => {
     expect(globalBox()).toHaveAttribute('aria-expanded', 'false');
   });
 
-  it('adds to the active watchlist with Shift+Enter through the API, then shows it as in the list', async () => {
-    const { addSymbol } = await seedFromApi('wl-index-etfs');
+  it('adds to the watchlist with Shift+Enter through the API, then shows it as in the list', async () => {
+    const { addSymbol } = await seedFromApi();
     const user = userEvent.setup();
     render(<SymbolSearch variant="global" />);
-    await user.type(globalBox(), 'tsla');
-    await screen.findByRole('option', { name: /^TSLA, Tesla/ });
+    await user.type(globalBox(), 'xom');
+    await screen.findByRole('option', { name: /^XOM, Exxon/ });
     await user.keyboard('{Shift>}{Enter}{/Shift}');
     await waitFor(() => {
-      expect(addSymbol).toHaveBeenCalledWith('wl-index-etfs', 'TSLA');
+      expect(addSymbol).toHaveBeenCalledWith('XOM');
     });
-    expect(await screen.findByRole('option', { name: /^TSLA, .*, in Index ETFs$/ })).toHaveTextContent(
+    expect(await screen.findByRole('option', { name: /^XOM, .*, in your watchlist$/ })).toHaveTextContent(
       'In list',
     );
-    const saved: Watchlist | undefined = (await api.listWatchlists()).find((w) => w.id === 'wl-index-etfs');
-    expect(saved?.symbols.at(-1)).toBe('TSLA');
+    expect((await api.getWatchlist()).symbols.at(-1)).toBe('XOM');
     expect(useUiStore.getState().selectedSymbol).toBeNull();
   });
 });

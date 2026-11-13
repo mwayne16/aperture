@@ -51,7 +51,7 @@ export function DiscoverPage() {
     <div className="page discover-page">
       <PageHeader
         title="Discover"
-        description="Browse stocks, ETFs and crypto. Star a symbol to add it to your active watchlist."
+        description="Browse stocks, ETFs and crypto. Star a symbol to add it to your watchlist."
         meta={<SimulatedBadge title={SIMULATED_PRICES} />}
       />
       <section className="discover-card" aria-label="Instruments">

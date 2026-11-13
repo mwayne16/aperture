@@ -1,7 +1,7 @@
 /** Adversarial checks of the persisted repository: corrupted payloads and storage failures. */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { buildSeedData } from './seed';
 import { createRepository, STORAGE_KEY, type StorageLike } from './repository';
+import { SEED_WATCHLIST_SYMBOLS } from './seed';
 
 function memoryStorage(initial: Record<string, string> = {}): StorageLike & { data: Map<string, string> } {
   const data = new Map(Object.entries(initial));
@@ -17,8 +17,6 @@ function memoryStorage(initial: Record<string, string> = {}): StorageLike & { da
   };
 }
 
-const seedNames = buildSeedData().watchlists.map((w) => w.name);
-
 afterEach(() => {
   vi.restoreAllMocks();
 });
@@ -30,28 +28,31 @@ describe('corrupted storage falls back to the seed without throwing', () => {
     ['an array', '[]'],
     ['a string', '"hello"'],
     ['a number', '42'],
-    ['an unknown version', JSON.stringify({ version: 2, watchlists: [], alerts: [] })],
-    ['a string version', JSON.stringify({ version: '1', watchlists: [], alerts: [] })],
-    ['missing arrays', JSON.stringify({ version: 1 })],
-    ['watchlists as an object', JSON.stringify({ version: 1, watchlists: {}, alerts: [] })],
-    ['alerts as null', JSON.stringify({ version: 1, watchlists: [], alerts: null })],
+    ['an unknown version', JSON.stringify({ version: 3, watchlist: { symbols: [] }, alerts: [] })],
+    ['a string version', JSON.stringify({ version: '2', watchlist: { symbols: [] }, alerts: [] })],
+    ['a string legacy version', JSON.stringify({ version: '1', watchlists: [], alerts: [] })],
+    ['missing fields', JSON.stringify({ version: 2 })],
+    ['the watchlist as an array', JSON.stringify({ version: 2, watchlist: ['AAPL'], alerts: [] })],
+    ['legacy watchlists as an object', JSON.stringify({ version: 1, watchlists: {}, alerts: [] })],
+    ['alerts as null', JSON.stringify({ version: 2, watchlist: { symbols: [] }, alerts: null })],
     ['an empty string', ''],
   ])('%s', (_label, raw) => {
     const storage = memoryStorage({ [STORAGE_KEY]: raw });
     const repo = createRepository({ storage });
-    expect(repo.listWatchlists().map((w) => w.name)).toEqual(seedNames);
+    expect(repo.getWatchlist().symbols).toEqual(SEED_WATCHLIST_SYMBOLS);
     expect(repo.listAlerts()).toHaveLength(4);
-    // The repaired payload is valid version-1 JSON again.
+    // The repaired payload is valid version-2 JSON again.
     const stored = JSON.parse(storage.data.get(STORAGE_KEY)!) as { version: number };
-    expect(stored.version).toBe(1);
+    expect(stored.version).toBe(2);
   });
 
   it('survives prototype-polluting keys without polluting Object.prototype', () => {
     const raw =
-      '{"version":1,"__proto__":{"polluted":true},"watchlists":[{"id":"w","name":"A","symbols":["AAPL"],"__proto__":{"x":1}}],"alerts":[]}';
+      '{"version":2,"__proto__":{"polluted":true},"watchlist":{"symbols":["AAPL"],"__proto__":{"x":1}},"alerts":[]}';
     const repo = createRepository({ storage: memoryStorage({ [STORAGE_KEY]: raw }) });
-    expect(repo.listWatchlists().map((w) => w.name)).toEqual(['A']);
+    expect(repo.getWatchlist().symbols).toEqual(['AAPL']);
     expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+    expect(({} as Record<string, unknown>).x).toBeUndefined();
   });
 
   it('does not throw when every storage method throws, and still serves and mutates in memory', () => {
@@ -67,16 +68,15 @@ describe('corrupted storage falls back to the seed without throwing', () => {
       },
     };
     const repo = createRepository({ storage });
-    expect(repo.listWatchlists().map((w) => w.name)).toEqual(seedNames);
-    const first = repo.listWatchlists()[0]!;
+    expect(repo.getWatchlist().symbols).toEqual(SEED_WATCHLIST_SYMBOLS);
     expect(() => {
-      repo.saveWatchlist({ ...first, name: 'Renamed' });
+      repo.saveWatchlist({ ...repo.getWatchlist(), symbols: ['SPY'] });
     }).not.toThrow();
-    expect(repo.getWatchlist(first.id)?.name).toBe('Renamed');
+    expect(repo.getWatchlist().symbols).toEqual(['SPY']);
     expect(() => {
       repo.reset();
     }).not.toThrow();
-    expect(repo.listWatchlists().map((w) => w.name)).toEqual(seedNames);
+    expect(repo.getWatchlist().symbols).toEqual(SEED_WATCHLIST_SYMBOLS);
   });
 
   it('does not throw when merely touching window.localStorage throws (blocked site data)', () => {
@@ -88,13 +88,13 @@ describe('corrupted storage falls back to the seed without throwing', () => {
 });
 
 describe('persistence round trip', () => {
-  it('stores { version: 1, watchlists, alerts } under aperture.prototype.v1 and a restart reads it back', () => {
+  it('stores { version: 2, watchlist, alerts } under aperture.prototype.v1 and a restart reads it back', () => {
     const storage = memoryStorage();
     const repo = createRepository({ storage });
     const alert = repo.listAlerts()[0]!;
     repo.saveAlert({ ...alert, armed: false, triggerCount: 3, lastTriggeredPrice: 12.34 });
     const raw = JSON.parse(storage.data.get('aperture.prototype.v1')!) as Record<string, unknown>;
-    expect(Object.keys(raw).sort()).toEqual(['alerts', 'version', 'watchlists']);
+    expect(Object.keys(raw).sort()).toEqual(['alerts', 'version', 'watchlist']);
     const restarted = createRepository({ storage });
     expect(restarted.getAlert(alert.id)).toMatchObject({
       armed: false,

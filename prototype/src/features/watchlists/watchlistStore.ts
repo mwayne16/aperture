@@ -1,18 +1,10 @@
 import { create } from 'zustand';
 import { showToast } from '../../components/ui/toastStore';
-import { ApiError, isApiError } from '../../data/api';
+import { isApiError } from '../../data/api';
 import { api } from '../../data/dataLayer';
 import { normalizeSymbol } from '../../domain/symbols';
 import type { Watchlist } from '../../domain/types';
-import {
-  checkWatchlistName,
-  checkWatchlistSymbol,
-  isPermutation,
-  neighbourId,
-  pickActiveId,
-  reinsertAt,
-  undoReorder,
-} from './watchlistRules';
+import { checkWatchlistSymbol, isPermutation, reinsertAt, undoReorder } from './watchlistRules';
 
 type LoadStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -22,59 +14,31 @@ interface LoadOptions {
 }
 
 /**
- * Watchlist state backed by `api` from data/dataLayer.ts.
+ * The user's single watchlist, backed by `api` from data/dataLayer.ts.
  *
  * Error contract:
  * - load() never rejects: a failure sets status 'error' and `error`. A call while a load is in flight
  *   returns that load instead of starting another. load({ force: true }) always starts a new request,
  *   and the result of the load it replaces is ignored.
- * - create, rename, addSymbol reject with ApiError so forms can show the message inline.
- * - remove, removeSymbol, reorder are optimistic: the UI updates immediately; on failure the
- *   previous state is restored, an error toast is shown, and the promise still resolves.
- * - The active watchlist id is a UI preference persisted in localStorage ('aperture.activeWatchlist').
- *   If it points at a deleted list, the first list becomes active.
+ * - addSymbol rejects with ApiError so forms can show the message inline. Adding a symbol that is
+ *   already being added joins that request.
+ * - removeSymbol and reorder are optimistic: the UI updates immediately; on failure the previous
+ *   state is restored, an error toast is shown, and the promise still resolves.
  */
 export interface WatchlistState {
   status: LoadStatus;
   error: string | null;
-  watchlists: Watchlist[];
-  activeId: string | null;
+  /** Null until the first load succeeds. */
+  watchlist: Watchlist | null;
 
   load(options?: LoadOptions): Promise<void>;
-  setActive(id: string): void;
-  create(name: string): Promise<Watchlist>;
-  rename(id: string, name: string): Promise<void>;
-  remove(id: string): Promise<void>;
-  addSymbol(id: string, symbol: string): Promise<void>;
-  removeSymbol(id: string, symbol: string): Promise<void>;
-  reorder(id: string, symbols: readonly string[]): Promise<void>;
-}
-
-const ACTIVE_STORAGE_KEY = 'aperture.activeWatchlist';
-
-function readStoredActiveId(): string | null {
-  try {
-    return localStorage.getItem(ACTIVE_STORAGE_KEY);
-  } catch {
-    return null;
-  }
-}
-
-function storeActiveId(id: string | null): void {
-  try {
-    if (id === null) localStorage.removeItem(ACTIVE_STORAGE_KEY);
-    else localStorage.setItem(ACTIVE_STORAGE_KEY, id);
-  } catch {
-    // ** Blocked storage only loses the preference; the in-memory choice still applies.
-  }
+  addSymbol(symbol: string): Promise<void>;
+  removeSymbol(symbol: string): Promise<void>;
+  reorder(symbols: readonly string[]): Promise<void>;
 }
 
 function messageOf(error: unknown): string {
   return error instanceof Error && error.message !== '' ? error.message : 'Something went wrong. Try again.';
-}
-
-function notFound(): ApiError {
-  return new ApiError('NOT_FOUND', 'Watchlist not found.', 404);
 }
 
 /** The server no longer has what the optimistic write removed, so the removal already holds. */
@@ -85,63 +49,44 @@ function alreadyGone(error: unknown): boolean {
 let inFlightLoad: Promise<void> | null = null;
 /** Numbers each load, so only the newest one may apply its result. */
 let loadSeq = 0;
-/** Lists whose optimistic delete is in flight, so a load that lands meanwhile doesn't bring them back. */
-const pendingDeletes = new Set<string>();
-/** Writes in flight per watchlist id. */
-const pendingWrites = new Map<string, number>();
-/** Adds in flight per "listId symbol", so a repeated add joins the first. */
+/** Writes in flight. A server copy is adopted only once the last of them settles. */
+let pendingWrites = 0;
+/** Adds in flight by symbol, so a repeated add joins the first. */
 const pendingAdds = new Map<string, Promise<void>>();
 
-function beginWrite(id: string): void {
-  pendingWrites.set(id, (pendingWrites.get(id) ?? 0) + 1);
-}
-
-/** Ends a write and tells whether it was the last one in flight for that list. */
-function endWrite(id: string): boolean {
-  const left = (pendingWrites.get(id) ?? 1) - 1;
-  if (left > 0) pendingWrites.set(id, left);
-  else pendingWrites.delete(id);
-  return left <= 0;
-}
-
 export const useWatchlistStore = create<WatchlistState>()((set, get) => {
-  function find(id: string): Watchlist | undefined {
-    return get().watchlists.find((w) => w.id === id);
+  function updateSymbols(update: (symbols: string[]) => string[]): void {
+    set((s) => (s.watchlist ? { watchlist: { ...s.watchlist, symbols: update(s.watchlist.symbols) } } : s));
   }
 
-  function updateList(id: string, update: (watchlist: Watchlist) => Watchlist): void {
-    set((s) => ({ watchlists: s.watchlists.map((w) => (w.id === id ? update(w) : w)) }));
+  // Adopts the server's copy once no other write is in flight. Until then only this write's own
+  // change is applied, so a response can't undo optimistic changes still pending.
+  function settle(server: Watchlist, ownChange: (symbols: string[]) => string[] = (symbols) => symbols): void {
+    pendingWrites -= 1;
+    if (pendingWrites <= 0) {
+      pendingWrites = 0;
+      set({ watchlist: server });
+    } else {
+      updateSymbols(ownChange);
+    }
   }
 
-  // Adopts the server's copy once no other write for the list is in flight. Until then only this
-  // write's own change is applied, so a response can't undo optimistic changes still pending.
-  function settle(server: Watchlist, ownChange: (watchlist: Watchlist) => Watchlist = (w) => w): void {
-    const last = endWrite(server.id);
-    updateList(server.id, (w) => (last ? server : ownChange(w)));
-  }
-
-  function setActiveId(id: string | null): void {
-    set({ activeId: id });
-    storeActiveId(id);
-  }
-
-  async function sendAdd(id: string, symbol: string): Promise<void> {
-    beginWrite(id);
+  async function sendAdd(symbol: string): Promise<void> {
+    pendingWrites += 1;
     let server: Watchlist;
     try {
-      server = await api.addSymbol(id, symbol);
+      server = await api.addSymbol(symbol);
     } catch (error) {
-      endWrite(id);
+      pendingWrites -= 1;
       throw error;
     }
-    settle(server, (w) => (w.symbols.includes(symbol) ? w : { ...w, symbols: [...w.symbols, symbol] }));
+    settle(server, (symbols) => (symbols.includes(symbol) ? symbols : [...symbols, symbol]));
   }
 
   return {
     status: 'idle',
     error: null,
-    watchlists: [],
-    activeId: null,
+    watchlist: null,
 
     load({ force = false } = {}) {
       if (inFlightLoad && !force) return inFlightLoad;
@@ -153,13 +98,8 @@ export const useWatchlistStore = create<WatchlistState>()((set, get) => {
         // ** Yield first, so `inFlightLoad` points at this load before it can finish.
         await Promise.resolve();
         try {
-          const listed = await api.listWatchlists();
-          if (!isCurrent()) return;
-          const watchlists = listed.filter((w) => !pendingDeletes.has(w.id));
-          // ** The in-memory choice wins over storage, which may be blocked or stale.
-          const activeId = pickActiveId(watchlists, [get().activeId, readStoredActiveId()]);
-          set({ status: 'ready', error: null, watchlists });
-          setActiveId(activeId);
+          const watchlist = await api.getWatchlist();
+          if (isCurrent()) set({ status: 'ready', error: null, watchlist });
         } catch (error) {
           if (isCurrent()) set({ status: 'error', error: messageOf(error) });
         } finally {
@@ -170,130 +110,61 @@ export const useWatchlistStore = create<WatchlistState>()((set, get) => {
       return request;
     },
 
-    setActive(id) {
-      if (get().activeId === id || !find(id)) return;
-      setActiveId(id);
-    },
-
-    async create(name) {
-      const validName = checkWatchlistName(
-        name,
-        get().watchlists.map((w) => w.name),
-      );
-      const created = await api.createWatchlist({ name: validName });
-      set((s) => ({
-        watchlists: s.watchlists.some((w) => w.id === created.id) ? s.watchlists : [...s.watchlists, created],
-      }));
-      setActiveId(created.id);
-      return created;
-    },
-
-    async rename(id, name) {
-      const current = find(id);
-      if (!current) throw notFound();
-      const others = get()
-        .watchlists.filter((w) => w.id !== id)
-        .map((w) => w.name);
-      const validName = checkWatchlistName(name, others);
-      if (validName === current.name) return;
-      beginWrite(id);
-      let server: Watchlist;
-      try {
-        server = await api.renameWatchlist(id, validName);
-      } catch (error) {
-        endWrite(id);
-        throw error;
-      }
-      settle(server, (w) => ({ ...w, name: server.name }));
-    },
-
-    async remove(id) {
-      const { watchlists, activeId } = get();
-      const index = watchlists.findIndex((w) => w.id === id);
-      const removed = watchlists[index];
-      if (!removed) return;
-      const wasActive = activeId === id;
-      const successor = wasActive ? neighbourId(watchlists, id) : activeId;
-      set({ watchlists: watchlists.filter((w) => w.id !== id) });
-      if (wasActive) setActiveId(successor);
-      pendingDeletes.add(id);
-      try {
-        await api.deleteWatchlist(id);
-        pendingDeletes.delete(id);
-      } catch (error) {
-        pendingDeletes.delete(id);
-        if (alreadyGone(error)) return;
-        set((s) => ({ watchlists: reinsertAt(s.watchlists, removed, index, (a, b) => a.id === b.id) }));
-        // ** Give the list its active state back unless the user has picked another list since.
-        if (wasActive && get().activeId === successor) setActiveId(id);
-        showToast({
-          tone: 'error',
-          title: `Couldn't delete “${removed.name}”`,
-          description: messageOf(error),
-        });
-      }
-    },
-
-    async addSymbol(id, symbol) {
-      const current = find(id);
-      if (!current) throw notFound();
-      const normalized = checkWatchlistSymbol(symbol, current.symbols);
-      const key = `${id} ${normalized}`;
-      let request = pendingAdds.get(key);
+    async addSymbol(symbol) {
+      const normalized = checkWatchlistSymbol(symbol, get().watchlist?.symbols ?? []);
+      let request = pendingAdds.get(normalized);
       if (!request) {
-        request = sendAdd(id, normalized).finally(() => pendingAdds.delete(key));
-        pendingAdds.set(key, request);
+        request = sendAdd(normalized).finally(() => pendingAdds.delete(normalized));
+        pendingAdds.set(normalized, request);
       }
       return request;
     },
 
-    async removeSymbol(id, symbol) {
+    async removeSymbol(symbol) {
       const normalized = normalizeSymbol(symbol);
-      const index = find(id)?.symbols.indexOf(normalized) ?? -1;
+      const index = get().watchlist?.symbols.indexOf(normalized) ?? -1;
       if (index === -1) return;
-      beginWrite(id);
-      updateList(id, (w) => ({ ...w, symbols: w.symbols.filter((s) => s !== normalized) }));
+      pendingWrites += 1;
+      updateSymbols((symbols) => symbols.filter((s) => s !== normalized));
       try {
-        settle(await api.removeSymbol(id, normalized));
+        settle(await api.removeSymbol(normalized));
       } catch (error) {
-        endWrite(id);
+        pendingWrites -= 1;
         if (alreadyGone(error)) return;
-        updateList(id, (w) => ({
-          ...w,
-          symbols: reinsertAt(w.symbols, normalized, index, (a, b) => a === b),
-        }));
+        updateSymbols((symbols) => reinsertAt(symbols, normalized, index, (a, b) => a === b));
         showToast({ tone: 'error', title: `Couldn't remove ${normalized}`, description: messageOf(error) });
       }
     },
 
-    async reorder(id, symbols) {
-      const current = find(id);
-      if (!current) return;
+    async reorder(symbols) {
+      const previous = get().watchlist?.symbols;
+      if (!previous) return;
       const attempted = symbols.map(normalizeSymbol);
-      if (!isPermutation(attempted, current.symbols)) {
+      if (!isPermutation(attempted, previous)) {
         showToast({
           tone: 'error',
           title: "Couldn't reorder symbols",
-          description: 'The new order does not match the symbols in this watchlist.',
+          description: 'The new order does not match the symbols in your watchlist.',
         });
         return;
       }
-      const previous = current.symbols;
       if (attempted.every((s, i) => s === previous[i])) return;
-      beginWrite(id);
-      updateList(id, (w) => ({ ...w, symbols: attempted }));
+      pendingWrites += 1;
+      updateSymbols(() => attempted);
       try {
-        settle(await api.reorderSymbols(id, attempted));
+        settle(await api.reorderSymbols(attempted));
       } catch (error) {
-        endWrite(id);
-        updateList(id, (w) => ({ ...w, symbols: undoReorder(w.symbols, attempted, previous) }));
+        pendingWrites -= 1;
+        updateSymbols((current) => undoReorder(current, attempted, previous));
         showToast({ tone: 'error', title: "Couldn't reorder symbols", description: messageOf(error) });
       }
     },
   };
 });
 
-/** The active watchlist, or null when none exist or they haven't loaded. */
-export function useActiveWatchlist(): Watchlist | null {
-  return useWatchlistStore((s) => s.watchlists.find((w) => w.id === s.activeId) ?? null);
+const NO_SYMBOLS: readonly string[] = [];
+
+/** The watchlist's symbols in order; empty until it loads. */
+export function useWatchlistSymbols(): readonly string[] {
+  return useWatchlistStore((s) => s.watchlist?.symbols ?? NO_SYMBOLS);
 }

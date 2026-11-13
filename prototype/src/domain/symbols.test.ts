@@ -4,9 +4,7 @@ import {
   normalizeSymbol,
   validateSymbol,
   validateSymbolForWatchlist,
-  validateWatchlistName,
   type ValidationResult,
-  WATCHLIST_NAME_MAX,
 } from './symbols';
 
 function reasonOf<T>(result: ValidationResult<T>): string {
@@ -165,78 +163,5 @@ describe('validateSymbolForWatchlist', () => {
     validateSymbolForWatchlist('msft', existing);
     validateSymbolForWatchlist('aapl', existing);
     expect(existing).toEqual(['AAPL']);
-  });
-});
-
-describe('validateWatchlistName', () => {
-  it('trims and returns the name with its original casing', () => {
-    expect(validateWatchlistName('  Tech Leaders  ', [])).toEqual({ ok: true, value: 'Tech Leaders' });
-  });
-
-  it.each(['', '   ', '\t\n', ' '])('rejects empty or whitespace-only %j', (input) => {
-    const reason = reasonOf(validateWatchlistName(input, []));
-    expectUserFacingReason(reason);
-    expect(reason).toBe('Enter a watchlist name.');
-  });
-
-  it('accepts exactly 40 characters and rejects 41', () => {
-    expect(WATCHLIST_NAME_MAX).toBe(40);
-    const forty = 'a'.repeat(40);
-    expect(validateWatchlistName(forty, [])).toEqual({ ok: true, value: forty });
-
-    const reason = reasonOf(validateWatchlistName('a'.repeat(41), []));
-    expectUserFacingReason(reason);
-    expect(reason).toBe('Use 40 characters or fewer.');
-  });
-
-  it('measures length after trimming', () => {
-    const forty = 'b'.repeat(40);
-    expect(validateWatchlistName(`   ${forty}   `, [])).toEqual({ ok: true, value: forty });
-  });
-
-  it('counts an emoji as one character, not two UTF-16 units', () => {
-    const name = `${'x'.repeat(39)}📈`;
-    expect(name.length).toBe(41);
-    expect(validateWatchlistName(name, [])).toEqual({ ok: true, value: name });
-    expect(validateWatchlistName(`${name}x`, []).ok).toBe(false);
-  });
-
-  it.each([
-    ['Tech', ['tech']],
-    ['TECH', ['Tech']],
-    ['  tech  ', ['Tech']],
-    ['tech', ['  TECH ']], // other names are compared trimmed as well
-    ['Dividends', ['Growth', 'dividends', 'Energy']],
-  ])('rejects %j as a case-insensitive duplicate of %j', (input, others) => {
-    const reason = reasonOf(validateWatchlistName(input, others));
-    expectUserFacingReason(reason);
-    expect(reason).toBe('You already have a watchlist with this name.');
-  });
-
-  it.each([
-    ['οδοσ', ['ΟΔΟΣ']], // lower-cases to "οδοσ" while "ΟΔΟΣ" lower-cases to "οδος"
-    ['Λογος', ['λογοσ']],
-    ['Straße', ['STRASSE']],
-    ['Keep', ['keep']], // Kelvin sign
-  ])('rejects %j as a non-ASCII case variant of %j', (input, others) => {
-    expect(reasonOf(validateWatchlistName(input, others))).toBe(
-      'You already have a watchlist with this name.',
-    );
-  });
-
-  it('allows renaming a list to a case variant of its own name (callers pass only OTHER names)', () => {
-    // Renaming "tech" -> "Tech": the list's own name is not in otherNames.
-    expect(validateWatchlistName('Tech', ['Growth', 'Energy'])).toEqual({ ok: true, value: 'Tech' });
-  });
-
-  it('allows names that only resemble an existing one', () => {
-    expect(validateWatchlistName('Tech 2', ['Tech']).ok).toBe(true);
-    expect(validateWatchlistName('Te ch', ['Tech']).ok).toBe(true);
-  });
-
-  it('checks emptiness and length before duplicates', () => {
-    expect(reasonOf(validateWatchlistName('   ', ['']))).toBe('Enter a watchlist name.');
-    const long = 'c'.repeat(41);
-    expect(reasonOf(validateWatchlistName(long, [long]))).toBe('Use 40 characters or fewer.');
   });
 });

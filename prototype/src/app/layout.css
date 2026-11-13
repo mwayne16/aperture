@@ -60,12 +60,18 @@
   background-color: var(--bg-chrome);
 }
 
-/* A scrolling page: a header, then cards stacked with even gaps. */
+/*
+ * A scrolling page: a header, then cards stacked with even gaps. Centered at one maximum width, so
+ * every page lines up the same way on wide screens instead of leaving empty space on the right.
+ */
 .page {
   display: flex;
   flex-direction: column;
   gap: var(--sp-4);
-  max-width: 1600px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1440px;
+  margin-inline: auto;
   padding: var(--sp-5) var(--sp-6) var(--sp-6);
 }
 

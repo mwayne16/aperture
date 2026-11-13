@@ -1,11 +1,6 @@
 import { validateAlertFields } from '../../domain/alertRules';
 import { resolveRange } from '../../domain/chartRanges';
-import {
-  MAX_WATCHLIST_SYMBOLS,
-  normalizeSymbol,
-  validateSymbol,
-  validateWatchlistName,
-} from '../../domain/symbols';
+import { MAX_WATCHLIST_SYMBOLS, normalizeSymbol, validateSymbol } from '../../domain/symbols';
 import {
   CHART_RANGES,
   type AssetClass,
@@ -104,9 +99,6 @@ function asString(value: unknown): string {
   return typeof value === 'string' ? value : '';
 }
 
-function sameName(a: string, b: string): boolean {
-  return a.trim().toLowerCase() === b.trim().toLowerCase();
-}
 
 /** Trims a note; blank becomes null. */
 function normalizeNote(note: string | null | undefined): string | null {
@@ -155,23 +147,6 @@ export function createMockApi(options: MockApiOptions): MarketApi {
     }
   }
 
-  function requireWatchlist(id: string): Watchlist {
-    const watchlist = repo.getWatchlist(id);
-    if (!watchlist) throw notFound('Watchlist not found.');
-    return watchlist;
-  }
-
-  function validName(name: unknown): string {
-    const result = validateWatchlistName(asString(name), []);
-    if (!result.ok) throw validationError([{ field: 'name', message: result.reason }]);
-    return result.value;
-  }
-
-  function assertUniqueName(name: string, exceptId?: string): void {
-    const clash = repo.listWatchlists().some((w) => w.id !== exceptId && sameName(w.name, name));
-    if (clash) throw conflict('name', 'You already have a watchlist with this name.');
-  }
-
   function searchUniverse(query: string, limit: number): Instrument[] {
     const upper = query.toUpperCase();
     const lower = query.toLowerCase();
@@ -208,42 +183,11 @@ export function createMockApi(options: MockApiOptions): MarketApi {
   }
 
   return {
-    listWatchlists: () => request(() => repo.listWatchlists()),
+    getWatchlist: () => request(() => repo.getWatchlist()),
 
-    createWatchlist: (input) =>
+    addSymbol: (symbol) =>
       request(() => {
-        const name = validName(asRecord(input).name);
-        assertUniqueName(name);
-        const iso = stamp();
-        const watchlist: Watchlist = {
-          id: createId('wl'),
-          name,
-          symbols: [],
-          createdAt: iso,
-          updatedAt: iso,
-        };
-        repo.saveWatchlist(watchlist);
-        return watchlist;
-      }),
-
-    renameWatchlist: (id, name) =>
-      request(() => {
-        const current = requireWatchlist(id);
-        const nextName = validName(name);
-        assertUniqueName(nextName, id);
-        const next: Watchlist = { ...current, name: nextName, updatedAt: stamp(current.updatedAt) };
-        repo.saveWatchlist(next);
-        return next;
-      }),
-
-    deleteWatchlist: (id) =>
-      request(() => {
-        if (!repo.deleteWatchlist(id)) throw notFound('Watchlist not found.');
-      }),
-
-    addSymbol: (watchlistId, symbol) =>
-      request(() => {
-        const current = requireWatchlist(watchlistId);
+        const current = repo.getWatchlist();
         const result = validateSymbol(asString(symbol));
         if (!result.ok) throw validationError([{ field: 'symbol', message: result.reason }]);
         if (current.symbols.includes(result.value)) {
@@ -263,9 +207,9 @@ export function createMockApi(options: MockApiOptions): MarketApi {
         return next;
       }),
 
-    removeSymbol: (watchlistId, symbol) =>
+    removeSymbol: (symbol) =>
       request(() => {
-        const current = requireWatchlist(watchlistId);
+        const current = repo.getWatchlist();
         const normalized = normalizeSymbol(asString(symbol));
         if (!current.symbols.includes(normalized))
           throw notFound(`${normalized || 'Symbol'} is not in this watchlist.`);
@@ -278,9 +222,9 @@ export function createMockApi(options: MockApiOptions): MarketApi {
         return next;
       }),
 
-    reorderSymbols: (watchlistId, symbols) =>
+    reorderSymbols: (symbols) =>
       request(() => {
-        const current = requireWatchlist(watchlistId);
+        const current = repo.getWatchlist();
         if (!Array.isArray(symbols)) {
           throw validationError([{ field: 'symbols', message: 'Symbols must be a list.' }]);
         }

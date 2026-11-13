@@ -15,7 +15,7 @@ import {
 } from './mockRealtime';
 import { createPrng } from './random';
 import { createRepository, type Repository } from './repository';
-import { SEED_WATCHLISTS } from './seed';
+import { SEED_WATCHLIST_SYMBOLS } from './seed';
 import { createSimulationSource } from './simulationSource';
 
 const START = Date.UTC(2026, 9, 21, 15, 0);
@@ -52,7 +52,10 @@ interface SetupOptions {
 
 function setup(options: SetupOptions = {}) {
   const repo =
-    options.repo ?? createRepository({ seed: () => ({ watchlists: [], alerts: options.alerts ?? [] }) });
+    options.repo ??
+    createRepository({
+      seed: () => ({ watchlist: { symbols: [], updatedAt: ISO }, alerts: options.alerts ?? [] }),
+    });
   const scripts = new Map(Object.entries(options.prices ?? {}).map(([s, p]) => [s, [...p]]));
   const market = createMockMarket({ priceOverride: (symbol) => scripts.get(symbol)?.shift() });
   const simulation = createSimulationSource({ ticksPerSecond: 10, ...options.sim });
@@ -790,7 +793,9 @@ describe('alert evaluation', () => {
 
   it('keeps the persisted armed state across a restart (new repo, api and realtime on the same storage)', async () => {
     const first = setup({
-      repo: createRepository({ seed: () => ({ watchlists: [], alerts: [alert({ targetPrice: 1 })] }) }),
+      repo: createRepository({
+        seed: () => ({ watchlist: { symbols: [], updatedAt: ISO }, alerts: [alert({ targetPrice: 1 })] }),
+      }),
     });
     first.connect();
     first.advance(100);
@@ -824,7 +829,7 @@ describe('alert evaluation', () => {
         sim: { ticksPerSecond: DEFAULT_SIMULATION.ticksPerSecond },
         random: () => order.next(),
       });
-      t.rt.setSubscriptions(SEED_WATCHLISTS[0]!.symbols);
+      t.rt.setSubscriptions(SEED_WATCHLIST_SYMBOLS);
       t.connect();
       const start = Date.now();
       t.advance(10 * 60_000);

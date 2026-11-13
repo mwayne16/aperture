@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react';
 import type { PriceAlert } from '../domain/types';
 import { realtime } from '../data/dataLayer';
 import { useAlertStore } from '../features/alerts/alertStore';
-import { useActiveWatchlist } from '../features/watchlists/watchlistStore';
+import { useWatchlistSymbols } from '../features/watchlists/watchlistStore';
 import { useUiStore } from './uiStore';
 
 const NO_SYMBOLS: readonly string[] = [];
@@ -15,7 +15,7 @@ interface SubscriptionSources {
 }
 
 /**
- * Symbols the UI needs live quotes for: the active watchlist, the selected symbol, the symbol typed
+ * Symbols the UI needs live quotes for: the watchlist, the selected symbol, the symbol typed
  * into the alert dialog, and every alert's symbol. Disabled alerts are included so the alerts panel
  * never shows a frozen last price as current.
  * Sorted and unique.
@@ -38,7 +38,7 @@ export function subscribedSymbols({
  * changes, so alert pushes or watchlist edits that keep the same symbols don't look like a change.
  */
 export function useSubscribedSymbols(): readonly string[] {
-  const watchlist = useActiveWatchlist()?.symbols ?? NO_SYMBOLS;
+  const watchlist = useWatchlistSymbols();
   const selected = useUiStore((s) => s.selectedSymbol);
   const alertDraft = useUiStore((s) => s.alertDraftSymbol);
   const alerts = useAlertStore((s) => s.alerts);

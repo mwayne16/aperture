@@ -5,6 +5,7 @@ import { ApiError, isApiError } from './api';
 import * as dataLayer from './dataLayer';
 import { api, realtime, resetDemoData, startDataLayer } from './dataLayer';
 import { STORAGE_KEY } from './mock/repository';
+import { SEED_WATCHLIST_SYMBOLS } from './mock/seed';
 import { getQuote, useQuoteStore } from './quoteStore';
 import { resetSimulation, updateSimulation } from './simulationStore';
 
@@ -37,7 +38,7 @@ describe('data layer module', () => {
 
   it('rejects API failures with the shared ApiError class', async () => {
     updateSimulation({ failNextApiCall: true });
-    const error = await api.listWatchlists().catch((e: unknown) => e);
+    const error = await api.getWatchlist().catch((e: unknown) => e);
     expect(error).toBeInstanceOf(ApiError);
     expect(isApiError(error)).toBe(true);
   });
@@ -116,18 +117,16 @@ describe('startDataLayer', () => {
 });
 
 describe('resetDemoData', () => {
-  it('restores the seeded watchlists and alerts and persists them', async () => {
-    await api.deleteWatchlist('wl-core-tech');
-    await api.createWatchlist({ name: 'Temporary' });
+  it('restores the seeded watchlist and alerts and persists them', async () => {
+    await api.removeSymbol('AAPL');
+    await api.addSymbol('SPY');
     await api.deleteAlert('alert-seed-nvda');
     await resetDemoData();
-    expect((await api.listWatchlists()).map((w) => w.name)).toEqual([
-      'Core Tech',
-      'Index ETFs',
-      'Financials',
-      'Ideas',
-    ]);
+    expect((await api.getWatchlist()).symbols).toEqual(SEED_WATCHLIST_SYMBOLS);
     expect((await api.listAlerts()).map((a) => a.id)).toContain('alert-seed-nvda');
-    expect(localStorage.getItem(STORAGE_KEY)).toContain('Core Tech');
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!)).toMatchObject({
+      version: 2,
+      watchlist: { symbols: SEED_WATCHLIST_SYMBOLS },
+    });
   });
 });

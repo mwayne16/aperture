@@ -517,12 +517,16 @@
   text-align: center;
 }
 
-.sidebar__watchlists {
+.sidebar__footer {
   display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-height: 0;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-4);
   border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-tight);
 }
 
 /* ------------------------------------------------------------------ Breadcrumbs */

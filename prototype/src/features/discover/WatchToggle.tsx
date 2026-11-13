@@ -4,15 +4,15 @@ import { cx } from '../../components/ui/cx';
 import { showToast } from '../../components/ui/toastStore';
 import { Tooltip } from '../../components/ui/Tooltip';
 import { isApiError } from '../../data/api';
-import { useActiveWatchlist, useWatchlistStore } from '../watchlists/watchlistStore';
+import { useWatchlistStore } from '../watchlists/watchlistStore';
 import { watchToggleView } from './discoverModel';
 
 /**
- * Star that adds `symbol` to the active watchlist or removes it. When it can't act (no list, list
- * full) it stays focusable with aria-disabled, so the tooltip can still say why.
+ * Star that adds `symbol` to the watchlist or removes it. When it can't act (list loading or full) it
+ * stays focusable with aria-disabled, so the tooltip can still say why.
  */
 export function WatchToggle({ symbol }: { symbol: string }) {
-  const watchlist = useActiveWatchlist();
+  const watchlist = useWatchlistStore((s) => s.watchlist);
   const status = useWatchlistStore((s) => s.status);
   const [adding, setAdding] = useState(false);
   const load = status === 'ready' ? 'ready' : status === 'error' ? 'error' : 'loading';
@@ -24,16 +24,16 @@ export function WatchToggle({ symbol }: { symbol: string }) {
     if (view.disabled || watchlist === null || adding) return;
     const store = useWatchlistStore.getState();
     if (view.watching) {
-      void store.removeSymbol(watchlist.id, symbol);
+      void store.removeSymbol(symbol);
       return;
     }
     setAdding(true);
     store
-      .addSymbol(watchlist.id, symbol)
+      .addSymbol(symbol)
       .catch((error: unknown) => {
         showToast({
           tone: 'error',
-          title: `Couldn't add ${symbol} to “${watchlist.name}”`,
+          title: `Couldn't add ${symbol} to your watchlist`,
           description: isApiError(error) ? error.message : 'Something went wrong. Try again.',
         });
       })

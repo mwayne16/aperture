@@ -255,7 +255,7 @@ function ResetDemoData() {
       showToast({
         tone: 'success',
         title: 'Demo data reset',
-        description: 'Watchlists and alerts are back to the seeded demo set.',
+        description: 'Your watchlist and alerts are back to the seeded demo set.',
       });
     } else {
       showToast({
@@ -269,7 +269,7 @@ function ResetDemoData() {
   return (
     <div className="shell-controls__reset">
       <p id={hintId} className="shell-hint">
-        Restores the seeded watchlists and alerts. Simulation settings are kept.
+        Restores the seeded watchlist and alerts. Simulation settings are kept.
       </p>
       <Button
         icon={<RotateCcw />}
@@ -284,7 +284,7 @@ function ResetDemoData() {
       <ConfirmDialog
         open={confirming}
         title="Reset demo data?"
-        message="Watchlists and alerts return to the seeded demo set. Anything you created or changed is lost."
+        message="Your watchlist and alerts return to the seeded demo set. Anything you created or changed is lost."
         confirmLabel="Reset demo data"
         tone="danger"
         busy={resetting}

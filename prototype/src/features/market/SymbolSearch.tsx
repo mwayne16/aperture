@@ -18,8 +18,7 @@ import { TextInput } from '../../components/ui/TextInput';
 import { showToast } from '../../components/ui/toastStore';
 import { isApiError } from '../../data/api';
 import { validateSymbol, validateSymbolForWatchlist } from '../../domain/symbols';
-import type { Watchlist } from '../../domain/types';
-import { useActiveWatchlist, useWatchlistStore } from '../watchlists/watchlistStore';
+import { useWatchlistStore } from '../watchlists/watchlistStore';
 import { revealElement } from './reveal';
 import {
   buildOptions,
@@ -34,11 +33,10 @@ import './market.css';
 export interface SymbolSearchProps {
   /**
    * 'global': top-bar search; Enter/click selects the symbol for the detail panel, with a secondary
-   * action to add it to the active watchlist.
-   * 'add': watchlist add box; Enter/click adds the symbol to `watchlistId`, showing validation errors inline.
+   * action to add it to the watchlist.
+   * 'add': watchlist add box; Enter/click adds the symbol to the watchlist, showing validation errors inline.
    */
   variant: 'global' | 'add';
-  watchlistId?: string;
   autoFocus?: boolean;
   /** Called after a successful select/add, e.g. to close a popover. */
   onDone?: () => void;
@@ -49,17 +47,10 @@ type Intent = 'primary' | 'add';
 const POPUP_MIN_WIDTH = 320;
 const VIEWPORT_MARGIN = 8;
 
-/** The watchlist an add goes to, read at the moment of the add so it is never out of date. */
-function addTarget(variant: 'global' | 'add', watchlistId: string | undefined): Watchlist | null {
-  const { watchlists, activeId } = useWatchlistStore.getState();
-  const id = variant === 'add' ? watchlistId : activeId;
-  return watchlists.find((w) => w.id === id) ?? null;
-}
-
-function optionLabel(option: SearchOption, listName: string | null, inList: boolean): string {
+function optionLabel(option: SearchOption, inList: boolean): string {
   if (option.kind === 'typed') return `Add ${option.symbol} as typed, not in the instrument list`;
   const { symbol, name, exchange } = option.instrument;
-  return inList && listName !== null ? `${symbol}, ${name}, ${exchange}, in ${listName}` : `${symbol}, ${name}, ${exchange}`;
+  return inList ? `${symbol}, ${name}, ${exchange}, in your watchlist` : `${symbol}, ${name}, ${exchange}`;
 }
 
 /**
@@ -67,7 +58,7 @@ function optionLabel(option: SearchOption, listName: string | null, inList: bool
  * Enter picks it, Escape closes the list and a second Escape clears the text. Focus stays in the
  * input throughout, with the highlighted option exposed through aria-activedescendant.
  */
-export function SymbolSearch({ variant, watchlistId, autoFocus = false, onDone }: SymbolSearchProps) {
+export function SymbolSearch({ variant, autoFocus = false, onDone }: SymbolSearchProps) {
   const id = useId();
   const listboxId = `${id}listbox`;
   const hintId = `${id}hint`;
@@ -90,9 +81,7 @@ export function SymbolSearch({ variant, watchlistId, autoFocus = false, onDone }
   const [added, setAdded] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const activeWatchlist = useActiveWatchlist();
-  const namedWatchlist = useWatchlistStore((s) => s.watchlists.find((w) => w.id === watchlistId) ?? null);
-  const target = variant === 'add' ? namedWatchlist : activeWatchlist;
+  const target = useWatchlistStore((s) => s.watchlist);
 
   const search = useInstrumentSearch(query);
   const term = query.trim();
@@ -170,16 +159,17 @@ export function SymbolSearch({ variant, watchlistId, autoFocus = false, onDone }
   };
 
   /**
-   * Adds a symbol to the target watchlist. `submittedText` is the add box text when the caller has
+   * Adds a symbol to the watchlist. `submittedText` is the add box text when the caller has
    * already cleared the box; otherwise the current text is taken and the box cleared here.
    */
   const addToWatchlist = async (symbol: string, submittedText?: string) => {
     if (busyRef.current) return;
     const submitted = variant === 'add' ? (submittedText ?? inputRef.current?.value ?? '') : null;
-    const watchlist = addTarget(variant, watchlistId);
+    // ** Read at the moment of the add, so the duplicate check never uses an out-of-date list.
+    const watchlist = useWatchlistStore.getState().watchlist;
     if (!watchlist) {
       restore(submittedText ?? null);
-      report('Choose a watchlist first.');
+      report('Your watchlist is still loading. Try again in a moment.');
       return;
     }
     const check = validateSymbolForWatchlist(symbol, watchlist.symbols);
@@ -193,9 +183,9 @@ export function SymbolSearch({ variant, watchlistId, autoFocus = false, onDone }
     // ** The add box clears while the symbol saves, so the user can type the next one meanwhile.
     if (submitted !== null && submittedText === undefined) reset();
     try {
-      await useWatchlistStore.getState().addSymbol(watchlist.id, check.value);
-      if (variant === 'global') showToast({ tone: 'success', title: `Added ${check.value} to ${watchlist.name}` });
-      else setAdded(`Added ${check.value} to ${watchlist.name}.`);
+      await useWatchlistStore.getState().addSymbol(check.value);
+      if (variant === 'global') showToast({ tone: 'success', title: `Added ${check.value} to your watchlist` });
+      else setAdded(`Added ${check.value} to your watchlist.`);
       onDone?.();
     } catch (failure) {
       restore(submitted);
@@ -306,13 +296,10 @@ export function SymbolSearch({ variant, watchlistId, autoFocus = false, onDone }
   else if (open && search.status === 'error') announcement = popupMessage ?? '';
 
   const showSpinner = busy || (open && search.status === 'loading');
-  const listName = target?.name ?? null;
-  const label = variant === 'global' ? 'Search symbols' : listName ? `Add symbol to ${listName}` : 'Add symbol';
+  const label = variant === 'global' ? 'Search symbols' : 'Add symbol to watchlist';
   const hint =
     variant === 'global'
-      ? listName
-        ? `Enter opens the symbol's details. Shift+Enter adds it to ${listName}.`
-        : "Enter opens the symbol's details."
+      ? "Enter opens the symbol's details. Shift+Enter adds it to your watchlist."
       : 'Type a symbol or company name, then press Enter to add it.';
 
   return (
@@ -397,7 +384,7 @@ export function SymbolSearch({ variant, watchlistId, autoFocus = false, onDone }
                       id={optionId(index)}
                       role="option"
                       aria-selected={isActive}
-                      aria-label={optionLabel(option, listName, inList)}
+                      aria-label={optionLabel(option, inList)}
                       className={cx('symsearch__option', isActive && 'is-active', option.kind === 'typed' && 'is-typed')}
                       onMouseMove={() => {
                         if (!isActive) setChosenKey(optionKey(option));
@@ -430,7 +417,7 @@ export function SymbolSearch({ variant, watchlistId, autoFocus = false, onDone }
                             type="button"
                             tabIndex={-1}
                             aria-hidden="true"
-                            title={`Add ${option.symbol} to ${target.name}`}
+                            title={`Add ${option.symbol} to your watchlist`}
                             className="symsearch__add"
                             onClick={(event) => {
                               onOptionAdd(event, option);
@@ -454,7 +441,7 @@ export function SymbolSearch({ variant, watchlistId, autoFocus = false, onDone }
                 </span>
                 <span>
                   <Kbd>Shift</Kbd>
-                  <Kbd>Enter</Kbd> Add to {target.name}
+                  <Kbd>Enter</Kbd> Add to watchlist
                 </span>
               </p>
             )}

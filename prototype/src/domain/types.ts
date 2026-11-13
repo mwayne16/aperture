@@ -125,13 +125,11 @@ export interface HistoryResult {
   simulated: boolean;
 }
 
+/** The user's single watchlist: every symbol they watch, in their own order. */
 export interface Watchlist {
-  id: string;
-  name: string;
   /** Ordered, unique, normalized symbols. Order is user-defined and persisted. */
   symbols: string[];
-  /** ISO timestamps. */
-  createdAt: string;
+  /** ISO timestamp of the last change. */
   updatedAt: string;
 }
 

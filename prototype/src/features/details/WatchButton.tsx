@@ -4,7 +4,7 @@ import { Button } from '../../components/ui/Button';
 import { cx } from '../../components/ui/cx';
 import { showToast } from '../../components/ui/toastStore';
 import { Tooltip } from '../../components/ui/Tooltip';
-import { useActiveWatchlist, useWatchlistStore } from '../watchlists/watchlistStore';
+import { useWatchlistStore } from '../watchlists/watchlistStore';
 import { watchView } from './watchToggle';
 import './stockPage.css';
 
@@ -13,12 +13,12 @@ function messageOf(error: unknown): string {
 }
 
 /**
- * Star toggle that adds the symbol to the active watchlist or removes it. The tooltip names the list.
- * When there is no list, or it is full, the button stays focusable but inert and the tooltip says why.
+ * Star toggle that adds the symbol to the watchlist or removes it. While the list is loading, or when
+ * it is full, the button stays focusable but inert and the tooltip says why.
  */
 export function WatchButton({ symbol }: { symbol: string }) {
   const status = useWatchlistStore((s) => s.status);
-  const list = useActiveWatchlist();
+  const list = useWatchlistStore((s) => s.watchlist);
   const [adding, setAdding] = useState(false);
   const view = watchView(status, list, symbol);
   const unavailable = view.action === null;
@@ -27,14 +27,14 @@ export function WatchButton({ symbol }: { symbol: string }) {
     if (!list || unavailable || adding) return;
     if (view.action === 'remove') {
       // Removal is optimistic; the store restores the symbol and reports a failure itself.
-      void useWatchlistStore.getState().removeSymbol(list.id, symbol);
+      void useWatchlistStore.getState().removeSymbol(symbol);
       return;
     }
     setAdding(true);
     try {
-      await useWatchlistStore.getState().addSymbol(list.id, symbol);
+      await useWatchlistStore.getState().addSymbol(symbol);
     } catch (error) {
-      showToast({ tone: 'error', title: `Couldn't add ${symbol} to ${list.name}`, description: messageOf(error) });
+      showToast({ tone: 'error', title: `Couldn't add ${symbol} to your watchlist`, description: messageOf(error) });
     } finally {
       setAdding(false);
     }

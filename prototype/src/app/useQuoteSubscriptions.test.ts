@@ -12,7 +12,7 @@ function alert(symbol: string, enabled: boolean, id = symbol): PriceAlert {
 }
 
 function watchlist(symbols: string[]): Watchlist {
-  return { id: 'w1', name: 'Mine', symbols, createdAt: '', updatedAt: '' };
+  return { symbols, updatedAt: '' };
 }
 
 afterEach(() => {
@@ -41,7 +41,7 @@ describe('subscribedSymbols', () => {
     expect(subscribedSymbols({ ...none, alerts: [alert('AMD', false)] })).toEqual(['AMD']);
   });
 
-  it('subscribes to the selected symbol even when no watchlist is active', () => {
+  it('subscribes to the selected symbol even when the watchlist is empty', () => {
     expect(subscribedSymbols({ ...none, selected: 'NVDA' })).toEqual(['NVDA']);
   });
 
@@ -53,7 +53,7 @@ describe('subscribedSymbols', () => {
 describe('useSubscribedSymbols', () => {
   it('keeps the same list while the set of symbols stays the same', () => {
     act(() => {
-      useWatchlistStore.setState({ watchlists: [watchlist(['MSFT', 'AAPL'])], activeId: 'w1' });
+      useWatchlistStore.setState({ watchlist: watchlist(['MSFT', 'AAPL']) });
       useAlertStore.setState({ alerts: [alert('TSLA', true)] });
     });
     const { result } = renderHook(() => useSubscribedSymbols());
@@ -66,10 +66,21 @@ describe('useSubscribedSymbols', () => {
     });
     expect(result.current).toBe(first);
 
+    // Reordering the watchlist keeps the set too.
+    act(() => {
+      useWatchlistStore.setState({ watchlist: watchlist(['AAPL', 'MSFT']) });
+    });
+    expect(result.current).toBe(first);
+
     act(() => {
       useUiStore.getState().selectSymbol('NVDA');
     });
     expect(result.current).toEqual(['AAPL', 'MSFT', 'NVDA', 'TSLA']);
+
+    act(() => {
+      useWatchlistStore.setState({ watchlist: watchlist(['AAPL']) });
+    });
+    expect(result.current).toEqual(['AAPL', 'NVDA', 'TSLA']);
   });
 });
 
@@ -77,7 +88,7 @@ describe('useQuoteSubscriptions', () => {
   it('updates the realtime subscriptions only when the set of symbols changes', () => {
     const setSubscriptions = vi.spyOn(realtime, 'setSubscriptions').mockImplementation(() => undefined);
     act(() => {
-      useWatchlistStore.setState({ watchlists: [watchlist(['AAPL'])], activeId: 'w1' });
+      useWatchlistStore.setState({ watchlist: watchlist(['AAPL']) });
     });
     renderHook(() => {
       useQuoteSubscriptions();

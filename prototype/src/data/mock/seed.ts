@@ -5,23 +5,26 @@ import { roundPrice } from './priceModel';
 
 /** Demo data written on first run and by "reset demo data". */
 export interface SeedData {
-  watchlists: Watchlist[];
+  watchlist: Watchlist;
   alerts: PriceAlert[];
 }
 
-export const SEED_WATCHLISTS: readonly { id: string; name: string; symbols: readonly string[] }[] = [
-  {
-    id: 'wl-core-tech',
-    name: 'Core Tech',
-    symbols: ['AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'META', 'TSLA', 'AMD', 'AVGO', 'NFLX'],
-  },
-  { id: 'wl-index-etfs', name: 'Index ETFs', symbols: ['SPY', 'QQQ', 'IWM', 'DIA', 'VTI', 'XLK', 'XLF'] },
-  { id: 'wl-financials', name: 'Financials', symbols: ['JPM', 'BAC', 'GS', 'MS', 'V', 'MA', 'BRK.B'] },
-  { id: 'wl-ideas', name: 'Ideas', symbols: [] },
+// ** The demo alert timing below was measured with exactly these ten symbols streaming.
+export const SEED_WATCHLIST_SYMBOLS: readonly string[] = [
+  'AAPL',
+  'MSFT',
+  'NVDA',
+  'GOOGL',
+  'AMZN',
+  'META',
+  'TSLA',
+  'AMD',
+  'AVGO',
+  'NFLX',
 ];
 
 /*
- * Demo alert placement. At default settings a fresh session trades the 10 Core Tech symbols at
+ * Demo alert placement. At default settings a fresh session trades the 10 watchlist symbols at
  * 12 trades a second in total, about 1.2 trades per symbol per second, so trade counts stand in
  * for time. The price path is deterministic, so a target can be checked against the trades ahead.
  */
@@ -102,13 +105,7 @@ export function buildSeedData(options: { market?: MockMarket; now?: number } = {
   const market = options.market ?? createMockMarket();
   const iso = new Date(options.now ?? Date.now()).toISOString();
 
-  const watchlists: Watchlist[] = SEED_WATCHLISTS.map((w) => ({
-    id: w.id,
-    name: w.name,
-    symbols: [...w.symbols],
-    createdAt: iso,
-    updatedAt: iso,
-  }));
+  const watchlist: Watchlist = { symbols: [...SEED_WATCHLIST_SYMBOLS], updatedAt: iso };
 
   const alert = (
     fields: Pick<PriceAlert, 'id' | 'symbol' | 'condition' | 'targetPrice' | 'tag' | 'enabled' | 'note'>,
@@ -164,5 +161,5 @@ export function buildSeedData(options: { market?: MockMarket; now?: number } = {
     }),
   ];
 
-  return { watchlists, alerts };
+  return { watchlist, alerts };
 }

@@ -30,13 +30,12 @@ export function setConnection(patch: Partial<ConnectionInfo>): void {
   });
 }
 
-/** Makes `symbols` the active watchlist, which is what the app subscribes to. */
+/** Makes `symbols` the watchlist, which is what the app subscribes to. */
 export function watch(symbols: string[]): void {
   act(() => {
     useWatchlistStore.setState({
       status: 'ready',
-      watchlists: [{ id: 'wl-test', name: 'Test', symbols, createdAt: '', updatedAt: '' }],
-      activeId: 'wl-test',
+      watchlist: { symbols, updatedAt: '' },
     });
   });
 }

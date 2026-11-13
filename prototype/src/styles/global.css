@@ -75,11 +75,20 @@ textarea {
   letter-spacing: inherit;
 }
 
-button {
-  cursor: default;
+/* Everything clickable shows the pointer, including the menu items and options Radix renders as divs. */
+button,
+[role='menuitem'],
+[role='menuitemradio'],
+[role='option'],
+[role='tab'],
+[role='radio'],
+[role='switch'] {
+  cursor: pointer;
 }
 
-button:disabled {
+button:disabled,
+[aria-disabled='true'],
+[data-disabled] {
   cursor: not-allowed;
 }
 

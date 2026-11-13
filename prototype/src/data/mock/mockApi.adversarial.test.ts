@@ -54,14 +54,10 @@ afterEach(() => {
 describe('error envelope', () => {
   it('uses the documented codes and statuses for each failure class', async () => {
     const { api } = setup();
-    const v = await expectError(api.createWatchlist({ name: '   ' }), 'VALIDATION_ERROR', 400);
-    expect(v.details[0]?.field).toBe('name');
-    await expectError(api.createWatchlist({ name: ' core TECH ' }), 'CONFLICT', 409);
-    await expectError(api.renameWatchlist('nope', 'X'), 'NOT_FOUND', 404);
-    await expectError(api.addSymbol('wl-core-tech', 'aapl'), 'CONFLICT', 409);
-    const bad = await expectError(api.addSymbol('wl-core-tech', 'TOOLONG1'), 'VALIDATION_ERROR', 400);
+    await expectError(api.addSymbol('aapl'), 'CONFLICT', 409);
+    const bad = await expectError(api.addSymbol('TOOLONG1'), 'VALIDATION_ERROR', 400);
     expect(bad.details).toEqual([expect.objectContaining({ field: 'symbol' })]);
-    await expectError(api.removeSymbol('wl-ideas', 'AAPL'), 'NOT_FOUND', 404);
+    await expectError(api.removeSymbol('SPY'), 'NOT_FOUND', 404);
     await expectError(api.deleteAlert('nope'), 'NOT_FOUND', 404);
     await expectError(api.updateAlert('nope', { tag: 'buy' }), 'NOT_FOUND', 404);
   });
@@ -137,29 +133,28 @@ describe('reorderSymbols requires an exact permutation', () => {
     ['an empty list', () => []],
   ])('rejects %s with VALIDATION_ERROR and leaves the order unchanged', async (_label, mutate) => {
     const { api, repo } = setup();
-    const before = repo.getWatchlist('wl-index-etfs')!;
-    await expectError(api.reorderSymbols(before.id, mutate([...before.symbols])), 'VALIDATION_ERROR', 400);
-    expect(repo.getWatchlist(before.id)).toEqual(before);
+    const before = repo.getWatchlist();
+    await expectError(api.reorderSymbols(mutate([...before.symbols])), 'VALIDATION_ERROR', 400);
+    expect(repo.getWatchlist()).toEqual(before);
   });
 
   it('persists a valid permutation in the given order', async () => {
     const { api, repo } = setup();
-    const before = repo.getWatchlist('wl-index-etfs')!;
-    const reversed = [...before.symbols].reverse();
-    const result = await settle(api.reorderSymbols(before.id, reversed));
+    const reversed = [...repo.getWatchlist().symbols].reverse();
+    const result = await settle(api.reorderSymbols(reversed));
     expect(result.symbols).toEqual(reversed);
-    expect(repo.getWatchlist(before.id)!.symbols).toEqual(reversed);
+    expect(repo.getWatchlist().symbols).toEqual(reversed);
   });
 });
 
 describe('failNextApiCall', () => {
   it('fails exactly one call with UNAVAILABLE, does not apply it, and resets', async () => {
     const { api, repo, simulation } = setup({ failNextApiCall: true, apiLatencyMs: 200 });
-    await expectError(api.createWatchlist({ name: 'New' }), 'UNAVAILABLE', 503, 200);
+    await expectError(api.addSymbol('SPY'), 'UNAVAILABLE', 503, 200);
     expect(simulation.get().failNextApiCall).toBe(false);
-    expect(repo.listWatchlists().some((w) => w.name === 'New')).toBe(false);
-    const created = await settle(api.createWatchlist({ name: 'New' }), 200);
-    expect(created.name).toBe('New');
+    expect(repo.getWatchlist().symbols).not.toContain('SPY');
+    const added = await settle(api.addSymbol('SPY'), 200);
+    expect(added.symbols.at(-1)).toBe('SPY');
   });
 });
 

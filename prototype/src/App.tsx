@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react';
-import { Route, Router, Switch, useLocation, useRoute } from 'wouter';
+import { Redirect, Route, Router, Switch, useLocation, useRoute } from 'wouter';
 import { useHashLocation } from 'wouter/use-hash-location';
 import { NotFoundPage } from './app/NotFoundPage';
-import { routes } from './app/routes';
+import { paths, routes } from './app/routes';
 import { useAppStartup } from './app/useAppStartup';
 import { useGlobalShortcuts } from './app/useGlobalShortcuts';
 import { useQuoteSubscriptions } from './app/useQuoteSubscriptions';
@@ -90,8 +90,10 @@ function Pages() {
     <Switch>
       <Route path={routes.dashboard} component={DashboardPage} />
       <Route path={routes.discover} component={DiscoverPage} />
-      <Route path={routes.watchlists} component={WatchlistPage} />
       <Route path={routes.watchlist} component={WatchlistPage} />
+      <Route path={routes.legacyWatchlists}>
+        <Redirect to={paths.watchlist} replace />
+      </Route>
       <Route path={routes.symbol} component={StockPage} />
       <Route path={routes.alerts} component={AlertsPage} />
       <Route path={routes.notifications} component={NotificationsPage} />

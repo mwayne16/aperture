@@ -13,6 +13,12 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
   with pop-out, Alerts, Notifications and Settings. **Awaiting the user's review and approval.**
 - Track phase status in this section. Update it whenever a phase is approved or completed.
 
+## Product decisions that override the plan
+- 2026-11-13: **one watchlist per user.** The plan's section 2.2 asks for several named watchlists; the user
+  found that overcomplicated. Users add any stock, ETF or crypto pair to their single watchlist; there is
+  no create, rename, delete or switching of lists. The API has `getWatchlist`, `addSymbol`, `removeSymbol`
+  and `reorderSymbols` without ids, and the backend stores one watchlist per user.
+
 ## Machine constraints (Windows, low C: drive)
 - C: has very little free space. Everything heavy lives on D:.
   - The npm cache is set at user level to `D:\dev-cache\npm`. Don't change it.

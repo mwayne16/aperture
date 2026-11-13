@@ -1,17 +1,15 @@
 /**
- * Symbol and watchlist-name rules (shared with the future backend DTO validators).
+ * Symbol rules (shared with the future backend DTO validators).
  *
  * - Symbols are normalized by trimming whitespace and upper-casing.
  * - Valid symbol: 1-5 letters, optionally followed by "." and 1-2 letters for share classes
  *   (e.g. "AAPL", "F", "BRK.B"). Pattern: /^[A-Z]{1,5}(?:\.[A-Z]{1,2})?$/
  * - Crypto pairs are also valid: a 2-10 letter coin, "/", and USD, USDT, USDC or BTC (e.g. "BTC/USD").
- * - Watchlist names are trimmed, 1-40 characters, and unique per user ignoring case.
  * - A watchlist holds at most MAX_WATCHLIST_SYMBOLS symbols and never the same symbol twice.
  */
 
 export const SYMBOL_PATTERN = /^[A-Z]{1,5}(?:\.[A-Z]{1,2})?$/;
 const CRYPTO_PAIR_PATTERN = /^[A-Z]{2,10}\/(?:USD|USDT|USDC|BTC)$/;
-export const WATCHLIST_NAME_MAX = 40;
 export const MAX_WATCHLIST_SYMBOLS = 100;
 
 export type ValidationResult<T> = { ok: true; value: T } | { ok: false; reason: string };
@@ -60,32 +58,4 @@ export function validateSymbolForWatchlist(
     return { ok: false, reason: `This watchlist is full (${MAX_WATCHLIST_SYMBOLS} symbols max).` };
   }
   return { ok: true, value: symbol };
-}
-
-/**
- * Compares names ignoring case, including letters whose case forms aren't one-to-one
- * ("ẞ" lower-cases to "ß", which upper-cases to "SS").
- */
-function caselessKey(name: string): string {
-  return name.toLowerCase().toUpperCase().toLowerCase();
-}
-
-/**
- * Validates a watchlist name. `otherNames` are the names of the user's other watchlists.
- * Length counts Unicode code points, so an emoji counts as one character.
- */
-export function validateWatchlistName(
-  input: string,
-  otherNames: readonly string[],
-): ValidationResult<string> {
-  const name = trimWhitespace(input);
-  if (name === '') return { ok: false, reason: 'Enter a watchlist name.' };
-  if (Array.from(name).length > WATCHLIST_NAME_MAX) {
-    return { ok: false, reason: `Use ${WATCHLIST_NAME_MAX} characters or fewer.` };
-  }
-  const key = caselessKey(name);
-  if (otherNames.some((other) => caselessKey(trimWhitespace(other)) === key)) {
-    return { ok: false, reason: 'You already have a watchlist with this name.' };
-  }
-  return { ok: true, value: name };
 }

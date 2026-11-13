@@ -15,26 +15,21 @@ import { SymbolSearch } from './SymbolSearch';
 const initialWatchlists = useWatchlistStore.getState();
 const initialUi = useUiStore.getState();
 
-/** One active watchlist "Core" with an addSymbol that behaves like the real store on success. */
+/** A loaded watchlist with an addSymbol that behaves like the real store on success. */
 function seedWatchlist(symbols: string[] = ['AAPL']) {
-  const addSymbol = vi.fn((_id: string, symbol: string) => {
+  const addSymbol = vi.fn((symbol: string) => {
     useWatchlistStore.setState((s) => ({
-      watchlists: s.watchlists.map((w) => ({ ...w, symbols: [...w.symbols, symbol] })),
+      watchlist: s.watchlist && { ...s.watchlist, symbols: [...s.watchlist.symbols, symbol] },
     }));
     return Promise.resolve();
   });
   act(() => {
-    useWatchlistStore.setState({
-      status: 'ready',
-      watchlists: [{ id: 'wl-1', name: 'Core', symbols, createdAt: '', updatedAt: '' }],
-      activeId: 'wl-1',
-      addSymbol,
-    });
+    useWatchlistStore.setState({ status: 'ready', watchlist: { symbols, updatedAt: '' }, addSymbol });
   });
   return { addSymbol };
 }
 
-const addBox = () => screen.getByRole('combobox', { name: 'Add symbol to Core' });
+const addBox = () => screen.getByRole('combobox', { name: 'Add symbol to watchlist' });
 const globalBox = () => screen.getByRole('combobox', { name: 'Search symbols' });
 const findOption = (name: RegExp) => screen.findByRole('option', { name });
 const toastTitles = () => useToastStore.getState().toasts.map((t) => t.title);
@@ -58,7 +53,7 @@ describe('SymbolSearch add variant', () => {
     const { addSymbol } = seedWatchlist();
     const onDone = vi.fn();
     const user = userEvent.setup();
-    render(<SymbolSearch variant="add" watchlistId="wl-1" onDone={onDone} />);
+    render(<SymbolSearch variant="add" onDone={onDone} />);
     await user.type(addBox(), 'msf');
     const msft = await findOption(/^MSFT, Microsoft Corporation, NASDAQ$/);
     expect(msft).toHaveAttribute('aria-selected', 'true');
@@ -69,14 +64,14 @@ describe('SymbolSearch add variant', () => {
     await waitFor(() => {
       expect(onDone).toHaveBeenCalledTimes(1);
     });
-    expect(addSymbol).toHaveBeenCalledWith('wl-1', 'MSFT');
+    expect(addSymbol).toHaveBeenCalledWith('MSFT');
     expect(addBox()).toHaveValue('');
   });
 
   it('moves the highlight with the arrow keys and wraps at the ends', async () => {
     seedWatchlist();
     const user = userEvent.setup();
-    render(<SymbolSearch variant="add" watchlistId="wl-1" />);
+    render(<SymbolSearch variant="add" />);
     await user.type(addBox(), 'msf');
     const msft = await findOption(/^MSFT/);
     const typed = screen.getByRole('option', { name: /Add MSF as typed/ });
@@ -91,17 +86,17 @@ describe('SymbolSearch add variant', () => {
   it('adds a valid symbol typed exactly, even before results arrive and when nothing lists it', async () => {
     const { addSymbol } = seedWatchlist();
     const user = userEvent.setup();
-    render(<SymbolSearch variant="add" watchlistId="wl-1" />);
+    render(<SymbolSearch variant="add" />);
     await user.type(addBox(), 'zzzz{Enter}');
     await waitFor(() => {
-      expect(addSymbol).toHaveBeenCalledWith('wl-1', 'ZZZZ');
+      expect(addSymbol).toHaveBeenCalledWith('ZZZZ');
     });
   });
 
   it('reports a duplicate inline without calling the API, and clears it on typing', async () => {
     const { addSymbol } = seedWatchlist(['AAPL']);
     const user = userEvent.setup();
-    render(<SymbolSearch variant="add" watchlistId="wl-1" />);
+    render(<SymbolSearch variant="add" />);
     await user.type(addBox(), 'aapl');
     expect(await findOption(/^AAPL, Apple Inc\./)).toHaveTextContent('Added');
     await user.keyboard('{Enter}');
@@ -116,7 +111,7 @@ describe('SymbolSearch add variant', () => {
   it('explains an invalid symbol inline', async () => {
     const { addSymbol } = seedWatchlist();
     const user = userEvent.setup();
-    render(<SymbolSearch variant="add" watchlistId="wl-1" />);
+    render(<SymbolSearch variant="add" />);
     await user.type(addBox(), '12{Enter}');
     expect(await screen.findByText(/Use 1-5 letters/, { selector: 'p' })).toBeInTheDocument();
     expect(addSymbol).not.toHaveBeenCalled();
@@ -126,7 +121,7 @@ describe('SymbolSearch add variant', () => {
     const { addSymbol } = seedWatchlist();
     addSymbol.mockRejectedValueOnce(new ApiError('CONFLICT', 'MSFT is already in this watchlist.', 409));
     const user = userEvent.setup();
-    render(<SymbolSearch variant="add" watchlistId="wl-1" />);
+    render(<SymbolSearch variant="add" />);
     await user.type(addBox(), 'msft');
     await findOption(/^MSFT/);
     await user.keyboard('{Enter}');
@@ -146,7 +141,7 @@ describe('SymbolSearch add variant', () => {
         }),
     );
     const user = userEvent.setup();
-    render(<SymbolSearch variant="add" watchlistId="wl-1" />);
+    render(<SymbolSearch variant="add" />);
     await user.type(addBox(), 'msft');
     await findOption(/^MSFT/);
     await user.keyboard('{Enter}');
@@ -170,7 +165,7 @@ describe('SymbolSearch add variant', () => {
         }),
     );
     const user = userEvent.setup();
-    render(<SymbolSearch variant="add" watchlistId="wl-1" />);
+    render(<SymbolSearch variant="add" />);
     await user.type(addBox(), 'msft');
     await findOption(/^MSFT/);
     await user.keyboard('{Enter}{Enter}{Enter}');
@@ -186,18 +181,18 @@ describe('SymbolSearch add variant', () => {
   it('adds the option that is clicked', async () => {
     const { addSymbol } = seedWatchlist();
     const user = userEvent.setup();
-    render(<SymbolSearch variant="add" watchlistId="wl-1" />);
+    render(<SymbolSearch variant="add" />);
     await user.type(addBox(), 'nvid');
     await user.click(await findOption(/^NVDA/));
     await waitFor(() => {
-      expect(addSymbol).toHaveBeenCalledWith('wl-1', 'NVDA');
+      expect(addSymbol).toHaveBeenCalledWith('NVDA');
     });
   });
 
   it('closes the list with Escape, then clears the text with a second Escape', async () => {
     seedWatchlist();
     const user = userEvent.setup();
-    render(<SymbolSearch variant="add" watchlistId="wl-1" />);
+    render(<SymbolSearch variant="add" />);
     await user.type(addBox(), 'msft');
     await findOption(/^MSFT/);
     await user.keyboard('{Escape}');
@@ -313,7 +308,7 @@ describe('SymbolSearch global variant', () => {
     expect(useUiStore.getState().selectedSymbol).toBe('TSLA');
   });
 
-  it('adds to the active watchlist with Shift+Enter and then marks the option as in the list', async () => {
+  it('adds to the watchlist with Shift+Enter and then marks the option as in the list', async () => {
     const { addSymbol } = seedWatchlist();
     const user = userEvent.setup();
     render(<SymbolSearch variant="global" />);
@@ -321,10 +316,10 @@ describe('SymbolSearch global variant', () => {
     await findOption(/^NVDA, NVIDIA Corporation, NASDAQ$/);
     await user.keyboard('{Shift>}{Enter}{/Shift}');
     await waitFor(() => {
-      expect(addSymbol).toHaveBeenCalledWith('wl-1', 'NVDA');
+      expect(addSymbol).toHaveBeenCalledWith('NVDA');
     });
-    expect(toastTitles()).toContain('Added NVDA to Core');
-    expect(await findOption(/^NVDA, .*, in Core$/)).toHaveTextContent('In list');
+    expect(toastTitles()).toContain('Added NVDA to your watchlist');
+    expect(await findOption(/^NVDA, .*, in your watchlist$/)).toHaveTextContent('In list');
     expect(useUiStore.getState().selectedSymbol).toBeNull();
   });
 
@@ -336,7 +331,7 @@ describe('SymbolSearch global variant', () => {
     const tsla = await findOption(/^TSLA/);
     await user.click(within(tsla).getByText('Add'));
     await waitFor(() => {
-      expect(addSymbol).toHaveBeenCalledWith('wl-1', 'TSLA');
+      expect(addSymbol).toHaveBeenCalledWith('TSLA');
     });
     expect(useUiStore.getState().selectedSymbol).toBeNull();
     expect(globalBox()).toHaveFocus();
@@ -350,6 +345,20 @@ describe('SymbolSearch global variant', () => {
     await findOption(/^AAPL/);
     await user.keyboard('{Shift>}{Enter}{/Shift}');
     expect(toastTitles()).toContain('AAPL is already in this watchlist.');
+    expect(addSymbol).not.toHaveBeenCalled();
+  });
+
+  it('asks to try again when Shift+Enter comes before the watchlist has loaded', async () => {
+    const addSymbol = vi.fn(() => Promise.resolve());
+    act(() => {
+      useWatchlistStore.setState({ status: 'loading', watchlist: null, addSymbol });
+    });
+    const user = userEvent.setup();
+    render(<SymbolSearch variant="global" />);
+    await user.type(globalBox(), 'nvda');
+    await findOption(/^NVDA/);
+    await user.keyboard('{Shift>}{Enter}{/Shift}');
+    expect(toastTitles()).toContain('Your watchlist is still loading. Try again in a moment.');
     expect(addSymbol).not.toHaveBeenCalled();
   });
 

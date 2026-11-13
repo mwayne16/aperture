@@ -297,7 +297,7 @@
 .ui-select__control {
   padding-right: 26px;
   appearance: none;
-  cursor: default;
+  cursor: pointer;
 }
 
 .ui-select__control option {

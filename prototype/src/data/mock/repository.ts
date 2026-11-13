@@ -1,11 +1,12 @@
-import { MAX_WATCHLIST_SYMBOLS, validateSymbol, validateWatchlistName } from '../../domain/symbols';
+import { MAX_WATCHLIST_SYMBOLS, validateSymbol } from '../../domain/symbols';
 import type { PriceAlert, Watchlist } from '../../domain/types';
 import type { Unsubscribe } from '../realtime';
 import { buildSeedData, type SeedData } from './seed';
 
 /**
- * The mock backend's persistence: watchlists and alerts in localStorage under STORAGE_KEY as
- * `{ version: 1, watchlists, alerts }`. Reads return copies, so callers can't mutate stored state.
+ * The mock backend's persistence: the watchlist and alerts in localStorage under STORAGE_KEY as
+ * `{ version: 2, watchlist, alerts }`. Reads return copies, so callers can't mutate stored state.
+ * Version 1 data, from when users could keep several watchlists, is merged into one list in order.
  *
  * Loading never throws: missing, corrupted or unknown-version data falls back to the seed, invalid
  * entries are dropped, and storage exceptions (blocked storage, quota) are caught. The in-memory
@@ -13,7 +14,8 @@ import { buildSeedData, type SeedData } from './seed';
  */
 
 export const STORAGE_KEY = 'aperture.prototype.v1';
-const STORAGE_VERSION = 1;
+const STORAGE_VERSION = 2;
+const LEGACY_MULTI_LIST_VERSION = 1;
 
 export type RepositoryData = SeedData;
 
@@ -24,11 +26,8 @@ export interface StorageLike {
 }
 
 export interface Repository {
-  listWatchlists(): Watchlist[];
-  getWatchlist(id: string): Watchlist | undefined;
-  /** Replaces the watchlist with the same id, or appends a new one. */
+  getWatchlist(): Watchlist;
   saveWatchlist(watchlist: Watchlist): void;
-  deleteWatchlist(id: string): boolean;
   listAlerts(): PriceAlert[];
   getAlert(id: string): PriceAlert | undefined;
   /** Replaces the alert with the same id, or appends a new one. */
@@ -65,25 +64,31 @@ function isIsoDate(value: unknown): value is string {
   return typeof value === 'string' && value !== '' && !Number.isNaN(Date.parse(value));
 }
 
-function sanitizeWatchlist(value: unknown, fallbackIso: string): Watchlist | null {
-  if (!isRecord(value)) return null;
-  const { id, name, symbols, createdAt, updatedAt } = value;
-  if (typeof id !== 'string' || id === '' || typeof name !== 'string' || !Array.isArray(symbols)) return null;
-  const validName = validateWatchlistName(name, []);
-  if (!validName.ok) return null;
+/** Valid, unique symbols in order, capped at the watchlist limit. Anything else is dropped. */
+function sanitizeSymbols(values: readonly unknown[]): string[] {
   const unique: string[] = [];
-  for (const raw of symbols) {
+  for (const raw of values) {
     if (typeof raw !== 'string') continue;
     const symbol = validateSymbol(raw);
     if (symbol.ok && !unique.includes(symbol.value)) unique.push(symbol.value);
   }
+  return unique.slice(0, MAX_WATCHLIST_SYMBOLS);
+}
+
+function sanitizeWatchlist(value: unknown, fallbackIso: string): Watchlist | null {
+  if (!isRecord(value) || !Array.isArray(value.symbols)) return null;
   return {
-    id,
-    name: validName.value,
-    symbols: unique.slice(0, MAX_WATCHLIST_SYMBOLS),
-    createdAt: isIsoDate(createdAt) ? createdAt : fallbackIso,
-    updatedAt: isIsoDate(updatedAt) ? updatedAt : fallbackIso,
+    symbols: sanitizeSymbols(value.symbols),
+    updatedAt: isIsoDate(value.updatedAt) ? value.updatedAt : fallbackIso,
   };
+}
+
+/** Merges the lists of version 1 data into one watchlist, keeping their order. */
+function mergeLegacyLists(lists: readonly unknown[], fallbackIso: string): Watchlist {
+  const symbols = lists.flatMap((list): unknown[] =>
+    isRecord(list) && Array.isArray(list.symbols) ? (list.symbols as unknown[]) : [],
+  );
+  return { symbols: sanitizeSymbols(symbols), updatedAt: fallbackIso };
 }
 
 function sanitizeAlert(value: unknown, fallbackIso: string): PriceAlert | null {
@@ -122,8 +127,8 @@ function sanitizeAlert(value: unknown, fallbackIso: string): PriceAlert | null {
 }
 
 /**
- * Parses persisted JSON. Returns null when the payload is unusable as a whole (bad JSON, wrong
- * version, wrong shape); drops individual invalid, duplicate-id or duplicate-name entries.
+ * Parses persisted JSON. Returns null when the payload is unusable as a whole (bad JSON, unknown
+ * version, wrong shape); drops individual invalid or duplicate entries.
  */
 export function parsePersisted(raw: string | null, fallbackIso: string): RepositoryData | null {
   if (raw === null) return null;
@@ -133,24 +138,21 @@ export function parsePersisted(raw: string | null, fallbackIso: string): Reposit
   } catch {
     return null;
   }
-  if (!isRecord(parsed) || parsed.version !== STORAGE_VERSION) return null;
-  if (!Array.isArray(parsed.watchlists) || !Array.isArray(parsed.alerts)) return null;
+  if (!isRecord(parsed) || !Array.isArray(parsed.alerts)) return null;
 
-  const watchlists: Watchlist[] = [];
-  for (const entry of parsed.watchlists) {
-    const watchlist = sanitizeWatchlist(entry, fallbackIso);
-    if (!watchlist) continue;
-    const clash = watchlists.some(
-      (w) => w.id === watchlist.id || w.name.toLowerCase() === watchlist.name.toLowerCase(),
-    );
-    if (!clash) watchlists.push(watchlist);
+  let watchlist: Watchlist | null = null;
+  if (parsed.version === STORAGE_VERSION) watchlist = sanitizeWatchlist(parsed.watchlist, fallbackIso);
+  else if (parsed.version === LEGACY_MULTI_LIST_VERSION && Array.isArray(parsed.watchlists)) {
+    watchlist = mergeLegacyLists(parsed.watchlists, fallbackIso);
   }
+  if (!watchlist) return null;
+
   const alerts: PriceAlert[] = [];
   for (const entry of parsed.alerts) {
     const alert = sanitizeAlert(entry, fallbackIso);
     if (alert && !alerts.some((a) => a.id === alert.id)) alerts.push(alert);
   }
-  return { watchlists, alerts };
+  return { watchlist, alerts };
 }
 
 const cloneWatchlist = (w: Watchlist): Watchlist => ({ ...w, symbols: [...w.symbols] });
@@ -173,7 +175,7 @@ export function createRepository(options: RepositoryOptions = {}): Repository {
 
   function persist(): void {
     try {
-      storage?.setItem(key, JSON.stringify({ version: STORAGE_VERSION, watchlists, alerts }));
+      storage?.setItem(key, JSON.stringify({ version: STORAGE_VERSION, watchlist, alerts }));
     } catch {
       // Quota exceeded or storage blocked: keep working from memory.
     }
@@ -184,31 +186,17 @@ export function createRepository(options: RepositoryOptions = {}): Repository {
   }
 
   const loaded = parsePersisted(read(), new Date(now()).toISOString()) ?? seed();
-  let watchlists: Watchlist[] = loaded.watchlists.map(cloneWatchlist);
+  let watchlist: Watchlist = cloneWatchlist(loaded.watchlist);
   let alerts: PriceAlert[] = loaded.alerts.map(cloneAlert);
   // Writes the seed on first run and drops invalid entries from storage.
   persist();
 
   return {
-    listWatchlists: () => watchlists.map(cloneWatchlist),
-    getWatchlist(id) {
-      const found = watchlists.find((w) => w.id === id);
-      return found ? cloneWatchlist(found) : undefined;
-    },
-    saveWatchlist(watchlist) {
-      const copy = cloneWatchlist(watchlist);
-      const index = watchlists.findIndex((w) => w.id === copy.id);
-      watchlists = index === -1 ? [...watchlists, copy] : watchlists.map((w, i) => (i === index ? copy : w));
+    getWatchlist: () => cloneWatchlist(watchlist),
+    saveWatchlist(next) {
+      watchlist = cloneWatchlist(next);
       persist();
       notify();
-    },
-    deleteWatchlist(id) {
-      const next = watchlists.filter((w) => w.id !== id);
-      if (next.length === watchlists.length) return false;
-      watchlists = next;
-      persist();
-      notify();
-      return true;
     },
     listAlerts: () => alerts.map(cloneAlert),
     getAlert(id) {
@@ -237,7 +225,7 @@ export function createRepository(options: RepositoryOptions = {}): Repository {
         // Ignored: the seed is written below anyway.
       }
       const fresh = seed();
-      watchlists = fresh.watchlists.map(cloneWatchlist);
+      watchlist = cloneWatchlist(fresh.watchlist);
       alerts = fresh.alerts.map(cloneAlert);
       persist();
       notify();

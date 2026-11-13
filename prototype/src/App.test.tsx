@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
@@ -9,7 +9,7 @@ import { useWatchlistStore } from './features/watchlists/watchlistStore';
 
 afterEach(() => {
   act(() => {
-    useWatchlistStore.setState({ status: 'idle', watchlists: [], activeId: null });
+    useWatchlistStore.setState({ status: 'idle', watchlist: null });
     useUiStore.setState({ selectedSymbol: null, searchFocusRequest: 0 });
   });
   vi.restoreAllMocks();
@@ -27,18 +27,14 @@ describe('App layout', () => {
   });
 
   it('shows the watchlist page with its table and quick view', () => {
-    window.location.hash = '#/watchlists/wl';
+    window.location.hash = '#/watchlist';
     act(() => {
-      useWatchlistStore.setState({
-        status: 'ready',
-        watchlists: [{ id: 'wl', name: 'Test', symbols: ['AAPL'], createdAt: '', updatedAt: '' }],
-        activeId: 'wl',
-      });
+      useWatchlistStore.setState({ status: 'ready', watchlist: { symbols: ['AAPL'], updatedAt: '' } });
     });
     render(<App />);
     expect(screen.getByRole('region', { name: 'Market' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Stock details' })).toBeInTheDocument();
-    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent('WatchlistsTest');
+    expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent(/^Watchlist$/);
   });
 
   it('connects the realtime feed while mounted and disconnects on unmount', () => {
@@ -48,14 +44,11 @@ describe('App layout', () => {
     expect(useConnectionStore.getState().connection.state).toBe('disconnected');
   });
 
-  it('subscribes to the active watchlist and the selected symbol', () => {
+  it('subscribes to the watchlist and the selected symbol', () => {
     const setSubscriptions = vi.spyOn(realtime, 'setSubscriptions');
     render(<App />);
     act(() => {
-      useWatchlistStore.setState({
-        watchlists: [{ id: 'wl', name: 'Test', symbols: ['MSFT', 'AAPL'], createdAt: '', updatedAt: '' }],
-        activeId: 'wl',
-      });
+      useWatchlistStore.setState({ watchlist: { symbols: ['MSFT', 'AAPL'], updatedAt: '' } });
       useUiStore.getState().selectSymbol('NVDA');
     });
     expect(setSubscriptions).toHaveBeenLastCalledWith(['AAPL', 'MSFT', 'NVDA']);
@@ -74,17 +67,14 @@ describe('navigation', () => {
     expect(screen.getByRole('link', { name: 'Dashboard' })).not.toHaveAttribute('aria-current');
   });
 
-  it('sends a watchlist address without an id to the active list', () => {
-    window.location.hash = '#/watchlists';
-    act(() => {
-      useWatchlistStore.setState({
-        status: 'ready',
-        watchlists: [{ id: 'wl', name: 'Test', symbols: [], createdAt: '', updatedAt: '' }],
-        activeId: 'wl',
-      });
-    });
+  it('opens the watchlist page from the main menu and marks it current', async () => {
+    const user = userEvent.setup();
     render(<App />);
-    expect(window.location.hash).toBe('#/watchlists/wl');
+    const menu = screen.getByRole('navigation', { name: 'Main' });
+    await user.click(within(menu).getByRole('link', { name: 'Watchlist' }));
+    expect(window.location.hash).toBe('#/watchlist');
+    expect(within(menu).getByRole('link', { name: 'Watchlist' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('region', { name: 'Market' })).toBeInTheDocument();
   });
 
   it('opens a symbol page from its address, selecting the symbol', () => {
@@ -103,6 +93,15 @@ describe('navigation', () => {
     expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument();
     expect(screen.getByRole('main')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Open AAPL in a new window' })).not.toBeInTheDocument();
+  });
+
+  it('sends old multi-watchlist addresses to the one watchlist', () => {
+    for (const old of ['#/watchlists', '#/watchlists/wl-core-tech']) {
+      window.location.hash = old;
+      const { unmount } = render(<App />);
+      expect(window.location.hash).toBe('#/watchlist');
+      unmount();
+    }
   });
 
   it('shows a not-found page for an unknown address', () => {

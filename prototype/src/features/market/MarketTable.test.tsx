@@ -17,30 +17,27 @@ const initialWatchlists = useWatchlistStore.getState();
 const initialUi = useUiStore.getState();
 
 function watchlist(symbols: string[]): Watchlist {
-  return { id: 'wl-1', name: 'Core', symbols, createdAt: '', updatedAt: '' };
+  return { symbols, updatedAt: '' };
 }
 
 /** Seeds the watchlist store with a list and mock actions that behave like the real optimistic ones. */
-function seedWatchlists(patch: Partial<WatchlistState> = {}) {
+function seedWatchlist(patch: Partial<WatchlistState> = {}) {
+  const currentSymbols = () => useWatchlistStore.getState().watchlist?.symbols ?? [];
   const updateSymbols = (symbols: readonly string[]) => {
-    useWatchlistStore.setState((s) => ({
-      watchlists: s.watchlists.map((w) => (w.id === 'wl-1' ? { ...w, symbols: [...symbols] } : w)),
-    }));
+    useWatchlistStore.setState((s) => ({ watchlist: s.watchlist && { ...s.watchlist, symbols: [...symbols] } }));
   };
   const actions = {
     load: vi.fn(() => Promise.resolve()),
-    reorder: vi.fn((_id: string, symbols: readonly string[]) => {
+    reorder: vi.fn((symbols: readonly string[]) => {
       updateSymbols(symbols);
       return Promise.resolve();
     }),
-    removeSymbol: vi.fn((_id: string, symbol: string) => {
-      const current = useWatchlistStore.getState().watchlists[0]?.symbols ?? [];
-      updateSymbols(current.filter((s) => s !== symbol));
+    removeSymbol: vi.fn((symbol: string) => {
+      updateSymbols(currentSymbols().filter((s) => s !== symbol));
       return Promise.resolve();
     }),
-    addSymbol: vi.fn((_id: string, symbol: string) => {
-      const current = useWatchlistStore.getState().watchlists[0]?.symbols ?? [];
-      updateSymbols([...current, symbol]);
+    addSymbol: vi.fn((symbol: string) => {
+      updateSymbols([...currentSymbols(), symbol]);
       return Promise.resolve();
     }),
   };
@@ -48,8 +45,7 @@ function seedWatchlists(patch: Partial<WatchlistState> = {}) {
     useWatchlistStore.setState({
       status: 'ready',
       error: null,
-      watchlists: [watchlist(['AAPL', 'MSFT', 'NVDA'])],
-      activeId: 'wl-1',
+      watchlist: watchlist(['AAPL', 'MSFT', 'NVDA']),
       ...actions,
       ...patch,
     });
@@ -117,77 +113,72 @@ afterEach(() => {
 });
 
 describe('MarketTable states', () => {
-  it('shows skeleton rows while the watchlists load', () => {
-    seedWatchlists({ status: 'loading', watchlists: [], activeId: null });
+  it.each(['idle', 'loading'] as const)('shows skeleton rows while the watchlist is %s', (status) => {
+    seedWatchlist({ status, watchlist: null });
     render(<MarketTable />);
     expect(screen.getByRole('table', { name: 'Quotes' })).toHaveAttribute('aria-busy', 'true');
-    expect(screen.getByRole('status')).toHaveTextContent('Loading watchlists');
+    expect(screen.getByRole('status')).toHaveTextContent('Loading your watchlist');
     expect(screen.queryByRole('grid')).not.toBeInTheDocument();
   });
 
-  it('shows a load error with a Retry that reloads the watchlists', async () => {
-    const { load } = seedWatchlists({ status: 'error', error: 'Service unavailable.', watchlists: [], activeId: null });
+  it('shows a load error with a Retry that reloads the watchlist', async () => {
+    const { load } = seedWatchlist({ status: 'error', error: 'Service unavailable.', watchlist: null });
     render(<MarketTable />);
+    expect(screen.getByRole('heading', { name: 'Watchlist' })).toBeInTheDocument();
     const alert = screen.getByRole('alert');
-    expect(alert).toHaveTextContent("Couldn't load watchlists");
+    expect(alert).toHaveTextContent("Couldn't load your watchlist");
     expect(alert).toHaveTextContent('Service unavailable.');
     await userEvent.click(within(alert).getByRole('button', { name: 'Retry' }));
     expect(load).toHaveBeenCalledTimes(1);
   });
 
   it('keeps showing quotes when a reload fails, with a Retry', async () => {
-    const { load } = seedWatchlists({ status: 'error', error: 'Service unavailable.' });
+    const { load } = seedWatchlist({ status: 'error', error: 'Service unavailable.' });
     render(<MarketTable />);
     expect(screen.getByRole('grid')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent("Couldn't refresh your watchlist.");
     await userEvent.click(within(screen.getByRole('alert')).getByRole('button', { name: 'Retry' }));
     expect(load).toHaveBeenCalledTimes(1);
   });
 
-  it('explains what to do when there is no watchlist', () => {
-    seedWatchlists({ watchlists: [], activeId: null });
-    render(<MarketTable />);
-    expect(screen.getByText('No watchlists yet')).toBeInTheDocument();
-    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
-  });
-
   it('offers one add box inside the empty state when the watchlist has no symbols', () => {
-    seedWatchlists({ watchlists: [watchlist([])] });
+    seedWatchlist({ watchlist: watchlist([]) });
     render(<MarketTable />);
-    expect(screen.getByText('Core is empty')).toBeInTheDocument();
+    expect(screen.getByText('Your watchlist is empty')).toBeInTheDocument();
     expect(screen.getAllByRole('combobox')).toHaveLength(1);
-    expect(screen.getByRole('combobox', { name: 'Add symbol to Core' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Add symbol to watchlist' })).toBeInTheDocument();
   });
 
   it('moves focus to the header add box after the first symbol is added from the empty state', async () => {
-    const { addSymbol } = seedWatchlists({ watchlists: [watchlist([])] });
+    const { addSymbol } = seedWatchlist({ watchlist: watchlist([]) });
     const user = userEvent.setup();
     render(<MarketTable />);
-    await user.type(screen.getByRole('combobox', { name: 'Add symbol to Core' }), 'zzzz{Enter}');
+    await user.type(screen.getByRole('combobox', { name: 'Add symbol to watchlist' }), 'zzzz{Enter}');
     await waitFor(() => {
-      expect(addSymbol).toHaveBeenCalledWith('wl-1', 'ZZZZ');
+      expect(addSymbol).toHaveBeenCalledWith('ZZZZ');
     });
     await waitFor(() => {
       expect(screen.getByRole('grid')).toBeInTheDocument();
     });
     await waitFor(() => {
-      expect(screen.getByRole('combobox', { name: 'Add symbol to Core' })).toHaveFocus();
+      expect(screen.getByRole('combobox', { name: 'Add symbol to watchlist' })).toHaveFocus();
     });
   });
 });
 
 describe('MarketTable rows', () => {
   it('renders one row per symbol in watchlist order under a labelled header', () => {
-    seedWatchlists();
+    seedWatchlist();
     render(<MarketTable />);
-    expect(screen.getByRole('heading', { name: 'Core' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Watchlist' })).toBeInTheDocument();
     expect(screen.getByText('3 symbols')).toBeInTheDocument();
     expect(screen.getByText('Simulated')).toBeInTheDocument();
-    const rows = within(screen.getByRole('grid', { name: 'Quotes in Core' })).getAllByRole('row').slice(1);
+    const rows = within(screen.getByRole('grid', { name: 'Quotes in your watchlist' })).getAllByRole('row').slice(1);
     expect(rows.map((r) => r.dataset.symbol)).toEqual(['AAPL', 'MSFT', 'NVDA']);
   });
 
   it('formats quote values and colors gains and losses', () => {
-    seedWatchlists();
+    seedWatchlist();
     render(<MarketTable />);
     pushQuotes(
       quote('AAPL', { last: 1234.5, change: 1.5, changePct: 0.1217, volume: 4_560_000 }),
@@ -213,14 +204,14 @@ describe('MarketTable rows', () => {
   });
 
   it('shows Waiting until a first quote arrives', () => {
-    seedWatchlists();
+    seedWatchlist();
     render(<MarketTable />);
     expect(cells('NVDA')[7]).toHaveTextContent('Waiting');
     expect(cells('NVDA')[1]).toHaveTextContent('—');
   });
 
   it('greys stale and unavailable quotes instead of coloring them', () => {
-    seedWatchlists();
+    seedWatchlist();
     render(<MarketTable />);
     pushQuotes(quote('AAPL', { status: 'stale' }), quote('MSFT', { status: 'unavailable', last: null, change: null }));
     expect(row('AAPL')).toHaveClass('is-dimmed');
@@ -230,7 +221,7 @@ describe('MarketTable rows', () => {
   });
 
   it('shows company names from the instrument API, and Unknown symbol for unlisted ones', async () => {
-    seedWatchlists({ watchlists: [watchlist(['AAPL', 'ZZZZ'])] });
+    seedWatchlist({ watchlist: watchlist(['AAPL', 'ZZZZ']) });
     render(<MarketTable />);
     expect(await within(row('AAPL')).findByText('Apple Inc.')).toBeInTheDocument();
     expect(await within(row('ZZZZ')).findByText('Unknown symbol')).toBeInTheDocument();
@@ -238,7 +229,7 @@ describe('MarketTable rows', () => {
 
   it('still renders rows when the instrument API fails', async () => {
     const getInstrument = vi.spyOn(api, 'getInstrument').mockRejectedValue(new Error('down'));
-    seedWatchlists();
+    seedWatchlist();
     render(<MarketTable />);
     await waitFor(() => {
       expect(getInstrument).toHaveBeenCalledTimes(3);
@@ -247,7 +238,7 @@ describe('MarketTable rows', () => {
   });
 
   it('flashes the last price up or down when it changes', () => {
-    seedWatchlists();
+    seedWatchlist();
     render(<MarketTable />);
     const t0 = Date.now();
     pushQuotes(quote('AAPL', { last: 100, lastTradeAt: t0 }));
@@ -260,7 +251,7 @@ describe('MarketTable rows', () => {
   });
 
   it('flashes a busy symbol at most once per two seconds of trading, so the price stays readable', () => {
-    seedWatchlists();
+    seedWatchlist();
     render(<MarketTable />);
     const t0 = Date.now();
     pushQuotes(quote('AAPL', { last: 100, lastTradeAt: t0 }));
@@ -278,7 +269,7 @@ describe('MarketTable rows', () => {
   it('shows how old the data is and updates it every second', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-10-30T15:00:00Z'));
-    seedWatchlists();
+    seedWatchlist();
     render(<MarketTable />);
     pushQuotes(quote('AAPL', { lastTradeAt: Date.now() - 3_000 }));
     expect(cells('AAPL')[8]).toHaveTextContent('3s ago');
@@ -290,7 +281,7 @@ describe('MarketTable rows', () => {
 
   it('loads each company name once, also under StrictMode', async () => {
     const getInstrument = vi.spyOn(api, 'getInstrument');
-    seedWatchlists();
+    seedWatchlist();
     render(
       <StrictMode>
         <MarketTable />
@@ -302,7 +293,7 @@ describe('MarketTable rows', () => {
   });
 
   it('keeps colors in CSS classes so a theme switch restyles the table', () => {
-    seedWatchlists();
+    seedWatchlist();
     render(<MarketTable />);
     pushQuotes(quote('AAPL', { change: 1 }), quote('MSFT', { change: -1 }));
     const theme = renderHook(() => useTheme());
@@ -321,7 +312,7 @@ describe('MarketTable rows', () => {
 
 describe('MarketTable selection and keyboard', () => {
   it('selects and highlights a row on click', async () => {
-    seedWatchlists();
+    seedWatchlist();
     render(<MarketTable />);
     await userEvent.click(row('MSFT'));
     expect(useUiStore.getState().selectedSymbol).toBe('MSFT');
@@ -330,7 +321,7 @@ describe('MarketTable selection and keyboard', () => {
   });
 
   it('puts one row in the tab order and selects it with Enter', async () => {
-    seedWatchlists();
+    seedWatchlist();
     const user = userEvent.setup();
     render(<MarketTable />);
     await user.tab();
@@ -341,7 +332,7 @@ describe('MarketTable selection and keyboard', () => {
   });
 
   it('moves the selection and focus with the arrow keys, Home and End', async () => {
-    seedWatchlists();
+    seedWatchlist();
     const user = userEvent.setup();
     render(<MarketTable />);
     act(() => {
@@ -363,7 +354,7 @@ describe('MarketTable selection and keyboard', () => {
   });
 
   it('highlights a symbol selected elsewhere', () => {
-    seedWatchlists();
+    seedWatchlist();
     render(<MarketTable />);
     act(() => {
       useUiStore.getState().selectSymbol('NVDA');
@@ -374,7 +365,7 @@ describe('MarketTable selection and keyboard', () => {
 
 describe('MarketTable row menu', () => {
   it('opens the create-alert dialog for the row without changing the selection', async () => {
-    seedWatchlists();
+    seedWatchlist();
     const user = userEvent.setup();
     render(<MarketTable />);
     await user.click(screen.getByRole('button', { name: 'Actions for MSFT' }));
@@ -384,28 +375,28 @@ describe('MarketTable row menu', () => {
   });
 
   it('moves rows and disables moves past the ends', async () => {
-    const { reorder } = seedWatchlists();
+    const { reorder } = seedWatchlist();
     const user = userEvent.setup();
     render(<MarketTable />);
     await user.click(screen.getByRole('button', { name: 'Actions for AAPL' }));
     expect(screen.getByRole('menuitem', { name: 'Move up' })).toBeDisabled();
     await user.click(screen.getByRole('menuitem', { name: 'Move down' }));
-    expect(reorder).toHaveBeenCalledWith('wl-1', ['MSFT', 'AAPL', 'NVDA']);
+    expect(reorder).toHaveBeenCalledWith(['MSFT', 'AAPL', 'NVDA']);
     expect(row('AAPL').rowIndex).toBe(2);
 
     await user.click(screen.getByRole('button', { name: 'Actions for NVDA' }));
     expect(screen.getByRole('menuitem', { name: 'Move down' })).toBeDisabled();
     await user.click(screen.getByRole('menuitem', { name: 'Move up' }));
-    expect(reorder).toHaveBeenLastCalledWith('wl-1', ['MSFT', 'NVDA', 'AAPL']);
+    expect(reorder).toHaveBeenLastCalledWith(['MSFT', 'NVDA', 'AAPL']);
   });
 
   it('removes a symbol and moves focus to the next row', async () => {
-    const { removeSymbol } = seedWatchlists();
+    const { removeSymbol } = seedWatchlist();
     const user = userEvent.setup();
     render(<MarketTable />);
     await user.click(screen.getByRole('button', { name: 'Actions for MSFT' }));
     await user.click(screen.getByRole('menuitem', { name: 'Remove from watchlist' }));
-    expect(removeSymbol).toHaveBeenCalledWith('wl-1', 'MSFT');
+    expect(removeSymbol).toHaveBeenCalledWith('MSFT');
     expect(document.querySelector('tr[data-symbol="MSFT"]')).toBeNull();
     await waitFor(() => {
       expect(row('NVDA')).toHaveFocus();
@@ -413,21 +404,21 @@ describe('MarketTable row menu', () => {
   });
 
   it('moves focus to the add box after removing the last symbol', async () => {
-    seedWatchlists({ watchlists: [watchlist(['AAPL'])] });
+    seedWatchlist({ watchlist: watchlist(['AAPL']) });
     const user = userEvent.setup();
     render(<MarketTable />);
     await user.click(screen.getByRole('button', { name: 'Actions for AAPL' }));
     await user.click(screen.getByRole('menuitem', { name: 'Remove from watchlist' }));
-    expect(screen.getByText('Core is empty')).toBeInTheDocument();
+    expect(screen.getByText('Your watchlist is empty')).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByRole('combobox', { name: 'Add symbol to Core' })).toHaveFocus();
+      expect(screen.getByRole('combobox', { name: 'Add symbol to watchlist' })).toHaveFocus();
     });
   });
 });
 
 describe('MarketTable connection notice', () => {
   it('warns that prices may be stale while the feed reconnects, and clears once connected', () => {
-    seedWatchlists();
+    seedWatchlist();
     render(<MarketTable />);
     expect(screen.getByRole('status')).toBeEmptyDOMElement();
     setConnection({

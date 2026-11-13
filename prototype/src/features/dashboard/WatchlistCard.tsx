@@ -1,4 +1,4 @@
-import { ChevronRight, List, Star } from 'lucide-react';
+import { ChevronRight, Star } from 'lucide-react';
 import { Link } from 'wouter';
 import { paths } from '../../app/routes';
 import { Badge } from '../../components/ui/Badge';
@@ -10,22 +10,21 @@ import { changeDirection, formatPercent, formatPrice } from '../../lib/format';
 import { useInstrumentDirectory } from '../discover/instrumentCatalog';
 import { SimulatedBadge } from '../discover/SimulatedBadge';
 import { Sparkline } from '../discover/Sparkline';
-import { useActiveWatchlist, useWatchlistStore } from '../watchlists/watchlistStore';
+import { useWatchlistStore } from '../watchlists/watchlistStore';
 import { CardError, DashboardCard, SkeletonRows } from './DashboardCard';
 
 /** Rows shown before the card links to the full watchlist instead. */
 const MAX_ROWS = 8;
 
-function reloadWatchlists(): void {
+function reloadWatchlist(): void {
   void useWatchlistStore.getState().load({ force: true });
 }
 
-/** The active watchlist with live prices, linking to its page. */
+/** The watchlist with live prices, linking to its page. */
 export function WatchlistCard() {
   const status = useWatchlistStore((s) => s.status);
   const error = useWatchlistStore((s) => s.error);
-  const hasLists = useWatchlistStore((s) => s.watchlists.length > 0);
-  const watchlist = useActiveWatchlist();
+  const watchlist = useWatchlistStore((s) => s.watchlist);
   const directory = useInstrumentDirectory();
 
   let body;
@@ -41,8 +40,8 @@ export function WatchlistCard() {
           ))}
         </ul>
         {hidden > 0 && (
-          <Link href={paths.watchlist(watchlist.id)} className="dash-card__more">
-            {hidden} more in “{watchlist.name}”
+          <Link href={paths.watchlist} className="dash-card__more">
+            {hidden} more in your watchlist
           </Link>
         )}
       </>
@@ -52,7 +51,7 @@ export function WatchlistCard() {
       <EmptyState
         compact
         icon={<Star />}
-        title={`“${watchlist.name}” is empty`}
+        title="Your watchlist is empty"
         description={
           <>
             Star symbols on the{' '}
@@ -67,22 +66,13 @@ export function WatchlistCard() {
   } else if (status === 'error') {
     body = (
       <CardError
-        title="Couldn't load watchlists"
+        title="Couldn't load your watchlist"
         message={error ?? 'Something went wrong.'}
-        onRetry={reloadWatchlists}
+        onRetry={reloadWatchlist}
       />
     );
-  } else if (status === 'idle' || status === 'loading' || hasLists) {
-    body = <SkeletonRows count={5} />;
   } else {
-    body = (
-      <EmptyState
-        compact
-        icon={<List />}
-        title="No watchlists yet"
-        description="Create a watchlist in the sidebar to follow symbols here."
-      />
-    );
+    body = <SkeletonRows count={5} />;
   }
 
   return (
@@ -91,17 +81,12 @@ export function WatchlistCard() {
       className="dash-watchlist"
       meta={
         <>
-          {watchlist !== null && (
-            <Badge tone="muted" size="sm">
-              {watchlist.name}
-            </Badge>
-          )}
           <SimulatedBadge title="Prices come from a simulated feed. They are not real market data." />
         </>
       }
       actions={
         watchlist !== null && (
-          <Link href={paths.watchlist(watchlist.id)} className="dash-card__link">
+          <Link href={paths.watchlist} className="dash-card__link">
             Open watchlist
             <ChevronRight aria-hidden="true" />
           </Link>

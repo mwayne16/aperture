@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { validateSymbol } from '../../domain/symbols';
 import { findInstrument, INSTRUMENTS, toInstrument } from './instruments';
-import { SEED_WATCHLISTS } from './seed';
+import { SEED_WATCHLIST_SYMBOLS } from './seed';
 
 describe('instrument universe', () => {
   it('has about 60 instruments with unique, valid, normalized symbols', () => {
@@ -31,9 +31,7 @@ describe('instrument universe', () => {
   });
 
   it('covers every seeded watchlist symbol and both stocks and ETFs', () => {
-    for (const w of SEED_WATCHLISTS) {
-      for (const symbol of w.symbols) expect(findInstrument(symbol), symbol).toBeDefined();
-    }
+    for (const symbol of SEED_WATCHLIST_SYMBOLS) expect(findInstrument(symbol), symbol).toBeDefined();
     expect(INSTRUMENTS.some((i) => i.assetClass === 'etf')).toBe(true);
     expect(findInstrument('BRK.B')?.name).toContain('Berkshire');
     expect(findInstrument('ZZZZ')).toBeUndefined();

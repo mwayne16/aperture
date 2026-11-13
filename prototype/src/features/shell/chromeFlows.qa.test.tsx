@@ -54,11 +54,11 @@ function openControls() {
 
 /** Replaces both stores' load() with counters, as the reset flow only needs to call them. */
 function countLoads() {
-  const loads = { watchlists: 0, alerts: 0 };
+  const loads = { watchlist: 0, alerts: 0 };
   act(() => {
     useWatchlistStore.setState({
       load: () => {
-        loads.watchlists += 1;
+        loads.watchlist += 1;
         return Promise.resolve();
       },
     });
@@ -139,7 +139,7 @@ describe('app chrome flows (QA)', () => {
     expect(screen.queryByRole('dialog', { name: 'Reset demo data?' })).not.toBeInTheDocument();
     expect(screen.getByRole('dialog', { name: 'Simulation controls' })).toBeInTheDocument();
     expect(resetButton).toHaveFocus();
-    expect(loads).toEqual({ watchlists: 0, alerts: 0 });
+    expect(loads).toEqual({ watchlist: 0, alerts: 0 });
     expect(toastTitles()).toEqual([]);
   });
 
@@ -147,7 +147,7 @@ describe('app chrome flows (QA)', () => {
     const user = userEvent.setup();
     const loads = countLoads();
     render(<Chrome />);
-    await api.createWatchlist({ name: 'Scratch' });
+    await api.addSymbol('SPY');
     openControls();
     const resetButton = screen.getByRole('button', { name: 'Reset demo data…' });
     resetButton.focus();
@@ -161,13 +161,13 @@ describe('app chrome flows (QA)', () => {
     });
     expect(screen.queryByRole('dialog', { name: 'Reset demo data?' })).not.toBeInTheDocument();
     expect(resetButton).toHaveFocus();
-    expect(loads).toEqual({ watchlists: 1, alerts: 1 });
-    expect((await api.listWatchlists()).map((w) => w.name)).not.toContain('Scratch');
+    expect(loads).toEqual({ watchlist: 1, alerts: 1 });
+    expect((await api.getWatchlist()).symbols).not.toContain('SPY');
 
     await user.keyboard('{Enter}');
     await user.click(screen.getByRole('button', { name: 'Reset demo data' }));
     await waitFor(() => {
-      expect(loads).toEqual({ watchlists: 2, alerts: 2 });
+      expect(loads).toEqual({ watchlist: 2, alerts: 2 });
     });
     expect(toastTitles()).toEqual(['Demo data reset', 'Demo data reset']);
   });

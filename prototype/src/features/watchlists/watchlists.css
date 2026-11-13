@@ -1,190 +1,198 @@
-/*
- * Watchlist sidebar. It fills the side area: a fixed header and footer around a list that scrolls
- * on its own. Colors come from tokens only, so both themes work without overrides.
- */
+/* ------------------------------------------------------------------ Sidebar watchlist section */
 
-.wl-sidebar {
+/*
+ * The section continues the sidebar's menu: the same heading style and row shape as the nav items,
+ * with no divider in between. The list scrolls inside the space left below the menu.
+ */
+.watch-section {
   display: flex;
+  flex: 1;
   flex-direction: column;
-  height: 100%;
   min-height: 0;
+  padding: 0 var(--sp-2) var(--sp-2);
 }
 
-.wl-sidebar__header {
+.watch-section__header {
   display: flex;
   flex: none;
   align-items: center;
+  justify-content: space-between;
   gap: var(--sp-1);
-  height: var(--h-panel-header);
-  padding: 0 var(--sp-1) 0 var(--sp-3);
-  border-bottom: 1px solid var(--border);
+  padding: 0 0 var(--sp-1);
 }
 
-.wl-sidebar__title {
-  flex: 1;
+.watch-section__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
   min-width: 0;
+  padding: 2px var(--sp-1) 2px 2px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
   color: var(--text-muted);
+  cursor: pointer;
+}
+
+.watch-section__toggle:hover {
+  color: var(--text-primary);
+}
+
+.watch-section__toggle:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.watch-section__chevron {
+  width: 14px;
+  height: 14px;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+.watch-section__chevron.is-collapsed {
+  transform: rotate(-90deg);
+}
+
+.watch-section__title {
+  margin: 0;
+  color: inherit;
   font-size: var(--fs-xs);
   font-weight: var(--fw-semibold);
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
-.wl-sidebar__body {
+.watch-section__body {
   flex: 1;
   min-height: 0;
-  padding: var(--sp-1);
   overflow-y: auto;
 }
 
-.wl-sidebar__footer {
+.watch-section__message {
   display: flex;
-  flex: none;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
   gap: var(--sp-2);
-  padding: var(--sp-2) var(--sp-3);
-  border-top: 1px solid var(--border);
+  padding: var(--sp-1) var(--sp-2);
   color: var(--text-muted);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   line-height: var(--lh-tight);
 }
 
-/* ---------------------------------------------------------------- List */
+.watch-section__message p {
+  margin: 0;
+}
 
-.wl-list {
+.watch-section__skeleton {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: var(--sp-3);
+  padding: var(--sp-2);
 }
 
-.wl-item {
+.watch-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.watch-row {
   position: relative;
+}
+
+.watch-row__link {
   display: flex;
   align-items: center;
-  border-radius: var(--radius-sm);
-  transition: background-color var(--dur-fast) var(--ease-out);
+  gap: var(--sp-2);
+  height: 32px;
+  padding: 0 var(--sp-2);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--fs-md);
+  text-decoration: none;
 }
 
-.wl-item:hover {
+/* Keyed on the row, so the highlight stays while the pointer is on the remove button. */
+.watch-row:hover .watch-row__link {
   background-color: var(--bg-hover);
 }
 
-.wl-item.is-active {
-  background-color: var(--bg-selected);
-}
-
-/* Accent bar so the active list reads as selected even without color. */
-.wl-item.is-active::before {
-  position: absolute;
-  top: 6px;
-  bottom: 6px;
-  left: 0;
-  width: 2px;
-  border-radius: 2px;
-  background-color: var(--accent);
-  content: '';
-}
-
-.wl-item__select {
-  display: flex;
-  flex: 1;
-  align-items: center;
-  gap: var(--sp-2);
-  min-width: 0;
-  height: var(--h-row);
-  padding: 0 var(--sp-1) 0 var(--sp-3);
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-primary);
-  font-size: var(--fs-md);
-  text-align: left;
-}
-
-.wl-item__select:focus-visible {
+.watch-row__link:focus-visible {
+  outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
 }
 
-.wl-item__name {
+.watch-row.is-current .watch-row__link {
+  background-color: var(--bg-selected);
+}
+
+.watch-row__badge {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background-color: var(--bg-neutral-tint);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+}
+
+.watch-row.is-current .watch-row__badge {
+  background-color: var(--accent-tint);
+  color: var(--accent-text);
+}
+
+.watch-row__symbol {
   flex: 1;
   min-width: 0;
   overflow: hidden;
+  font-weight: var(--fw-medium);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.wl-item.is-active .wl-item__name {
-  font-weight: var(--fw-semibold);
-}
-
-.wl-item__count {
+.watch-row__change {
   flex: none;
-  min-width: 2ch;
-  color: var(--text-muted);
-  font-size: var(--fs-sm);
-  text-align: right;
-}
-
-.wl-item:hover .wl-item__count,
-.wl-item.is-active .wl-item__count {
-  color: var(--text-muted-on-tint);
-}
-
-/* The menu button keeps its space so names don't shift, and shows on hover, focus or while open. */
-.wl-item__menu {
-  margin-right: 2px;
-  opacity: 0;
-}
-
-.wl-item:hover .wl-item__menu,
-.wl-item:focus-within .wl-item__menu,
-.wl-item__menu[aria-expanded='true'] {
-  opacity: 1;
-}
-
-@media (hover: none) {
-  .wl-item__menu {
-    opacity: 1;
-  }
-}
-
-/* ---------------------------------------------------------------- States */
-
-.wl-skeleton-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-3);
-  height: var(--h-row);
-  padding: 0 34px 0 var(--sp-3);
-}
-
-.wl-banner {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  margin-bottom: var(--sp-1);
-  padding: 2px 2px 2px var(--sp-2);
-  border-radius: var(--radius-sm);
-  background-color: var(--warning-tint);
-  color: var(--warning-text);
   font-size: var(--fs-sm);
 }
 
-.wl-banner svg {
-  width: 14px;
-  height: 14px;
+.watch-row__change.is-gain {
+  color: var(--gain-text);
 }
 
-.wl-banner__text {
-  flex: 1;
-  min-width: 0;
-}
-
-.wl-dialog__error {
-  margin-top: var(--sp-3);
+.watch-row__change.is-loss {
   color: var(--loss-text);
-  font-size: var(--fs-sm);
+}
+
+.watch-row__change.is-muted {
+  color: var(--text-muted);
+}
+
+/*
+ * On hover the remove button takes the change figure's place. The figure hides rather than sitting
+ * under the button, so the button's own see-through hover tint never shows text behind the icon.
+ */
+.watch-row__remove {
+  position: absolute;
+  top: 50%;
+  right: var(--sp-1);
+  transform: translateY(-50%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.watch-row:hover .watch-row__remove {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.watch-row:hover .watch-row__change {
+  visibility: hidden;
 }
 
 /* ------------------------------------------------------------------ Watchlist page */

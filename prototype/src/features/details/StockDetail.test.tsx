@@ -471,7 +471,7 @@ describe('StockDetail quick view', () => {
   });
 
   it('opens the full page from Expand', async () => {
-    const location = memoryLocation({ path: '/watchlists/wl', record: true });
+    const location = memoryLocation({ path: '/watchlist', record: true });
     select('BTC/USD');
     render(
       <Router hook={location.hook}>

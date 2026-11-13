@@ -1,4 +1,4 @@
-import { CircleAlert, List, ListPlus, RefreshCw } from 'lucide-react';
+import { CircleAlert, ListPlus, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useUiStore } from '../../app/uiStore';
 import { Badge } from '../../components/ui/Badge';
@@ -7,7 +7,7 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { useConnectionStore } from '../../data/connectionStore';
 import type { Watchlist } from '../../domain/types';
-import { useActiveWatchlist, useWatchlistStore } from '../watchlists/watchlistStore';
+import { useWatchlistStore } from '../watchlists/watchlistStore';
 import { ConnectionNotice } from './ConnectionNotice';
 import { moveSymbol, navigationTarget, neighborAfterRemoval } from './marketModel';
 import { MarketRow, type MarketRowActions } from './MarketRow';
@@ -16,53 +16,38 @@ import './market.css';
 
 const SKELETON_ROWS = 8;
 
-function reloadWatchlists(): void {
+function reloadWatchlist(): void {
   void useWatchlistStore.getState().load();
 }
 
 /**
- * Quotes for the active watchlist, with loading, error and empty states. Rows are keyed by symbol
- * and each reads its own quote, so a tick re-renders only the row it belongs to.
+ * Quotes for the watchlist, with loading, error and empty states. Rows are keyed by symbol and each
+ * reads its own quote, so a tick re-renders only the row it belongs to.
  */
 export function MarketTable() {
   const status = useWatchlistStore((s) => s.status);
   const error = useWatchlistStore((s) => s.error);
-  const hasWatchlists = useWatchlistStore((s) => s.watchlists.length > 0);
-  const watchlist = useActiveWatchlist();
+  const watchlist = useWatchlistStore((s) => s.watchlist);
 
-  if (watchlist) {
-    return <WatchlistQuotes key={watchlist.id} watchlist={watchlist} refreshError={status === 'error' ? error : null} />;
-  }
-  if (status === 'idle' || status === 'loading') return <LoadingQuotes />;
+  if (watchlist) return <WatchlistQuotes watchlist={watchlist} refreshError={status === 'error' ? error : null} />;
+  if (status !== 'error') return <LoadingQuotes />;
 
   return (
     <div className="market">
-      <MarketHeader title="Market" />
+      <MarketHeader title="Watchlist" />
       <div className="market__body market__body--center">
-        {status === 'error' ? (
-          <div role="alert">
-            <EmptyState
-              icon={<CircleAlert />}
-              title="Couldn't load watchlists"
-              description={error ?? 'Something went wrong.'}
-              action={
-                <Button icon={<RefreshCw />} onClick={reloadWatchlists}>
-                  Retry
-                </Button>
-              }
-            />
-          </div>
-        ) : (
+        <div role="alert">
           <EmptyState
-            icon={<List />}
-            title={hasWatchlists ? 'No watchlist selected' : 'No watchlists yet'}
-            description={
-              hasWatchlists
-                ? 'Choose a watchlist in the sidebar to see its quotes.'
-                : 'Create a watchlist in the sidebar to start monitoring symbols.'
+            icon={<CircleAlert />}
+            title="Couldn't load your watchlist"
+            description={error ?? 'Something went wrong.'}
+            action={
+              <Button icon={<RefreshCw />} onClick={reloadWatchlist}>
+                Retry
+              </Button>
             }
           />
-        )}
+        </div>
       </div>
     </div>
   );
@@ -155,7 +140,7 @@ function LoadingQuotes() {
       />
       <div className="market__body">
         <span role="status" className="visually-hidden">
-          Loading watchlists…
+          Loading your watchlist…
         </span>
         <table className="ui-table market-table" aria-label="Quotes" aria-busy="true">
           <QuoteTableHead />
@@ -178,12 +163,12 @@ function LoadingQuotes() {
 
 interface WatchlistQuotesProps {
   watchlist: Watchlist;
-  /** Set when a reload failed but the previously loaded watchlists are still shown. */
+  /** Set when a reload failed but the previously loaded watchlist is still shown. */
   refreshError: string | null;
 }
 
 function WatchlistQuotes({ watchlist, refreshError }: WatchlistQuotesProps) {
-  const { id: watchlistId, name, symbols } = watchlist;
+  const { symbols } = watchlist;
   const selectedSymbol = useUiStore((s) => s.selectedSymbol);
   const rootRef = useRef<HTMLDivElement>(null);
   // Bumped to move focus to the add box once the next render has placed it (header or empty state).
@@ -200,8 +185,7 @@ function WatchlistQuotes({ watchlist, refreshError }: WatchlistQuotesProps) {
 
   const actions = useMemo<MarketRowActions>(() => {
     // ** Read the symbols when an action runs, so the callbacks stay stable while the list changes.
-    const currentSymbols = () =>
-      useWatchlistStore.getState().watchlists.find((w) => w.id === watchlistId)?.symbols ?? [];
+    const currentSymbols = () => useWatchlistStore.getState().watchlist?.symbols ?? [];
     return {
       select: (symbol) => {
         useUiStore.getState().selectSymbol(symbol);
@@ -214,11 +198,11 @@ function WatchlistQuotes({ watchlist, refreshError }: WatchlistQuotesProps) {
       },
       move: (symbol, delta) => {
         const next = moveSymbol(currentSymbols(), symbol, delta);
-        if (next) void useWatchlistStore.getState().reorder(watchlistId, next);
+        if (next) void useWatchlistStore.getState().reorder(next);
       },
       remove: (symbol) => {
         const neighbor = neighborAfterRemoval(currentSymbols(), symbol);
-        void useWatchlistStore.getState().removeSymbol(watchlistId, symbol);
+        void useWatchlistStore.getState().removeSymbol(symbol);
         // Keep keyboard focus in the table instead of losing it with the removed row.
         if (neighbor !== null) focusRow(neighbor);
         else setAddFocusRequest((n) => n + 1);
@@ -227,25 +211,25 @@ function WatchlistQuotes({ watchlist, refreshError }: WatchlistQuotesProps) {
         useUiStore.getState().openCreateAlert(symbol);
       },
     };
-  }, [watchlistId, focusRow]);
+  }, [focusRow]);
 
   const isEmpty = symbols.length === 0;
   const tabbableSymbol = selectedSymbol !== null && symbols.includes(selectedSymbol) ? selectedSymbol : symbols[0];
 
   return (
     <div className="market" ref={rootRef}>
-      <MarketHeader title={name} meta={`${symbols.length} ${symbols.length === 1 ? 'symbol' : 'symbols'}`}>
+      <MarketHeader title="Watchlist" meta={`${symbols.length} ${symbols.length === 1 ? 'symbol' : 'symbols'}`}>
         {/* ** One add box for every state, so text typed while the first symbol saves survives. */}
         <div className="market__add" data-market-add="">
-          <SymbolSearch variant="add" watchlistId={watchlistId} />
+          <SymbolSearch variant="add" />
         </div>
       </MarketHeader>
       {refreshError !== null && (
         <div className="market-notice market-notice--error" role="alert">
           <CircleAlert aria-hidden="true" />
-          <span className="market-notice__title">Couldn't refresh watchlists.</span>
+          <span className="market-notice__title">Couldn't refresh your watchlist.</span>
           <span className="market-notice__detail">{refreshError}</span>
-          <Button size="sm" variant="ghost" className="market-notice__action" onClick={reloadWatchlists}>
+          <Button size="sm" variant="ghost" className="market-notice__action" onClick={reloadWatchlist}>
             Retry
           </Button>
         </div>
@@ -255,7 +239,7 @@ function WatchlistQuotes({ watchlist, refreshError }: WatchlistQuotesProps) {
         <div className="market__body market__body--center">
           <EmptyState
             icon={<ListPlus />}
-            title={`${name} is empty`}
+            title="Your watchlist is empty"
             description="Use the add box above to start monitoring a symbol's simulated quotes."
             action={
               <Button
@@ -271,7 +255,7 @@ function WatchlistQuotes({ watchlist, refreshError }: WatchlistQuotesProps) {
         </div>
       ) : (
         <div className="market__body">
-          <table className="ui-table market-table" role="grid" aria-label={`Quotes in ${name}`} aria-readonly="true">
+          <table className="ui-table market-table" role="grid" aria-label="Quotes in your watchlist" aria-readonly="true">
             <QuoteTableHead />
             <tbody>
               {symbols.map((symbol, index) => (

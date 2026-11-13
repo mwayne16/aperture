@@ -45,7 +45,10 @@ interface Options {
 function setup(options: Options = {}) {
   const repo =
     options.repo ??
-    createRepository({ storage: null, seed: () => ({ watchlists: [], alerts: options.alerts ?? [] }) });
+    createRepository({
+      storage: null,
+      seed: () => ({ watchlist: { symbols: [], updatedAt: '' }, alerts: options.alerts ?? [] }),
+    });
   const scripts = new Map(Object.entries(options.prices ?? {}).map(([s, p]) => [s, [...p]]));
   const market = createMockMarket({ priceOverride: (symbol) => scripts.get(symbol)?.shift() });
   const simulation = createSimulationSource({ ticksPerSecond: 10, ...options.sim });
@@ -109,7 +112,7 @@ describe('staleness is measured from the last trade, not from the last (re)subsc
     t.advance(STALE_AFTER_MS + 2000);
     expect(t.lastQuote('AAPL')!.status).toBe('stale');
 
-    // The UI switches watchlists away and back. No trade has happened for > STALE_AFTER_MS.
+    // The UI drops the symbol and subscribes to it again. No trade has happened for > STALE_AFTER_MS.
     t.rt.setSubscriptions([]);
     t.advance(500);
     t.rt.setSubscriptions(['AAPL']);

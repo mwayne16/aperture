@@ -134,8 +134,8 @@ function NoInstrument({ title, children }: { title: string; children: string }) 
             <Link href={paths.discover()} className="page-link">
               Browse stocks
             </Link>
-            <Link href={paths.watchlists} className="page-link">
-              Go to your watchlists
+            <Link href={paths.watchlist} className="page-link">
+              Go to your watchlist
             </Link>
           </span>
         }

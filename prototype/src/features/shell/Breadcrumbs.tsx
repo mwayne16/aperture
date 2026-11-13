@@ -5,12 +5,11 @@ import { breadcrumbsFor, type Crumb } from '../../app/breadcrumbs';
 import { decodeParam } from '../../app/routes';
 import type { AssetClass } from '../../domain/types';
 import { useInstrument } from '../market/instrumentStore';
-import { useWatchlistStore } from '../watchlists/watchlistStore';
 import './shell.css';
 
 const SYMBOL_PATH = /^\/symbol\/([^/]+)$/;
 
-/** Where the user is, e.g. "Watchlists › Core Tech". Every crumb but the last links back up. */
+/** Where the user is, e.g. "Crypto › BTC/USD". Every crumb but the last links back up. */
 export function Breadcrumbs() {
   const [location] = useLocation();
   const symbol = decodeParam(SYMBOL_PATH.exec(location)?.[1]);
@@ -25,11 +24,7 @@ function SymbolCrumbs({ path, symbol }: { path: string; symbol: string }) {
 }
 
 function PageCrumbs({ path, assetClass }: { path: string; assetClass: AssetClass | null }) {
-  const watchlists = useWatchlistStore((s) => s.watchlists);
-  const crumbs = breadcrumbsFor(path, {
-    watchlistName: (id) => watchlists.find((w) => w.id === id)?.name ?? null,
-    assetClass: () => assetClass,
-  });
+  const crumbs = breadcrumbsFor(path, { assetClass: () => assetClass });
   return <Trail crumbs={crumbs} />;
 }
 

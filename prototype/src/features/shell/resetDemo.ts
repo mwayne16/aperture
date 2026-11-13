@@ -29,7 +29,7 @@ async function reload(name: string, store: ReloadableStore): Promise<string | nu
 }
 
 /**
- * Restores the seeded watchlists and alerts, then reloads both stores so every view shows the demo
+ * Restores the seeded watchlist and alerts, then reloads both stores so every view shows the demo
  * set. Never rejects: a failed reset or reload comes back as a message the caller can show.
  */
 export async function resetDemoAndReload(): Promise<ResetOutcome> {
@@ -39,7 +39,7 @@ export async function resetDemoAndReload(): Promise<ResetOutcome> {
     return { ok: false, dataReset: false, message: errorMessage(error) };
   }
   const failures = (
-    await Promise.all([reload('Watchlists', useWatchlistStore), reload('Alerts', useAlertStore)])
+    await Promise.all([reload('Watchlist', useWatchlistStore), reload('Alerts', useAlertStore)])
   ).filter((failure) => failure !== null);
   return failures.length === 0 ? { ok: true } : { ok: false, dataReset: true, message: failures.join(' ') };
 }

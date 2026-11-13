@@ -149,19 +149,13 @@ describe('nextSort and ariaSort', () => {
 });
 
 describe('watchToggleView', () => {
-  const list = (symbolsInList: string[]): Watchlist => ({
-    id: 'wl',
-    name: 'Tech',
-    symbols: symbolsInList,
-    createdAt: '',
-    updatedAt: '',
-  });
+  const list = (symbolsInList: string[]): Watchlist => ({ symbols: symbolsInList, updatedAt: '' });
 
-  it('offers to add a symbol the active list lacks', () => {
+  it('offers to add a symbol the watchlist lacks', () => {
     expect(watchToggleView(list(['MSFT']), 'AAPL', 'ready')).toEqual({
       watching: false,
       disabled: false,
-      hint: 'Add to “Tech”',
+      hint: 'Add to your watchlist',
     });
   });
 
@@ -169,7 +163,7 @@ describe('watchToggleView', () => {
     expect(watchToggleView(list(['AAPL']), 'AAPL', 'ready')).toEqual({
       watching: true,
       disabled: false,
-      hint: 'Remove from “Tech”',
+      hint: 'Remove from your watchlist',
     });
   });
 
@@ -179,19 +173,22 @@ describe('watchToggleView', () => {
     );
     expect(watchToggleView(full, 'AAPL', 'ready')).toMatchObject({
       disabled: true,
-      hint: '“Tech” is full (100 symbols max).',
+      hint: 'Your watchlist is full (100 symbols max).',
     });
     const holding = list([...full.symbols.slice(1), 'AAPL']);
     expect(watchToggleView(holding, 'AAPL', 'ready')).toMatchObject({ watching: true, disabled: false });
   });
 
-  it('explains a missing list by how the watchlists loaded', () => {
-    expect(watchToggleView(null, 'AAPL', 'ready')).toEqual({
+  it('is disabled until the watchlist loads, and says when loading failed', () => {
+    expect(watchToggleView(null, 'AAPL', 'loading')).toEqual({
       watching: false,
       disabled: true,
-      hint: 'Create a watchlist to star symbols.',
+      hint: 'Your watchlist is loading.',
     });
-    expect(watchToggleView(null, 'AAPL', 'loading').hint).toBe('Watchlists are loading.');
-    expect(watchToggleView(null, 'AAPL', 'error').hint).toBe("Watchlists couldn't be loaded.");
+    expect(watchToggleView(null, 'AAPL', 'ready').hint).toBe('Your watchlist is loading.');
+    expect(watchToggleView(null, 'AAPL', 'error')).toMatchObject({
+      disabled: true,
+      hint: "Your watchlist couldn't be loaded.",
+    });
   });
 });

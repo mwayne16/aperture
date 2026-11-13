@@ -52,11 +52,7 @@ afterEach(() => {
 
 it('re-renders only the row whose quote, selection or tab stop changed', () => {
   act(() => {
-    useWatchlistStore.setState({
-      status: 'ready',
-      watchlists: [{ id: 'wl', name: 'Core', symbols: ['AAPL', 'MSFT', 'NVDA'], createdAt: '', updatedAt: '' }],
-      activeId: 'wl',
-    });
+    useWatchlistStore.setState({ status: 'ready', watchlist: { symbols: ['AAPL', 'MSFT', 'NVDA'], updatedAt: '' } });
     useQuoteStore.getState().applyBatch([quote('AAPL', 100), quote('MSFT', 100), quote('NVDA', 100)]);
   });
   render(<MarketTable />);

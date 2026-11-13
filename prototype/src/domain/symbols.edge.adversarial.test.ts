@@ -2,11 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   MAX_WATCHLIST_SYMBOLS,
   SYMBOL_PATTERN,
-  WATCHLIST_NAME_MAX,
   normalizeSymbol,
   validateSymbol,
   validateSymbolForWatchlist,
-  validateWatchlistName,
   type ValidationResult,
 } from './symbols';
 
@@ -130,28 +128,5 @@ describe('validateSymbolForWatchlist check order and limits (round 2)', () => {
   it('duplicates are detected against legacy un-normalized entries', () => {
     expect(validateSymbolForWatchlist('AAPL', [' aapl ']).ok).toBe(false);
     expect(validateSymbolForWatchlist('brk.b', ['BRK.B']).ok).toBe(false);
-  });
-});
-
-describe('validateWatchlistName boundaries (round 2)', () => {
-  it('accepts 1 and exactly WATCHLIST_NAME_MAX characters, rejects MAX + 1, measured after trimming', () => {
-    expect(validateWatchlistName('a', [])).toEqual({ ok: true, value: 'a' });
-    const max = 'n'.repeat(WATCHLIST_NAME_MAX);
-    expect(validateWatchlistName(`   ${max}\t`, [])).toEqual({ ok: true, value: max });
-    expectUserSentence(reasonOf(validateWatchlistName(`${max}x`, [])));
-  });
-
-  it('duplicate detection ignores case and surrounding whitespace on both sides', () => {
-    expectUserSentence(reasonOf(validateWatchlistName('  TECH stocks ', ['Tech Stocks'])));
-    expect(validateWatchlistName('Tech', [' tech ']).ok).toBe(false);
-  });
-
-  it('a name differing only by inner whitespace is not a duplicate', () => {
-    expect(validateWatchlistName('Tech  Stocks', ['Tech Stocks']).ok).toBe(true);
-  });
-
-  it('empty-name and too-long reasons are short user-facing sentences', () => {
-    expectUserSentence(reasonOf(validateWatchlistName('   ', [])));
-    expectUserSentence(reasonOf(validateWatchlistName('', ['x'])));
   });
 });

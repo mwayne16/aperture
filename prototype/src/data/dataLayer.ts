@@ -72,7 +72,7 @@ export function startDataLayer(): () => void {
   };
 }
 
-/** Prototype-only: wipe persisted watchlists/alerts and restore the seeded demo data. */
+/** Prototype-only: wipe the persisted watchlist and alerts and restore the seeded demo data. */
 export function resetDemoData(): Promise<void> {
   repo.reset();
   return Promise.resolve();

@@ -14,7 +14,7 @@ import { api } from '../../data/dataLayer';
 import { useQuoteStore } from '../../data/quoteStore';
 import { resetSimulation, updateSimulation } from '../../data/simulationStore';
 import { MAX_WATCHLIST_SYMBOLS } from '../../domain/symbols';
-import type { Bar, ChartRange, HistoryResult, PriceAlert, Quote, Watchlist } from '../../domain/types';
+import type { Bar, ChartRange, HistoryResult, PriceAlert, Quote } from '../../domain/types';
 import { useAlertStore } from '../alerts/alertStore';
 import { useSettingsStore } from '../settings/settingsStore';
 import { useWatchlistStore } from '../watchlists/watchlistStore';
@@ -137,11 +137,14 @@ function setAlerts(alerts: PriceAlert[], status: 'loading' | 'ready' | 'error' =
   });
 }
 
+/** Puts a loaded watchlist in the store, or, for null, one that is still loading. */
 function setWatchlist(symbols: string[] | null) {
-  const list: Watchlist[] =
-    symbols === null ? [] : [{ id: 'wl', name: 'Core Tech', symbols, createdAt: '', updatedAt: '' }];
   act(() => {
-    useWatchlistStore.setState({ status: 'ready', watchlists: list, activeId: symbols === null ? null : 'wl' });
+    useWatchlistStore.setState(
+      symbols === null
+        ? { status: 'loading', watchlist: null }
+        : { status: 'ready', watchlist: { symbols, updatedAt: '' } },
+    );
   });
 }
 
@@ -290,7 +293,7 @@ describe('StockPage header', () => {
 });
 
 describe('StockPage watch toggle', () => {
-  it('adds the symbol to the active list and names the list', async () => {
+  it('adds the symbol to the watchlist', async () => {
     const addSymbol = vi.fn(() => Promise.resolve());
     act(() => {
       useWatchlistStore.setState({ addSymbol });
@@ -299,9 +302,9 @@ describe('StockPage watch toggle', () => {
     renderPage('/symbol/AAPL');
     const button = await screen.findByRole('button', { name: 'Watch' });
     await userEvent.hover(button);
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('Add AAPL to Core Tech');
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Add AAPL to your watchlist');
     await userEvent.click(button);
-    expect(addSymbol).toHaveBeenCalledWith('wl', 'AAPL');
+    expect(addSymbol).toHaveBeenCalledWith('AAPL');
   });
 
   it('removes a watched symbol', async () => {
@@ -311,8 +314,11 @@ describe('StockPage watch toggle', () => {
     });
     setWatchlist(['AAPL']);
     renderPage('/symbol/AAPL');
-    await userEvent.click(await screen.findByRole('button', { name: 'Watching' }));
-    expect(removeSymbol).toHaveBeenCalledWith('wl', 'AAPL');
+    const button = await screen.findByRole('button', { name: 'Watching' });
+    await userEvent.hover(button);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Remove AAPL from your watchlist');
+    await userEvent.click(button);
+    expect(removeSymbol).toHaveBeenCalledWith('AAPL');
   });
 
   it('reports a failed add', async () => {
@@ -325,14 +331,14 @@ describe('StockPage watch toggle', () => {
     await waitFor(() => {
       expect(useToastStore.getState().toasts[0]).toMatchObject({
         tone: 'error',
-        title: "Couldn't add AAPL to Core Tech",
+        title: "Couldn't add AAPL to your watchlist",
         description: 'Service down',
       });
     });
     expect(screen.getByRole('button', { name: 'Watch' })).not.toHaveAttribute('aria-busy');
   });
 
-  it('stays focusable but inert without a list or with a full one, and explains why', async () => {
+  it('stays focusable but inert while the list loads or when it is full, and explains why', async () => {
     const addSymbol = vi.fn(() => Promise.resolve());
     act(() => {
       useWatchlistStore.setState({ addSymbol });
@@ -342,7 +348,7 @@ describe('StockPage watch toggle', () => {
     const button = await screen.findByRole('button', { name: 'Watch' });
     expect(button).toHaveAttribute('aria-disabled', 'true');
     await userEvent.hover(button);
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('Create a watchlist to watch AAPL.');
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Loading your watchlist…');
     await userEvent.click(button);
     expect(addSymbol).not.toHaveBeenCalled();
     view.unmount();

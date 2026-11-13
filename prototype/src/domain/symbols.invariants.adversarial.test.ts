@@ -4,8 +4,6 @@ import {
   normalizeSymbol,
   validateSymbol,
   validateSymbolForWatchlist,
-  validateWatchlistName,
-  WATCHLIST_NAME_MAX,
 } from './symbols';
 
 /**
@@ -165,48 +163,5 @@ describe('validateSymbolForWatchlist (round 3)', () => {
     // Format is checked first, so the user is told the symbol is malformed, not that the list is full.
     expect(validateSymbolForWatchlist('AAPL1', list)).toEqual(validateSymbol('AAPL1'));
     expect(validateSymbolForWatchlist('', list)).toEqual(validateSymbol(''));
-  });
-});
-
-describe('validateWatchlistName (round 3)', () => {
-  it('accepts exactly WATCHLIST_NAME_MAX characters after trimming and rejects one more', () => {
-    const forty = 'x'.repeat(WATCHLIST_NAME_MAX);
-    expect(validateWatchlistName(`   ${forty}   `, [])).toEqual({ ok: true, value: forty });
-    const res = validateWatchlistName(`${forty}y`, []);
-    expect(res.ok).toBe(false);
-    if (!res.ok) expectSentence(res.reason);
-  });
-
-  it('rejects every kind of blank input with a sentence', () => {
-    for (const s of ['', ' ', '\t\n', ' ', '　', '﻿', ' ']) {
-      const res = validateWatchlistName(s, []);
-      expect(res.ok, JSON.stringify(s)).toBe(false);
-      if (!res.ok) expectSentence(res.reason);
-    }
-  });
-
-  it('duplicate detection ignores case and surrounding whitespace on both sides, for many casings', () => {
-    const r = rng(11);
-    const base = 'My Tech Stocks 2026';
-    for (let i = 0; i < 200; i++) {
-      const variant = base
-        .split('')
-        .map((c) => (r() < 0.5 ? c.toLowerCase() : c.toUpperCase()))
-        .join('');
-      const res = validateWatchlistName(`  ${variant} `, ['Other', ` ${base}  `]);
-      expect(res.ok, variant).toBe(false);
-      if (!res.ok) expectSentence(res.reason);
-    }
-  });
-
-  it('keeps the user casing and inner spacing of the trimmed name', () => {
-    expect(validateWatchlistName('  Long  Term  ', [])).toEqual({ ok: true, value: 'Long  Term' });
-  });
-
-  it('does not mutate otherNames and allows a name that only resembles another', () => {
-    const others = Object.freeze(['Tech', 'Energy']);
-    expect(validateWatchlistName('Tech 2', others)).toEqual({ ok: true, value: 'Tech 2' });
-    expect(validateWatchlistName('Techs', others).ok).toBe(true);
-    expect(others).toEqual(['Tech', 'Energy']);
   });
 });

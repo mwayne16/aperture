@@ -83,7 +83,7 @@ export function ariaSort(sort: SortState, column: SortColumn): 'ascending' | 'de
 }
 
 export interface WatchToggleView {
-  /** The symbol is in the active watchlist. */
+  /** The symbol is in the watchlist. */
   watching: boolean;
   /** Pressing it can't do anything right now; `hint` says why. */
   disabled: boolean;
@@ -94,14 +94,14 @@ export interface WatchToggleView {
 type WatchlistsLoad = 'loading' | 'ready' | 'error';
 
 const NO_LIST_HINT: Readonly<Record<WatchlistsLoad, string>> = {
-  loading: 'Watchlists are loading.',
-  error: "Watchlists couldn't be loaded.",
-  ready: 'Create a watchlist to star symbols.',
+  loading: 'Your watchlist is loading.',
+  error: "Your watchlist couldn't be loaded.",
+  ready: 'Your watchlist is loading.',
 };
 
 /**
- * What the watch star does for `symbol`: add it to the active watchlist, remove it, or nothing when
- * there is no active list (yet) or the list is full. `load` explains a missing list.
+ * What the watch star does for `symbol`: add it to the watchlist, remove it, or nothing while the
+ * list hasn't loaded or is full. `load` explains a missing list.
  */
 export function watchToggleView(
   watchlist: Watchlist | null,
@@ -111,16 +111,15 @@ export function watchToggleView(
   if (watchlist === null) {
     return { watching: false, disabled: true, hint: NO_LIST_HINT[load] };
   }
-  const name = `“${watchlist.name}”`;
   if (watchlist.symbols.includes(symbol)) {
-    return { watching: true, disabled: false, hint: `Remove from ${name}` };
+    return { watching: true, disabled: false, hint: 'Remove from your watchlist' };
   }
   if (watchlist.symbols.length >= MAX_WATCHLIST_SYMBOLS) {
     return {
       watching: false,
       disabled: true,
-      hint: `${name} is full (${MAX_WATCHLIST_SYMBOLS} symbols max).`,
+      hint: `Your watchlist is full (${MAX_WATCHLIST_SYMBOLS} symbols max).`,
     };
   }
-  return { watching: false, disabled: false, hint: `Add to ${name}` };
+  return { watching: false, disabled: false, hint: 'Add to your watchlist' };
 }

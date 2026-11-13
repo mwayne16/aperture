@@ -13,8 +13,7 @@ export const DISCOVER_TAB_LABELS: Readonly<Record<DiscoverTab, string>> = { stoc
 export const paths = {
   dashboard: '/',
   discover: (tab: DiscoverTab = 'stocks') => `/discover/${tab}`,
-  watchlists: '/watchlists',
-  watchlist: (id: string) => `/watchlists/${encodeURIComponent(id)}`,
+  watchlist: '/watchlist',
   symbol: (symbol: string) => `/symbol/${encodeURIComponent(symbol)}`,
   /** The symbol page alone, without the app's navigation, for a popped-out window. */
   symbolWindow: (symbol: string) => `/window/symbol/${encodeURIComponent(symbol)}`,
@@ -27,8 +26,9 @@ export const paths = {
 export const routes = {
   dashboard: '/',
   discover: '/discover/:tab?',
-  watchlists: '/watchlists',
-  watchlist: '/watchlists/:id',
+  watchlist: '/watchlist',
+  /** Addresses from when users had several watchlists; they lead to the one watchlist now. */
+  legacyWatchlists: '/watchlists/:id?',
   symbol: '/symbol/:symbol',
   symbolWindow: '/window/symbol/:symbol',
   alerts: '/alerts',

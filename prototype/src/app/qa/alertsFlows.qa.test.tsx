@@ -11,6 +11,7 @@ import { useNotificationStore } from '../../features/notifications/notificationS
 import { DEFAULT_SETTINGS } from '../../features/settings/settingsRules';
 import { useSettingsStore } from '../../features/settings/settingsStore';
 import { resetShellStores } from '../../features/shell/testUtils';
+import { useWatchlistStore } from '../../features/watchlists/watchlistStore';
 import { useUiStore } from '../uiStore';
 
 vi.mock('lightweight-charts', async (importOriginal) => {
@@ -31,8 +32,8 @@ vi.mock('lightweight-charts', async (importOriginal) => {
 let clock = Math.ceil(Date.now() / 1000) * 1000;
 
 beforeEach(async () => {
-  // Flows start on a watchlist page, where the quote table and its row menus live.
-  window.location.hash = '#/watchlists';
+  // Flows start on the watchlist page, where the quote table and its row menus live.
+  window.location.hash = '#/watchlist';
   // ** Each test starts an hour after the previous one, so trade times the shared mock market kept
   // from earlier tests are always in the past.
   clock += 3_600_000;
@@ -137,9 +138,19 @@ async function runFeedUntil(done: () => boolean, maxMs: number, invariant: () =>
   }
 }
 
-/** Opens a watchlist from the sidebar, which makes it the active (subscribed) list. */
-async function showWatchlist(name: RegExp) {
-  fireEvent.click(screen.getByRole('button', { name }));
+/** Removes a symbol with its row menu on the watchlist page, which drops its quotes unless something else needs them. */
+async function removeFromWatchlist(symbol: string) {
+  if (window.location.hash !== '#/watchlist') await goTo('#/watchlist');
+  await chooseMenuItem(screen.getByRole('button', { name: `Actions for ${symbol}` }), 'Remove from watchlist');
+  await advance(500);
+}
+
+/** Empties the watchlist in one step, so only the alerts' symbols keep trading. */
+async function emptyWatchlist() {
+  const { watchlist, removeSymbol } = useWatchlistStore.getState();
+  await act(async () => {
+    await Promise.all((watchlist?.symbols ?? []).map((symbol) => removeSymbol(symbol)));
+  });
   await advance(500);
 }
 
@@ -189,8 +200,8 @@ describe('alerts end to end (QA)', () => {
   it('re-arms after the price leaves the condition and fires again, keeping one toast per alert', async () => {
     await startApp();
     const last = getQuote('AMD')?.last ?? Number.NaN;
-    // ** The empty list leaves fewer symbols trading, so AMD trades often and hovers around its target.
-    await showWatchlist(/^Ideas,/);
+    // ** An empty watchlist leaves fewer symbols trading, so AMD trades often and hovers around its target.
+    await emptyWatchlist();
     const created = await createAlert('AMD', last);
     const armedHistory: boolean[] = [created.armed];
     const off = useAlertStore.subscribe((s) => {
@@ -223,7 +234,7 @@ describe('alerts end to end (QA)', () => {
 
   it('shows a live simulated price for a typed symbol outside the watchlist, and stops watching it on close', async () => {
     await startApp();
-    await showWatchlist(/^Index ETFs,/);
+    await removeFromWatchlist('AMD');
     await goTo('#/alerts');
     fireEvent.click(screen.getByRole('button', { name: 'New alert' }));
     type(field('Symbol'), 'amd');
@@ -245,16 +256,17 @@ describe('alerts end to end (QA)', () => {
     expect(useUiStore.getState().alertDraftSymbol).toBeNull();
   });
 
-  it('keeps a current price for a disabled alert after its symbol leaves the active watchlist', async () => {
+  it('keeps a current price for a disabled alert after its symbol leaves the watchlist', async () => {
     await startApp();
     await goTo('#/alerts');
-    // NVDA is in the active Core Tech list, so it is streamed and its price shows.
+    // NVDA is in the watchlist, so it is streamed and its price shows.
     const cell = () => within(alertRow('NVDA')).getAllByRole('cell')[2]!;
     expect(cell()).toHaveTextContent(/^\d+\.\d{2}$/);
     expect(cell().classList.contains('is-muted')).toBe(getQuote('NVDA')?.status !== 'live');
 
-    // Another list is active and the alert is disabled; the alert alone keeps NVDA subscribed.
-    await showWatchlist(/^Index ETFs,/);
+    // NVDA leaves the watchlist and the alert is disabled; the alert alone keeps NVDA subscribed.
+    await removeFromWatchlist('NVDA');
+    expect(useWatchlistStore.getState().watchlist?.symbols).not.toContain('NVDA');
     const before = getQuote('NVDA')?.updatedAt;
     await advance(15_000);
     expect(getQuote('NVDA')?.updatedAt, 'NVDA quote kept updating').not.toBe(before);
