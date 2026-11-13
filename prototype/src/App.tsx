@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Route, Router, Switch, useLocation } from 'wouter';
+import { Route, Router, Switch, useLocation, useRoute } from 'wouter';
 import { useHashLocation } from 'wouter/use-hash-location';
 import { NotFoundPage } from './app/NotFoundPage';
 import { routes } from './app/routes';
@@ -33,13 +33,26 @@ export function App() {
 
 /**
  * Application layout: the sidebar, then the top bar, the current page and the status bar. This
- * component owns the landmarks; pages render their content and handle their own scrolling.
+ * component owns the landmarks; pages render their content and handle their own scrolling. A
+ * popped-out window shows its page alone.
  */
 function AppShell() {
   useAppStartup();
   useQuoteSubscriptions();
   useGlobalShortcuts();
   const contentRef = useScrollTopOnNavigation();
+  const [inWindow] = useRoute(routes.symbolWindow);
+
+  if (inWindow) {
+    return (
+      <div className="shell shell--window">
+        <main ref={contentRef} className="shell__content">
+          <Route path={routes.symbolWindow} component={StockPage} />
+        </main>
+        <Overlays />
+      </div>
+    );
+  }
 
   return (
     <div className="shell">
@@ -55,12 +68,19 @@ function AppShell() {
       <footer className="shell__status">
         <StatusBar />
       </footer>
-      <div className="shell__overlays">
-        <PrototypeControls />
-        <AlertDialogHost />
-        <AlertNotifications />
-        <ToastViewport />
-      </div>
+      <Overlays />
+    </div>
+  );
+}
+
+/** Dialogs, trigger notifications and toasts, which every window needs. */
+function Overlays() {
+  return (
+    <div className="shell__overlays">
+      <PrototypeControls />
+      <AlertDialogHost />
+      <AlertNotifications />
+      <ToastViewport />
     </div>
   );
 }

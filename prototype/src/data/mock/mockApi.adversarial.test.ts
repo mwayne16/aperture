@@ -200,17 +200,22 @@ describe('getHistory', () => {
     Date.UTC(2026, 0, 1, 12, 0), // New Year's Day
   ];
 
-  it('keeps every range below 1000 bars for every instrument, with ascending unique times', async () => {
+  it('keeps every range below 1000 bars for every kind of instrument, with ascending unique times', async () => {
+    // ** Bar counts depend on the asset class and listing year, not the symbol, so the earliest- and
+    // latest-listed instrument of each class cover every case without generating all of them.
+    const sample = (['stock', 'etf', 'crypto'] as const).flatMap((assetClass) => {
+      const group = INSTRUMENTS.filter((i) => i.assetClass === assetClass).sort((a, b) => a.listedYear - b.listedYear);
+      return [group[0]!, group.at(-1)!];
+    });
     for (const nowMs of nows) {
       const { api } = setup({}, nowMs);
-      for (const profile of INSTRUMENTS) {
+      for (const profile of sample) {
         for (const range of CHART_RANGES) {
           const result = await settle(api.getHistory(profile.symbol, range), HISTORY_DELAY_MS.normal);
-          expect(result.bars.length).toBeLessThan(1000);
+          expect(result.bars.length, `${profile.symbol} ${range}`).toBeLessThan(1000);
           expect(result.simulated).toBe(true);
-          for (let i = 1; i < result.bars.length; i++) {
-            expect(result.bars[i]!.time).toBeGreaterThan(result.bars[i - 1]!.time);
-          }
+          const ascending = result.bars.every((bar, i) => i === 0 || bar.time > result.bars[i - 1]!.time);
+          expect(ascending, `${profile.symbol} ${range} times ascend`).toBe(true);
           const floor = Math.max(Date.UTC(2016, 0, 1), Date.UTC(profile.listedYear, 0, 1)) / 1000;
           if (result.bars.length > 0 && range !== '1D' && range !== '1W' && range !== '1M') {
             expect(result.bars[0]!.time).toBeGreaterThanOrEqual(floor);

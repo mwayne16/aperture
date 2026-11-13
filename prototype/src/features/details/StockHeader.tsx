@@ -1,6 +1,7 @@
 import { BellPlus, ExternalLink } from 'lucide-react';
 import { useRef } from 'react';
-import { paths } from '../../app/routes';
+import { useRoute } from 'wouter';
+import { paths, routes } from '../../app/routes';
 import { useUiStore } from '../../app/uiStore';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -65,6 +66,8 @@ export function StockHeader({ symbol, view, onRetry }: StockHeaderProps) {
 }
 
 function StockActions({ symbol }: { symbol: string }) {
+  // ** A popped-out window already is the separate window, so it doesn't offer another.
+  const [inWindow] = useRoute(routes.symbolWindow);
   return (
     <div className="stock-header__actions">
       <WatchButton symbol={symbol} />
@@ -77,19 +80,21 @@ function StockActions({ symbol }: { symbol: string }) {
       >
         Create alert
       </Button>
-      <IconButton
-        variant="secondary"
-        label={`Open ${symbol} in a new window`}
-        icon={<ExternalLink />}
-        onClick={() => {
-          if (openPopOut(paths.symbol(symbol))) return;
-          showToast({
-            tone: 'warning',
-            title: 'The new window was blocked',
-            description: 'Allow pop-ups for Aperture to open pages in their own window.',
-          });
-        }}
-      />
+      {!inWindow && (
+        <IconButton
+          variant="secondary"
+          label={`Open ${symbol} in a new window`}
+          icon={<ExternalLink />}
+          onClick={() => {
+            if (openPopOut(paths.symbolWindow(symbol))) return;
+            showToast({
+              tone: 'warning',
+              title: 'The new window was blocked',
+              description: 'Allow pop-ups for Aperture to open pages in their own window.',
+            });
+          }}
+        />
+      )}
     </div>
   );
 }

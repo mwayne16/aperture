@@ -92,7 +92,7 @@ describe('TopBar', () => {
   it('switches the theme and applies it to the document', async () => {
     const user = userEvent.setup();
     render(<TopBar />);
-    const theme = screen.getByRole('radiogroup', { name: 'Theme' });
+    const theme = screen.getByRole('radiogroup', { name: 'Quick theme' });
     await user.click(within(theme).getByRole('radio', { name: 'Light' }));
     expect(document.documentElement.dataset.theme).toBe('light');
     expect(within(theme).getByRole('radio', { name: 'Light' })).toHaveAttribute('aria-checked', 'true');

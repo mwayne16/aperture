@@ -83,3 +83,10 @@
     padding: var(--sp-4);
   }
 }
+
+/* A popped-out window: the page fills the window, with no sidebar, top bar or status bar. */
+.shell--window {
+  grid-template-areas: 'content';
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+}

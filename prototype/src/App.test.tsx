@@ -94,6 +94,17 @@ describe('navigation', () => {
     expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent('CryptoBTC/USD');
   });
 
+  it('shows a popped-out symbol window without the app navigation', () => {
+    window.location.hash = '#/window/symbol/AAPL';
+    render(<App />);
+    expect(useUiStore.getState().selectedSymbol).toBe('AAPL');
+    expect(screen.queryByRole('navigation', { name: 'Main' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument();
+    expect(screen.getByRole('main')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Open AAPL in a new window' })).not.toBeInTheDocument();
+  });
+
   it('shows a not-found page for an unknown address', () => {
     window.location.hash = '#/nowhere';
     render(<App />);

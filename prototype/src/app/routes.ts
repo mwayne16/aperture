@@ -16,6 +16,8 @@ export const paths = {
   watchlists: '/watchlists',
   watchlist: (id: string) => `/watchlists/${encodeURIComponent(id)}`,
   symbol: (symbol: string) => `/symbol/${encodeURIComponent(symbol)}`,
+  /** The symbol page alone, without the app's navigation, for a popped-out window. */
+  symbolWindow: (symbol: string) => `/window/symbol/${encodeURIComponent(symbol)}`,
   alerts: '/alerts',
   notifications: '/notifications',
   settings: '/settings',
@@ -28,6 +30,7 @@ export const routes = {
   watchlists: '/watchlists',
   watchlist: '/watchlists/:id',
   symbol: '/symbol/:symbol',
+  symbolWindow: '/window/symbol/:symbol',
   alerts: '/alerts',
   notifications: '/notifications',
   settings: '/settings',

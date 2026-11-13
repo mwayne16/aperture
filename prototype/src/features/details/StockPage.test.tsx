@@ -277,8 +277,8 @@ describe('StockPage header', () => {
     const button = await screen.findByRole('button', { name: 'Open BTC/USD in a new window' });
     await userEvent.click(button);
     expect(open).toHaveBeenCalledWith(
-      expect.stringMatching(/#\/symbol\/BTC%2FUSD$/),
-      'aperture-symbol-BTC-2FUSD',
+      expect.stringMatching(/#\/window\/symbol\/BTC%2FUSD$/),
+      'aperture-window-symbol-BTC-2FUSD',
       expect.any(String),
     );
     expect(focus).toHaveBeenCalled();

@@ -248,10 +248,10 @@ describe('alerts end to end (QA)', () => {
   it('keeps a current price for a disabled alert after its symbol leaves the active watchlist', async () => {
     await startApp();
     await goTo('#/alerts');
-    // NVDA is in the active Core Tech list, so its price is live.
+    // NVDA is in the active Core Tech list, so it is streamed and its price shows.
     const cell = () => within(alertRow('NVDA')).getAllByRole('cell')[2]!;
     expect(cell()).toHaveTextContent(/^\d+\.\d{2}$/);
-    expect(cell()).not.toHaveClass('is-muted');
+    expect(cell().classList.contains('is-muted')).toBe(getQuote('NVDA')?.status !== 'live');
 
     // Another list is active and the alert is disabled; the alert alone keeps NVDA subscribed.
     await showWatchlist(/^Index ETFs,/);

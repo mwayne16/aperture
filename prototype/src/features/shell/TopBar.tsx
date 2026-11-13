@@ -136,7 +136,7 @@ function ThemeIcon({ icon, name }: { icon: ReactNode; name: string }) {
 function ThemeControl() {
   const { preference, setPreference } = useTheme();
   return (
-    <SegmentedControl size="sm" aria-label="Theme" options={THEME_OPTIONS} value={preference} onChange={setPreference} />
+    <SegmentedControl size="sm" aria-label="Quick theme" options={THEME_OPTIONS} value={preference} onChange={setPreference} />
   );
 }
 

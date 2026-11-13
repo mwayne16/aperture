@@ -1,6 +1,6 @@
 import { Plus, Search, Trash2, TriangleAlert } from 'lucide-react';
 import { useRef, useState } from 'react';
-import { useUiStore, type BottomDockTab } from '../../app/uiStore';
+import { useUiStore, type AlertsPageTab } from '../../app/uiStore';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { PageHeader } from '../../components/ui/PageHeader';
@@ -21,7 +21,7 @@ const STATUS_OPTIONS = [...STATUS_FILTERS];
 export function AlertsPage() {
   // ** The selected tab lives in uiStore (the old dock's tab state), so it survives a trip to a
   // symbol page and back.
-  const tab = useUiStore((s) => s.bottomDockTab);
+  const tab = useUiStore((s) => s.alertsPageTab);
   const [status, setStatus] = useState<StatusFilter>('all');
   const [query, setQuery] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
@@ -79,11 +79,11 @@ export function AlertsPage() {
 
       <section className="alerts-card" aria-label="Alerts and trigger history">
         <div className="alerts-card__header">
-          <Tabs<BottomDockTab>
+          <Tabs<AlertsPageTab>
             aria-label="Alerts view"
             value={tab}
             onChange={(next) => {
-              useUiStore.getState().setBottomDockTab(next);
+              useUiStore.getState().setAlertsPageTab(next);
             }}
             tabs={[
               { value: 'alerts', label: 'Alerts', badge: countKnown ? alertCount : undefined },

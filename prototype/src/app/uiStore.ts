@@ -10,7 +10,8 @@ export type AlertDialogState =
   | { open: true; mode: 'create'; presetSymbol: string | null }
   | { open: true; mode: 'edit'; alertId: string };
 
-export type BottomDockTab = 'alerts' | 'log';
+/** Tab shown on the Alerts page, remembered while moving between pages. */
+export type AlertsPageTab = 'alerts' | 'log';
 
 export interface UiState {
   /** Symbol shown in the detail panel, or null when nothing is selected. */
@@ -21,8 +22,7 @@ export interface UiState {
    * the dialog can show a live price for a symbol that no watchlist or alert covers yet.
    */
   alertDraftSymbol: string | null;
-  bottomDockOpen: boolean;
-  bottomDockTab: BottomDockTab;
+  alertsPageTab: AlertsPageTab;
   prototypeControlsOpen: boolean;
   /** Increments to ask the global symbol search to take focus (Ctrl+K). */
   searchFocusRequest: number;
@@ -32,8 +32,7 @@ export interface UiState {
   openEditAlert(alertId: string): void;
   closeAlertDialog(): void;
   setAlertDraftSymbol(symbol: string | null): void;
-  setBottomDockOpen(open: boolean): void;
-  setBottomDockTab(tab: BottomDockTab): void;
+  setAlertsPageTab(tab: AlertsPageTab): void;
   setPrototypeControlsOpen(open: boolean): void;
   requestSearchFocus(): void;
 }
@@ -42,8 +41,7 @@ export const useUiStore = create<UiState>()((set) => ({
   selectedSymbol: null,
   alertDialog: { open: false },
   alertDraftSymbol: null,
-  bottomDockOpen: true,
-  bottomDockTab: 'alerts',
+  alertsPageTab: 'alerts',
   prototypeControlsOpen: false,
   searchFocusRequest: 0,
 
@@ -62,11 +60,8 @@ export const useUiStore = create<UiState>()((set) => ({
   setAlertDraftSymbol: (symbol) => {
     set({ alertDraftSymbol: symbol });
   },
-  setBottomDockOpen: (open) => {
-    set({ bottomDockOpen: open });
-  },
-  setBottomDockTab: (tab) => {
-    set({ bottomDockTab: tab, bottomDockOpen: true });
+  setAlertsPageTab: (tab) => {
+    set({ alertsPageTab: tab });
   },
   setPrototypeControlsOpen: (open) => {
     set({ prototypeControlsOpen: open });
