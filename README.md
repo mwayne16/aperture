@@ -42,8 +42,12 @@ Create your local settings file and fill it in:
 cp .env.example .env
 ```
 
+Replace every `<PLACEHOLDER>` in `.env` with a real value. Optional settings can be deleted instead to use
+their defaults (see [Configuration](#configuration)); delete the two Alpaca lines until you have an account.
+The server refuses to start while a placeholder is left in place and names the variable.
+
 `.env` holds secrets (the database password, market-data API keys). It is git-ignored; never commit it.
-Docker Compose and the server both read it. Leave the Alpaca keys empty until you have an account.
+Docker Compose and the server both read it.
 
 ## Infrastructure (PostgreSQL and Redis)
 
@@ -115,8 +119,10 @@ messages name the variable and never print its value.
 | `REDIS_URL` | required | Redis connection URL |
 | `MARKET_DATA_PROVIDER` | `alpaca` | Which market-data adapter to use |
 | `ALPACA_DATA_FEED` | `iex` | `iex` (free, IEX exchange only), `sip` (all exchanges, paid) or `delayed_sip` |
-| `ALPACA_API_KEY_ID`, `ALPACA_API_SECRET_KEY` | empty | Alpaca credentials; set both or neither |
-| `POSTGRES_*`, `REDIS_PORT` | see `.env.example` | Used by Docker Compose |
+| `ALPACA_API_KEY_ID`, `ALPACA_API_SECRET_KEY` | unset | Alpaca credentials; set both or neither |
+| `POSTGRES_USER`, `POSTGRES_DB` | `aperture` | Database account and name Docker Compose creates |
+| `POSTGRES_PASSWORD` | required | Password for that account; Docker Compose won't start without it |
+| `POSTGRES_PORT`, `REDIS_PORT` | `5432`, `6379` | Host ports for Docker Compose |
 
 ## Security notes
 

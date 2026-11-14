@@ -75,6 +75,17 @@ describe('loadConfig', () => {
     expect(marketDataConfigured(config)).toBe(true);
   });
 
+  it('names every placeholder left from .env.example before checking anything else', () => {
+    expect(problemsFor({ ...REQUIRED, SERVER_PORT: '<SERVER_PORT>', ALPACA_API_KEY_ID: ' <ALPACA_API_KEY_ID> ' })).toEqual([
+      'SERVER_PORT still has its .env.example placeholder; set a value or delete the line',
+      'ALPACA_API_KEY_ID still has its .env.example placeholder; set a value or delete the line',
+    ]);
+  });
+
+  it('ignores placeholder-looking values in variables it does not read', () => {
+    expect(loadConfig({ ...REQUIRED, POSTGRES_PORT: '<POSTGRES_PORT>' }).serverPort).toBe(4100);
+  });
+
   it('never prints a secret value in a problem or the startup summary', () => {
     const secret = 'super-secret-value-123';
     const problems = problemsFor({ DATABASE_URL: secret, ALPACA_API_SECRET_KEY: secret });
