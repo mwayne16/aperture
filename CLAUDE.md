@@ -42,7 +42,8 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
   `packages/shared` (typed HTTP/WebSocket contracts). Chosen so client and API share types and change atomically.
 - `main` is protected on GitHub (2026-11-14): merging needs the CI check "Typecheck, lint, knip, test and build
   (all workspaces)" to pass. Branch protection matches that job name exactly, so don't rename or split the job.
-  Work happens on `feat/*` branches; PRs use auto-merge (rebase).
+  Work happens on `feat/*` branches. PR #1 merged with auto-merge (rebase) at the user's request; ask before
+  opening, auto-merging or merging a PR.
 - Ports: desktop renderer dev server 5173, server API 4100, Postgres 5432, Redis 6379 (all on 127.0.0.1).
 - One `.env` at the repo root (from `.env.example`) feeds Docker Compose and the server
   (`node --env-file-if-exists=../../.env`). No dotenv package.
