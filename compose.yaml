@@ -7,9 +7,11 @@ services:
   postgres:
     image: postgres:18.7-alpine
     restart: unless-stopped
+    # The database password has no default: Compose stops with an error until .env sets it
+    # (copy .env.example). The value is never written in this file.
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-aperture}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env (copy .env.example)}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
       POSTGRES_DB: ${POSTGRES_DB:-aperture}
     ports:
       - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
