@@ -150,7 +150,8 @@ function ThemeToggle() {
   return (
     <IconButton
       label={`Switch to the ${next} theme`}
-      icon={resolved === 'dark' ? <Moon /> : <Sun />}
+      // ** The icon shows the theme the button switches to, matching its name.
+      icon={next === 'light' ? <Sun /> : <Moon />}
       onClick={() => {
         setPreference(next);
       }}
