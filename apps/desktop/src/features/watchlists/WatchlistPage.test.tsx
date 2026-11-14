@@ -203,7 +203,7 @@ describe('WatchlistPage header and summary', () => {
   it('counts the symbols and marks the prices as simulated', () => {
     seedWatchlist();
     renderPage();
-    expect(screen.getByText('3 symbols · drag rows to set your order')).toBeInTheDocument();
+    expect(screen.getByText('3 of 30 symbols · drag rows to set your order')).toBeInTheDocument();
     expect(screen.getAllByText('Simulated').length).toBeGreaterThan(0);
     expect(screen.getByText(/^Simulated quotes/)).toBeInTheDocument();
   });

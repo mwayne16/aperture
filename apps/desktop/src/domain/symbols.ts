@@ -10,7 +10,8 @@
 
 export const SYMBOL_PATTERN = /^[A-Z]{1,5}(?:\.[A-Z]{1,2})?$/;
 const CRYPTO_PAIR_PATTERN = /^[A-Z]{2,10}\/(?:USD|USDT|USDC|BTC)$/;
-export const MAX_WATCHLIST_SYMBOLS = 100;
+// ** The free Alpaca plan streams at most 30 symbols live, so a full watchlist still streams every row.
+export const MAX_WATCHLIST_SYMBOLS = 30;
 
 export type ValidationResult<T> = { ok: true; value: T } | { ok: false; reason: string };
 
