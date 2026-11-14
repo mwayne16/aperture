@@ -2,7 +2,7 @@
   "name": "aperture-prototype",
   "private": true,
   "version": "0.0.0",
-  "description": "Phase 0 interactive prototype for Aperture. Uses simulated market data only.",
+  "description": "Desktop stock market monitoring and analysis application.",
   "type": "module",
   "scripts": {
     "dev": "vite",
