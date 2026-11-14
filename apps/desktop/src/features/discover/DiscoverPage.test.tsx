@@ -9,7 +9,7 @@ import { useToastStore } from '../../components/ui/toastStore';
 import { ApiError } from '../../data/api';
 import { api, resetDemoData } from '../../data/dataLayer';
 import { updateSimulation } from '../../data/simulationStore';
-import { MAX_WATCHLIST_SYMBOLS } from '../../domain/symbols';
+import { MAX_WATCHLIST_SYMBOLS } from '@aperture/shared/symbols';
 import type { Instrument } from '../../domain/types';
 import { resetShellStores } from '../shell/testUtils';
 import { useWatchlistStore } from '../watchlists/watchlistStore';

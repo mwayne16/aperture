@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { PageHeader } from '../../components/ui/PageHeader';
-import { MAX_WATCHLIST_SYMBOLS } from '../../domain/symbols';
+import { MAX_WATCHLIST_SYMBOLS } from '@aperture/shared/symbols';
 import { useConnectionStore } from '../../data/connectionStore';
 import { SimulatedBadge } from '../discover/SimulatedBadge';
 import { MarketTable } from '../market/MarketTable';

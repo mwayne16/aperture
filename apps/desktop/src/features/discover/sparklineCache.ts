@@ -1,5 +1,5 @@
 import { api } from '../../data/dataLayer';
-import { normalizeSymbol } from '../../domain/symbols';
+import { normalizeSymbol } from '@aperture/shared/symbols';
 
 /**
  * One-day closing prices per symbol for sparklines. Every list that draws the same symbol shares one

@@ -1,4 +1,4 @@
-import { normalizeSymbol } from '../../domain/symbols';
+import { normalizeSymbol } from '@aperture/shared/symbols';
 import type { PriceAlert } from '../../domain/types';
 import { sortAlerts } from '../alerts/alertDisplay';
 

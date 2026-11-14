@@ -1,5 +1,5 @@
 import type { Instrument, Quote, Watchlist } from '../../domain/types';
-import { MAX_WATCHLIST_SYMBOLS } from '../../domain/symbols';
+import { MAX_WATCHLIST_SYMBOLS } from '@aperture/shared/symbols';
 
 /**
  * Pure rules behind the Discover table: filtering by symbol or name, column sorting, and what the

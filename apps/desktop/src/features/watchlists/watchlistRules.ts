@@ -1,5 +1,5 @@
 import { ApiError } from '../../data/api';
-import { normalizeSymbol, validateSymbol, validateSymbolForWatchlist } from '../../domain/symbols';
+import { normalizeSymbol, validateSymbol, validateSymbolForWatchlist } from '@aperture/shared/symbols';
 
 /**
  * Pure rules behind the watchlist store: client-side validation that mirrors the API's errors, and

@@ -9,7 +9,7 @@ import { parsePersisted, STORAGE_KEY } from '../../data/mock/repository';
 import { SEED_WATCHLIST_SYMBOLS } from '../../data/mock/seed';
 import { useQuoteStore } from '../../data/quoteStore';
 import { updateSimulation } from '../../data/simulationStore';
-import { MAX_WATCHLIST_SYMBOLS } from '../../domain/symbols';
+import { MAX_WATCHLIST_SYMBOLS } from '@aperture/shared/symbols';
 import { resetShellStores } from '../../features/shell/testUtils';
 
 /**

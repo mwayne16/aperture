@@ -13,7 +13,7 @@ import { INITIAL_CONNECTION, useConnectionStore } from '../../data/connectionSto
 import { api } from '../../data/dataLayer';
 import { useQuoteStore } from '../../data/quoteStore';
 import { resetSimulation, updateSimulation } from '../../data/simulationStore';
-import { MAX_WATCHLIST_SYMBOLS } from '../../domain/symbols';
+import { MAX_WATCHLIST_SYMBOLS } from '@aperture/shared/symbols';
 import type { Bar, ChartRange, HistoryResult, PriceAlert, Quote } from '../../domain/types';
 import { useAlertStore } from '../alerts/alertStore';
 import { useSettingsStore } from '../settings/settingsStore';

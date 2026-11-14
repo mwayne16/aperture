@@ -17,7 +17,7 @@ import { Spinner } from '../../components/ui/Spinner';
 import { TextInput } from '../../components/ui/TextInput';
 import { showToast } from '../../components/ui/toastStore';
 import { isApiError } from '../../data/api';
-import { validateSymbol, validateSymbolForWatchlist } from '../../domain/symbols';
+import { validateSymbol, validateSymbolForWatchlist } from '@aperture/shared/symbols';
 import { useWatchlistStore } from '../watchlists/watchlistStore';
 import { revealElement } from './reveal';
 import {

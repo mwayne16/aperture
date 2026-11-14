@@ -5,13 +5,35 @@
   "description": "Typed contracts shared by the Aperture desktop app and server.",
   "type": "module",
   "exports": {
+    "./alertRules": {
+      "source": "./src/alertRules.ts",
+      "types": "./dist/alertRules.d.ts",
+      "default": "./dist/alertRules.js"
+    },
+    "./alerts": {
+      "source": "./src/alerts.ts",
+      "types": "./dist/alerts.d.ts",
+      "default": "./dist/alerts.js"
+    },
     "./errors": {
+      "source": "./src/errors.ts",
       "types": "./dist/errors.d.ts",
       "default": "./dist/errors.js"
     },
     "./health": {
+      "source": "./src/health.ts",
       "types": "./dist/health.d.ts",
       "default": "./dist/health.js"
+    },
+    "./symbols": {
+      "source": "./src/symbols.ts",
+      "types": "./dist/symbols.d.ts",
+      "default": "./dist/symbols.js"
+    },
+    "./watchlist": {
+      "source": "./src/watchlist.ts",
+      "types": "./dist/watchlist.d.ts",
+      "default": "./dist/watchlist.js"
     }
   },
   "scripts": {
@@ -27,11 +49,5 @@
     "knip": "^6.45.1",
     "typescript": "~6.0.3",
     "vitest": "^5.1.0"
-  },
-  "knip": {
-    "entry": [
-      "src/errors.ts",
-      "src/health.ts"
-    ]
   }
 }

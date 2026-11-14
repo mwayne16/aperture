@@ -1,5 +1,5 @@
 /**
- * Symbol rules (shared with the future backend DTO validators).
+ * Symbol rules, shared by the app and the API DTO validators so both report the same messages.
  *
  * - Symbols are normalized by trimming whitespace and upper-casing.
  * - Valid symbol: 1-5 letters, optionally followed by "." and 1-2 letters for share classes
@@ -34,7 +34,10 @@ export function validateSymbol(input: string): ValidationResult<string> {
   if (trimmed === '') return { ok: false, reason: 'Enter a symbol.' };
   const symbol = trimmed.toUpperCase();
   if (!ASCII_ONLY.test(trimmed) || !(SYMBOL_PATTERN.test(symbol) || CRYPTO_PAIR_PATTERN.test(symbol))) {
-    return { ok: false, reason: 'Use 1-5 letters with an optional class like ".B", or a pair like "BTC/USD".' };
+    return {
+      ok: false,
+      reason: 'Use 1-5 letters with an optional class like ".B", or a pair like "BTC/USD".',
+    };
   }
   return { ok: true, value: symbol };
 }

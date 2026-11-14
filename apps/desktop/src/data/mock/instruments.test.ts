@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { validateSymbol } from '../../domain/symbols';
+import { validateSymbol } from '@aperture/shared/symbols';
 import { findInstrument, INSTRUMENTS, toInstrument } from './instruments';
 import { SEED_WATCHLIST_SYMBOLS } from './seed';
 

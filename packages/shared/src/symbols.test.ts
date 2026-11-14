@@ -5,7 +5,7 @@ import {
   validateSymbol,
   validateSymbolForWatchlist,
   type ValidationResult,
-} from './symbols';
+} from './symbols.js';
 
 function reasonOf<T>(result: ValidationResult<T>): string {
   if (result.ok) throw new Error(`expected a failure, got ok: ${JSON.stringify(result.value)}`);

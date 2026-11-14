@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { create } from 'zustand';
 import { api } from '../../data/dataLayer';
-import { normalizeSymbol } from '../../domain/symbols';
+import { normalizeSymbol } from '@aperture/shared/symbols';
 import type { Instrument } from '../../domain/types';
 
 /**

@@ -1,7 +1,7 @@
 import react from '@vitejs/plugin-react';
 import { resolve } from 'node:path';
 import { defineConfig } from 'electron-vite';
-import type { Plugin } from 'vite';
+import { defaultClientConditions, type Plugin } from 'vite';
 
 const root = import.meta.dirname;
 
@@ -50,6 +50,8 @@ export default defineConfig({
   renderer: {
     root,
     plugins: [react(), contentSecurityPolicy()],
+    // ** Workspace packages resolve to their TypeScript source, so the app never waits on a package build.
+    resolve: { conditions: ['source', ...defaultClientConditions] },
     server: { port: 5173, strictPort: true },
     build: { rollupOptions: { input: resolve(root, 'index.html') } },
   },

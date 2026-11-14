@@ -4,7 +4,7 @@ import { ApiError, isApiError } from '../../data/api';
 import { api, resetDemoData } from '../../data/dataLayer';
 import { SEED_WATCHLIST_SYMBOLS } from '../../data/mock/seed';
 import { resetSimulation, updateSimulation } from '../../data/simulationStore';
-import { MAX_WATCHLIST_SYMBOLS } from '../../domain/symbols';
+import { MAX_WATCHLIST_SYMBOLS } from '@aperture/shared/symbols';
 import { useWatchlistStore } from './watchlistStore';
 
 const state = () => useWatchlistStore.getState();

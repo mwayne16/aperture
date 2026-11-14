@@ -1,4 +1,4 @@
-import { normalizeSymbol, validateSymbol } from '../../domain/symbols';
+import { normalizeSymbol, validateSymbol } from '@aperture/shared/symbols';
 import type { Instrument } from '../../domain/types';
 
 /** Pure rules behind the symbol search combobox. */

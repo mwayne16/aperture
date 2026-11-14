@@ -1,6 +1,6 @@
 import { ApiError, isApiError } from '../../data/api';
 import { api } from '../../data/dataLayer';
-import { normalizeSymbol } from '../../domain/symbols';
+import { normalizeSymbol } from '@aperture/shared/symbols';
 import type { BarTimeframe, ChartRange, HistoryResult } from '../../domain/types';
 import { isIntradayTimeframe } from './chartFormat';
 

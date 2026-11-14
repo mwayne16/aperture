@@ -1,4 +1,4 @@
-import { MAX_WATCHLIST_SYMBOLS, validateSymbol } from '../../domain/symbols';
+import { MAX_WATCHLIST_SYMBOLS, validateSymbol } from '@aperture/shared/symbols';
 import type { PriceAlert, Watchlist } from '../../domain/types';
 import type { Unsubscribe } from '../realtime';
 import { buildSeedData, type SeedData } from './seed';

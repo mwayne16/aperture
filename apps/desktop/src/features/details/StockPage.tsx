@@ -6,7 +6,7 @@ import { useUiStore } from '../../app/uiStore';
 import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Skeleton } from '../../components/ui/Skeleton';
-import { validateSymbol } from '../../domain/symbols';
+import { validateSymbol } from '@aperture/shared/symbols';
 import type { Instrument } from '../../domain/types';
 import { AboutCard } from './AboutCard';
 import { ChartPanel } from './ChartPanel';
