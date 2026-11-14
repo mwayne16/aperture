@@ -8,7 +8,10 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
 - Phase 0 (interactive prototype): **approved by the user on 2026-11-13.** It includes the multi-page
   redesign, the visual polish pass (tag `before-ui-polish` marks the state before it) and the news card.
   Watchlist-curated news ranking is specified in plan section 2.6 for later.
-- Phase 1 (project foundation): **in progress** on `feat/project-foundation`.
+- Phase 1 (project foundation): **built on `feat/project-foundation`, awaiting merge.** Workspaces, the
+  hardened Electron shell, the Fastify server (config, validation pipeline, errors, health), shared
+  contracts, Docker Compose (verified healthy 2026-11-14: Postgres 18.7, Redis 8.8.4) and the README are
+  done. Next: Phase 2, persistence and API.
 - Track phase status in this section. Update it whenever a phase is approved or completed.
 
 ## Product decisions that override the plan
@@ -37,6 +40,9 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
 - **Monorepo** with npm workspaces from Phase 1: `apps/desktop` (Electron + React), `apps/server` (Fastify),
   `packages/shared` (typed HTTP/WebSocket contracts). Chosen so client and API share types and change atomically.
 - `main` is protected by convention: work happens on `feat/*` branches and merges only with a green check.
+- Ports: desktop renderer dev server 5173, server API 4100, Postgres 5432, Redis 6379 (all on 127.0.0.1).
+- One `.env` at the repo root (from `.env.example`) feeds Docker Compose and the server
+  (`node --env-file-if-exists=../../.env`). No dotenv package.
 
 ## Toolchain decisions (don't revisit without a reason written down here)
 - TypeScript is pinned to **~6.0.3** everywhere. Verified 2026-10-23: TS 6.0.3 compiles a TypeORM 1.1.2
@@ -62,9 +68,25 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
 - UI primitives: `radix-ui` provides focus, layering and keyboard behavior for Dialog, Menu, Tooltip,
   SegmentedControl, Tabs and Switch. Features import our `components/ui/*` wrappers, never Radix directly.
 - Client state: `zustand` stores. Live quotes use per-symbol selectors so one tick re-renders one row.
-- Validation (backend): `class-validator` + `class-transformer` only. No Zod.
+- Validation (backend): `class-validator` + `class-transformer` only. No Zod. Request DTOs go through
+  `transformAndValidate` / `validateRequest` (whitelist + forbidNonWhitelisted); config goes through
+  `loadConfig` (only declared variables are read, blank means unset, errors never print values).
+- Server build: **tsc** (`tsc -b tsconfig.build.json`), because esbuild/tsx don't emit decorator metadata.
+  Verified 2026-11-14: Vitest 5's transform does emit `design:type` (a test in `validate.test.ts` guards it).
+  `useDefineForClassFields: false` for the legacy-decorator libraries. `packages/shared` compiles to `dist`
+  with one subpath export per file and is a TS project reference of the server.
+- Desktop shell: **Electron 45 + electron-vite 6** (builds main, a sandboxed CommonJS preload and the
+  renderer, restarts on change). Windows use contextIsolation, sandbox, no nodeIntegration; navigation
+  rules live in `electron/navigation.ts`. The production CSP is injected at build time only, because
+  Vite's dev server serves inline scripts. `npm run smoke` proves a build starts.
+- Market data is **provider-agnostic** (user request, 2026-11-14): services depend on the `MarketDataProvider`
+  port in `apps/server/src/marketData/provider.ts`; each vendor is an adapter selected by
+  `MARKET_DATA_PROVIDER`, and its plan limits are data the rate limiter and stream budget read.
+- Lint config: one `eslint.base.js` at the root; each workspace adds its globals and plugins.
 
-## Desktop renderer architecture (`apps/desktop/src`)
+## Desktop app architecture (`apps/desktop`)
+- `electron/`: main process (`main.ts`), preload (`preload.ts`, the typed `window.aperture` bridge from
+  `bridge.ts`) and the navigation policy. `src/`: the React renderer, described below.
 - `domain/`: pure types and logic that carry over to production (types, alert engine, chart ranges, symbol rules).
 - `lib/`: formatting and small utilities.
 - `data/api.ts` and `data/realtime.ts`: **interfaces** that mirror the future HTTP API and WebSocket client.
@@ -152,3 +174,8 @@ Inline comments that explain a non-obvious decision start with `// **`.
   the integration walk inline.
 - Tool parameters decode `\uXXXX`, so writing a regex escape through Edit/Write can insert the literal
   character instead. Check the bytes, or use a `\p{...}` class or `String.fromCharCode` instead.
+- Never give two files in one folder names that differ only by case (`WatchlistSummary.tsx` and
+  `watchlistSummary.ts`, `SimulatedBadge.tsx` and `simulatedBadge.css`). Windows resolves them as one,
+  and both times Vite served the wrong module.
+- `npm install` didn't download Electron's runtime here (2026-11-14). Run `node node_modules/electron/install.js`
+  with `electron_config_cache` set, and check `node_modules/electron/dist` exists.
