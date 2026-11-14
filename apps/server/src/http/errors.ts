@@ -6,6 +6,16 @@ import {
 } from '@aperture/shared/errors';
 import type { FastifyError, FastifyInstance } from 'fastify';
 import { describeDatabaseError, isDatabaseUnavailable } from '../db/errors.js';
+import { ProviderError, type ProviderFailure } from '../marketData/provider.js';
+
+/** What a client is told for each provider failure, on top of the provider's own message. */
+const PROVIDER_HINTS: Record<ProviderFailure, string> = {
+  credentials: 'Check ALPACA_API_KEY_ID and ALPACA_API_SECRET_KEY in .env, then restart the server.',
+  entitlement: '',
+  rate_limited: 'Try again in a minute.',
+  unavailable: 'Try again shortly.',
+  rejected: '',
+};
 
 /** An error that becomes an API error response. Throw it from services, hooks or handlers. */
 export class ApiHttpError extends Error {
@@ -47,6 +57,14 @@ export function registerErrorHandling(app: FastifyInstance): void {
     // Fastify's own client errors (malformed JSON, oversized or unsupported bodies) explain themselves safely.
     if (error.statusCode !== undefined && error.statusCode >= 400 && error.statusCode < 500) {
       return reply.code(error.statusCode).send(body('VALIDATION_ERROR', error.message));
+    }
+    if (error instanceof ProviderError) {
+      request.log.warn(
+        { failure: error.failure, providerRequestId: error.requestId, reason: error.message },
+        'Market data request failed',
+      );
+      const message = [error.message, PROVIDER_HINTS[error.failure]].filter((part) => part !== '').join(' ');
+      return reply.code(API_ERROR_STATUS.PROVIDER_ERROR).send(body('PROVIDER_ERROR', message));
     }
     if (isDatabaseUnavailable(error)) {
       request.log.warn({ reason: describeDatabaseError(error) }, 'Database unavailable');

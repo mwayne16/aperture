@@ -30,7 +30,8 @@ class NoteBody {
   note!: string;
 }
 
-const buildTestApp = () => buildApp({ config: testConfig, dataSource: closedDataSource }, { logger: false });
+const buildTestApp = () =>
+  buildApp({ config: testConfig, dataSource: closedDataSource, marketData: null }, { logger: false });
 let app = buildTestApp();
 
 afterEach(async () => {
@@ -41,7 +42,7 @@ afterEach(async () => {
 describe('GET /health', () => {
   it('reports the version, the database and how market data is configured', async () => {
     const dataSource = await openTestDatabase();
-    const healthy = buildApp({ config: testConfig, dataSource }, { logger: false });
+    const healthy = buildApp({ config: testConfig, dataSource, marketData: null }, { logger: false });
     try {
       const response = await healthy.inject({ method: 'GET', url: '/health' });
       expect(response.statusCode).toBe(200);

@@ -6,7 +6,7 @@ import { openTestDatabase, resetDatabase, testConfig } from './test/database.js'
 /** Starts the server on its own connection pool, as a fresh process would. */
 async function startServer() {
   const dataSource = await openTestDatabase();
-  const app = buildApp({ config: testConfig, dataSource }, { logger: false });
+  const app = buildApp({ config: testConfig, dataSource, marketData: null }, { logger: false });
   return {
     app,
     dataSource,

@@ -1,0 +1,91 @@
+import type { Instrument } from '@aperture/shared/marketData';
+import type {
+  BarsRequest,
+  MarketDataProvider,
+  ProviderBar,
+  ProviderMovers,
+  ProviderSnapshot,
+} from '../marketData/provider.js';
+
+const FAKE_INSTRUMENTS: Instrument[] = [
+  { symbol: 'MSFT', name: 'Microsoft Corporation', exchange: 'NASDAQ', assetClass: 'stock' },
+  { symbol: 'AAPL', name: 'Apple Inc.', exchange: 'NASDAQ', assetClass: 'stock' },
+  { symbol: 'AAL', name: 'American Airlines Group Inc.', exchange: 'NASDAQ', assetClass: 'stock' },
+  { symbol: 'SPY', name: 'SPDR S&P 500 ETF Trust', exchange: 'ARCA', assetClass: 'etf' },
+  { symbol: 'BTC/USD', name: 'Bitcoin', exchange: 'CRYPTO', assetClass: 'crypto' },
+];
+
+/** A snapshot with every value set, for tests that only care about a few of them. */
+export function snapshot(symbol: string, values: Partial<ProviderSnapshot> = {}): ProviderSnapshot {
+  return {
+    symbol,
+    last: 101,
+    lastTradeAt: 1_000,
+    bid: 100.9,
+    bidSize: 2,
+    ask: 101.1,
+    askSize: 3,
+    quoteAt: 1_001,
+    open: 99,
+    high: 102,
+    low: 98,
+    prevClose: 100,
+    volume: 5_000,
+    ...values,
+  };
+}
+
+/**
+ * An in-memory provider whose answers tests set directly. It records every call, so tests can check
+ * what was batched and what was served from a cache. Set `failWith` to make every call reject.
+ */
+export class FakeProvider implements MarketDataProvider {
+  readonly id = 'alpaca' as const;
+  readonly limits = {
+    requestsPerMinute: 200,
+    streamSymbolsPerConnection: { stocks: 30, crypto: 30 },
+    streamConnections: 1,
+    historyStartMs: Date.UTC(2016, 0, 1),
+  };
+  feedLabel = 'Fake IEX';
+  delayed = false;
+
+  instruments: Instrument[] = FAKE_INSTRUMENTS;
+  snapshots = new Map<string, ProviderSnapshot>();
+  bars = new Map<string, ProviderBar[]>();
+  movers: ProviderMovers = { gainers: [], losers: [], mostActive: [], asOf: 0 };
+  failWith: Error | null = null;
+
+  readonly calls = {
+    listInstruments: 0,
+    getSnapshots: [] as string[][],
+    getBars: [] as BarsRequest[],
+    getMovers: [] as number[],
+  };
+
+  listInstruments(): Promise<Instrument[]> {
+    this.calls.listInstruments += 1;
+    return this.answer(() => this.instruments.map((i) => ({ ...i })));
+  }
+
+  getSnapshots(symbols: readonly string[]): Promise<ProviderSnapshot[]> {
+    this.calls.getSnapshots.push([...symbols]);
+    return this.answer(() => symbols.flatMap((s) => this.snapshots.get(s) ?? []));
+  }
+
+  getBars(request: BarsRequest): Promise<ReadonlyMap<string, ProviderBar[]>> {
+    this.calls.getBars.push(request);
+    return this.answer(
+      () => new Map(request.symbols.flatMap((s) => (this.bars.has(s) ? [[s, this.bars.get(s) ?? []]] : []))),
+    );
+  }
+
+  getMovers(limit: number): Promise<ProviderMovers> {
+    this.calls.getMovers.push(limit);
+    return this.answer(() => this.movers);
+  }
+
+  private answer<T>(value: () => T): Promise<T> {
+    return this.failWith === null ? Promise.resolve(value()) : Promise.reject(this.failWith);
+  }
+}
