@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useShallow } from 'zustand/react/shallow';
 import { normalizeSymbol } from '../domain/symbols';
 import type { Quote } from '../domain/types';
 
@@ -63,4 +64,12 @@ export function getQuote(symbol: string): Quote | undefined {
 export function useQuote(symbol: string): Quote | undefined {
   const key = normalizeSymbol(symbol);
   return useQuoteStore((state) => state.quotes[key]);
+}
+
+/**
+ * Latest quotes for `symbols`, in the same order. Re-renders when any of them changes, so use it for
+ * summaries of a list, not for its rows.
+ */
+export function useQuotes(symbols: readonly string[]): readonly (Quote | undefined)[] {
+  return useQuoteStore(useShallow((state) => symbols.map((symbol) => state.quotes[normalizeSymbol(symbol)])));
 }

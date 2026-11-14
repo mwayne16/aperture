@@ -26,14 +26,15 @@ describe('App layout', () => {
     expect(screen.getByRole('contentinfo')).toBeInTheDocument();
   });
 
-  it('shows the watchlist page with its table and quick view', () => {
+  it('shows the watchlist page with its summary and quote table', () => {
     window.location.hash = '#/watchlist';
     act(() => {
       useWatchlistStore.setState({ status: 'ready', watchlist: { symbols: ['AAPL'], updatedAt: '' } });
     });
     render(<App />);
-    expect(screen.getByRole('region', { name: 'Market' })).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Stock details' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Watchlist' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Watchlist summary' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Watchlist quotes' })).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent(/^Watchlist$/);
   });
 
@@ -74,7 +75,7 @@ describe('navigation', () => {
     await user.click(within(menu).getByRole('link', { name: 'Watchlist' }));
     expect(window.location.hash).toBe('#/watchlist');
     expect(within(menu).getByRole('link', { name: 'Watchlist' })).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('region', { name: 'Market' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Watchlist quotes' })).toBeInTheDocument();
   });
 
   it('opens a symbol page from its address, selecting the symbol', () => {

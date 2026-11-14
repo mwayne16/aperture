@@ -1,54 +1,35 @@
 /*
- * Market table and symbol search. Colors come from tokens.css only.
- * The table fills the Market section and scrolls inside it; the header and notices stay put.
+ * Watchlist quote table and symbol search. Colors come from tokens.css only.
+ * The page scrolls as a whole, so the card clips instead of scrolling and the column headers stick
+ * to the top of the page area. Columns give way as the card narrows instead of scrolling sideways.
  */
 
-.market {
+.market-card {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  min-height: 0;
+  min-width: 0;
+  overflow: clip;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background-color: var(--bg-panel);
   container-type: inline-size;
 }
 
-/* ------------------------------------------------------------------ Header */
-
-.market__header {
+.market-card__center {
   display: flex;
-  flex: none;
   align-items: center;
-  gap: var(--sp-3);
-  min-height: 44px;
-  padding: var(--sp-2) var(--sp-3);
-  border-bottom: 1px solid var(--border);
+  justify-content: center;
+  min-height: 280px;
 }
 
-.market__heading {
+.market-card__footer {
   display: flex;
-  flex: 1;
-  align-items: center;
-  gap: var(--sp-2);
-  min-width: 0;
-}
-
-.market__title {
-  overflow: clip;
-  font-size: var(--fs-lg);
-  font-weight: var(--fw-semibold);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.market__meta {
-  flex: none;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--sp-1) var(--sp-3);
+  padding: 10px var(--sp-4);
   color: var(--text-muted);
   font-size: var(--fs-sm);
-  font-variant-numeric: tabular-nums;
-}
-
-.market__add {
-  flex: none;
-  width: 240px;
 }
 
 /* ------------------------------------------------------------------ Notices */
@@ -105,86 +86,94 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ------------------------------------------------------------------ Body and table */
-
-.market__body {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  /* Keyboard focus scrolls rows clear of the sticky column headers. */
-  scroll-padding-top: var(--h-row);
-}
-
-.market__body--center {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+/* ------------------------------------------------------------------ Table */
 
 /* Fixed layout keeps columns from shifting as prices change width. */
 .market-table {
-  min-width: 800px;
   table-layout: fixed;
 }
 
+.market-table th {
+  height: 36px;
+  font-size: 11px;
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.market-table td {
+  height: 52px;
+}
+
+.market-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.ui-table .market-col--grip {
+  width: 32px;
+  padding-right: 0;
+  padding-left: var(--sp-2);
+}
+
 .market-col--last {
-  width: 80px;
+  width: 96px;
 }
 
 .market-col--change {
-  width: 72px;
+  width: 84px;
 }
 
 .market-col--pct {
-  width: 80px;
+  width: 88px;
 }
 
-.market-col--bid,
-.market-col--ask {
-  width: 72px;
+.market-col--range {
+  width: 168px;
+}
+
+.market-col--trend {
+  width: 124px;
 }
 
 .market-col--volume {
-  width: 64px;
+  width: 84px;
 }
 
 .market-col--status {
-  width: 100px;
-}
-
-.market-col--updated {
-  width: 72px;
+  width: 104px;
 }
 
 .market-col--actions {
-  width: 36px;
+  width: 84px;
 }
 
-/* Narrow windows drop bid and ask first; the detail panel still shows them. */
-@container (max-width: 799px) {
-  .market-table {
-    min-width: 656px;
-  }
-
-  .market-table .market-col--bid,
-  .market-table .market-col--ask {
+/* Narrower cards drop the day range, then the trend line, then change and volume. */
+@container (max-width: 1059px) {
+  .market-table .market-col--range {
     display: none;
   }
 }
 
-/* Narrower still, volume and age give way too, so the status column stays in view. */
-@container (max-width: 599px) {
-  .market-table {
-    min-width: 460px;
-  }
-
-  .market-table .market-col--volume,
-  .market-table .market-col--updated {
+@container (max-width: 899px) {
+  .market-table .market-col--trend {
     display: none;
   }
 }
 
-/* Clicking a row selects its symbol, like a row on the Discover page. */
+@container (max-width: 719px) {
+  .market-table .market-col--change,
+  .market-table .market-col--volume {
+    display: none;
+  }
+}
+
+@container (max-width: 539px) {
+  .market-table .market-col--status {
+    display: none;
+  }
+}
+
+/* Clicking a row opens the symbol's page. */
 .market-row {
   cursor: pointer;
 }
@@ -194,23 +183,76 @@
   outline-offset: -2px;
 }
 
-/* The symbol always shows in full; the company name gives way. Clip (not hidden) so nothing can
-   scroll the text sideways. */
+/* The dragged row floats above the others with the row background, so it reads as lifted. */
+.market-row.is-dragging {
+  position: relative;
+  z-index: 2;
+}
+
+.market-row.is-dragging td {
+  background-color: var(--bg-raised);
+  box-shadow: 0 1px 0 var(--border-strong), 0 -1px 0 var(--border-strong);
+}
+
+.market-row__handle {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  color: var(--text-faint);
+  cursor: grab;
+  touch-action: none;
+}
+
+.market-row__handle svg {
+  width: 14px;
+  height: 14px;
+}
+
+.market-row__handle:hover {
+  background-color: var(--bg-active);
+  color: var(--text-muted);
+}
+
+.market-row.is-dragging .market-row__handle {
+  cursor: grabbing;
+}
+
+/* A letter badge, then the symbol over the company name. The name gives way; the symbol never does.
+   Clip (not hidden) so nothing can scroll the text sideways. */
 .market-row__label {
   display: flex;
-  align-items: baseline;
-  gap: var(--sp-2);
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.market-row__badge {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background-color: var(--bg-neutral-tint);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+}
+
+.market-row__names {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   min-width: 0;
 }
 
 .market-row__symbol {
-  flex: none;
   font-weight: var(--fw-semibold);
 }
 
 .market-row__name {
-  flex: 1;
-  min-width: 0;
   overflow: clip;
   color: var(--text-muted);
   font-size: var(--fs-sm);
@@ -223,7 +265,7 @@
 }
 
 .market-row__last {
-  font-weight: var(--fw-medium);
+  font-weight: var(--fw-semibold);
 }
 
 /* Stale and unavailable values are kept but greyed, so they don't read as current prices. */
@@ -236,21 +278,48 @@
 }
 
 .ui-table td.market-row__actions {
-  padding-right: var(--sp-2);
   padding-left: 0;
 }
 
-/* The row menu shows on hover, focus and selection so idle rows stay quiet. */
-.market-row__menu {
+.market-row__actions .ui-iconbtn {
   vertical-align: middle;
-  opacity: 0;
 }
 
-.market-row:hover .market-row__menu,
-.market-row:focus-within .market-row__menu,
-.market-row[aria-selected='true'] .market-row__menu,
-.market-row__menu[aria-expanded='true'] {
-  opacity: 1;
+/* Day range: a track with a marker at the last price, the low and high beneath it. */
+.day-range {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 140px;
+}
+
+.day-range__track {
+  position: relative;
+  height: 4px;
+  border-radius: 2px;
+  background-color: var(--bg-active);
+}
+
+.day-range__marker {
+  position: absolute;
+  top: -3px;
+  width: 2px;
+  height: 10px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background-color: var(--text-primary);
+}
+
+.day-range__ends {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.market-row.is-dimmed .day-range__marker {
+  background-color: var(--text-muted);
 }
 
 .market-skeleton-row td .ui-skeleton {

@@ -13,32 +13,22 @@ export function moveSymbol(symbols: readonly string[], symbol: string, delta: -1
   return next;
 }
 
-export type NavigationKey = 'ArrowUp' | 'ArrowDown' | 'Home' | 'End';
-
-export function isNavigationKey(key: string): key is NavigationKey {
-  return key === 'ArrowUp' || key === 'ArrowDown' || key === 'Home' || key === 'End';
+/**
+ * Where `value` sits between the day's `low` and `high`, from 0 to 1, clamped to the ends. A flat
+ * day puts it in the middle. Null when any value is missing or the range is inverted.
+ */
+export function rangePosition(
+  low: number | null | undefined,
+  high: number | null | undefined,
+  value: number | null | undefined,
+): number | null {
+  if (!isFinite(low) || !isFinite(high) || !isFinite(value) || high < low) return null;
+  if (high === low) return 0.5;
+  return Math.min(1, Math.max(0, (value - low) / (high - low)));
 }
 
-/**
- * The row a navigation key moves to from the focused row. Arrows stop at the ends instead of
- * wrapping. When the focused row isn't selected yet, an arrow selects that row first.
- */
-export function navigationTarget(
-  symbols: readonly string[],
-  from: string,
-  key: NavigationKey,
-  fromIsSelected: boolean,
-): string | null {
-  if (symbols.length === 0) return null;
-  const first = symbols[0] ?? null;
-  const last = symbols[symbols.length - 1] ?? null;
-  if (key === 'Home') return first;
-  if (key === 'End') return last;
-  const index = symbols.indexOf(from);
-  if (index < 0) return key === 'ArrowDown' ? first : last;
-  if (!fromIsSelected) return from;
-  const target = key === 'ArrowDown' ? Math.min(index + 1, symbols.length - 1) : Math.max(index - 1, 0);
-  return symbols[target] ?? null;
+function isFinite(value: number | null | undefined): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
 }
 
 /** The row that should take focus after `symbol` is removed: the next one, else the previous one. */

@@ -1,5 +1,6 @@
-import { ArrowDown, ArrowUp, BellPlus, Ellipsis, Trash2 } from 'lucide-react';
-import { memo, useEffect, useRef, type KeyboardEvent, type MouseEvent } from 'react';
+import { useSortable } from '@dnd-kit/sortable';
+import { ArrowDown, ArrowUp, BellPlus, Ellipsis, GripVertical, Trash2 } from 'lucide-react';
+import { memo, type KeyboardEvent, type MouseEvent } from 'react';
 import { Badge } from '../../components/ui/Badge';
 import { cx } from '../../components/ui/cx';
 import { IconButton } from '../../components/ui/IconButton';
@@ -8,25 +9,20 @@ import { Skeleton } from '../../components/ui/Skeleton';
 import { StatusDot } from '../../components/ui/StatusDot';
 import { useConnectionStore } from '../../data/connectionStore';
 import { useQuote } from '../../data/quoteStore';
-import {
-  changeDirection,
-  formatAge,
-  formatChange,
-  formatClock,
-  formatPercent,
-  formatPrice,
-  formatVolume,
-} from '../../lib/format';
-import { useNow } from './clock';
+import type { Quote } from '../../domain/types';
+import { changeDirection, formatChange, formatPercent, formatPrice, formatVolume } from '../../lib/format';
+import { Sparkline } from '../discover/Sparkline';
 import { useInstrument } from './instrumentStore';
-import { isNavigationKey, quoteDataTime, quoteStatusView, type NavigationKey } from './marketModel';
-import { revealElement } from './reveal';
+import { quoteStatusView, rangePosition } from './marketModel';
 import { usePriceFlash } from './usePriceFlash';
 
 /** Row callbacks. The table passes one stable object so ticks never re-render other rows. */
 export interface MarketRowActions {
-  select(symbol: string): void;
-  navigate(from: string, key: NavigationKey, fromIsSelected: boolean): void;
+  open(symbol: string): void;
+  /** The row took focus, so it becomes the table's tab stop. */
+  focus(symbol: string): void;
+  /** Moves focus for an arrow, Home or End key. */
+  navigate(from: string, key: string): void;
   move(symbol: string, delta: -1 | 1): void;
   remove(symbol: string): void;
   createAlert(symbol: string): void;
@@ -34,7 +30,6 @@ export interface MarketRowActions {
 
 interface MarketRowProps {
   symbol: string;
-  selected: boolean;
   /** The one row in the tab order. Arrow keys move between rows from there. */
   tabbable: boolean;
   canMoveUp: boolean;
@@ -42,16 +37,20 @@ interface MarketRowProps {
   actions: MarketRowActions;
 }
 
-/** One watchlist symbol. Reads its own quote, so a tick re-renders only this row. */
+/**
+ * One watchlist symbol. Clicking it opens the symbol's page and its handle drags it to a new place.
+ * It reads its own quote, so a tick re-renders only this row.
+ */
 export const MarketRow = memo(function MarketRow({
   symbol,
-  selected,
   tabbable,
   canMoveUp,
   canMoveDown,
   actions,
 }: MarketRowProps) {
-  const rowRef = useRef<HTMLTableRowElement>(null);
+  const { setNodeRef, setActivatorNodeRef, listeners, transform, transition, isDragging } = useSortable({
+    id: symbol,
+  });
   const quote = useQuote(symbol);
   const connection = useConnectionStore((s) => s.connection.state);
   const status = quoteStatusView(quote, connection);
@@ -59,45 +58,61 @@ export const MarketRow = memo(function MarketRow({
   const direction = status.dimmed ? 0 : changeDirection(quote?.change);
   const tone = direction > 0 ? 'gain' : direction < 0 ? 'loss' : 'muted';
 
-  // Selecting from elsewhere (search, alerts) scrolls the row into view.
-  useEffect(() => {
-    if (selected) revealElement(rowRef.current);
-  }, [selected]);
-
   const onClick = (event: MouseEvent<HTMLTableRowElement>) => {
     const target = event.target as Node;
     // ** Menu items render in a portal, but React still bubbles their clicks to this row.
     if (!event.currentTarget.contains(target)) return;
-    // Opening the row menu shouldn't change the detail panel.
     if (target instanceof Element && target.closest('[data-row-actions]')) return;
-    actions.select(symbol);
+    actions.open(symbol);
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLTableRowElement>) => {
-    if (event.target !== event.currentTarget) return;
-    if (event.key === 'Enter' || event.key === ' ') {
+    if (event.target !== event.currentTarget || event.ctrlKey || event.metaKey) return;
+    if (event.altKey) {
+      if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
       event.preventDefault();
-      actions.select(symbol);
-    } else if (isNavigationKey(event.key) && !event.altKey && !event.ctrlKey && !event.metaKey) {
+      actions.move(symbol, event.key === 'ArrowUp' ? -1 : 1);
+    } else if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
-      actions.navigate(symbol, event.key, selected);
+      actions.open(symbol);
+    } else if (event.key === 'Delete') {
+      event.preventDefault();
+      actions.remove(symbol);
+    } else {
+      actions.navigate(symbol, event.key);
     }
   };
 
   return (
     <tr
-      ref={rowRef}
+      ref={setNodeRef}
       data-symbol={symbol}
-      aria-selected={selected}
       tabIndex={tabbable ? 0 : -1}
-      className={cx('market-row', status.dimmed && 'is-dimmed')}
+      aria-keyshortcuts="Enter Delete Alt+ArrowUp Alt+ArrowDown"
+      className={cx('market-row', status.dimmed && 'is-dimmed', isDragging && 'is-dragging')}
+      // ** Only the vertical offset applies, so a dragged row stays in its column.
+      style={{ transform: transform ? `translate3d(0, ${Math.round(transform.y)}px, 0)` : undefined, transition }}
       onClick={onClick}
       onKeyDown={onKeyDown}
+      onFocus={(event) => {
+        if (event.target === event.currentTarget) actions.focus(symbol);
+      }}
     >
+      <td className="market-row__grip" data-row-actions="">
+        {/* Pointer only: Alt+Up/Down and the row menu reorder from the keyboard. */}
+        <span ref={setActivatorNodeRef} className="market-row__handle" aria-hidden="true" {...listeners}>
+          <GripVertical />
+        </span>
+      </td>
       <td>
         <div className="market-row__label">
-          <span className="market-row__symbol">{symbol}</span>
-          <InstrumentName symbol={symbol} />
+          <span className="market-row__badge" aria-hidden="true">
+            {symbol.charAt(0)}
+          </span>
+          <span className="market-row__names">
+            <span className="market-row__symbol">{symbol}</span>
+            <InstrumentName symbol={symbol} />
+          </span>
         </div>
       </td>
       <td
@@ -109,7 +124,7 @@ export const MarketRow = memo(function MarketRow({
       >
         {formatPrice(quote?.last)}
       </td>
-      <td className={cx('is-num market-row__value', `is-${tone}`)}>
+      <td className={cx('is-num market-row__value market-col--change', `is-${tone}`)}>
         {formatChange(quote?.change, quote?.last)}
       </td>
       <td className="is-num">
@@ -117,37 +132,40 @@ export const MarketRow = memo(function MarketRow({
           {formatPercent(quote?.changePct)}
         </Badge>
       </td>
-      <td className="is-num market-row__value market-col--bid">{formatPrice(quote?.bid)}</td>
-      <td className="is-num market-row__value market-col--ask">{formatPrice(quote?.ask)}</td>
+      <td className="market-col--range">
+        <DayRange quote={quote} />
+      </td>
+      <td className="market-col--trend">
+        <Sparkline symbol={symbol} width={96} height={28} direction={direction} />
+      </td>
       <td className="is-num is-muted market-col--volume">{formatVolume(quote?.volume)}</td>
-      <td>
+      <td className="market-col--status">
         <StatusDot tone={status.tone} label={status.label} />
       </td>
-      <td className="is-num is-muted market-col--updated">
-        <QuoteAge time={quoteDataTime(quote)} />
-      </td>
       <td className="market-row__actions" data-row-actions="">
+        <IconButton
+          label={`Create alert for ${symbol}`}
+          icon={<BellPlus />}
+          size="sm"
+          variant="ghost"
+          tabIndex={tabbable ? 0 : -1}
+          onClick={() => {
+            actions.createAlert(symbol);
+          }}
+        />
         <Menu
           align="end"
           trigger={(props) => (
             <IconButton
               {...props}
-              label={`Actions for ${symbol}`}
+              label={`More actions for ${symbol}`}
               icon={<Ellipsis />}
               size="sm"
+              variant="ghost"
               tabIndex={tabbable ? 0 : -1}
-              className="market-row__menu"
             />
           )}
           items={[
-            {
-              id: 'alert',
-              label: 'Create alert',
-              icon: <BellPlus />,
-              onSelect: () => {
-                actions.createAlert(symbol);
-              },
-            },
             {
               id: 'up',
               label: 'Move up',
@@ -188,7 +206,7 @@ function InstrumentName({ symbol }: { symbol: string }) {
   if (entry.status === 'loading') {
     return (
       <span className="market-row__name">
-        <Skeleton width={72} height={9} />
+        <Skeleton width={96} height={9} />
       </span>
     );
   }
@@ -200,8 +218,20 @@ function InstrumentName({ symbol }: { symbol: string }) {
   );
 }
 
-/** Age of the quote's market data. Shares the 1s clock, so only these cells re-render each second. */
-function QuoteAge({ time }: { time: number | null }) {
-  const now = useNow();
-  return <span title={time === null ? undefined : `${formatClock(time)} ET`}>{formatAge(time, now)}</span>;
+/** Today's low and high, with a marker at the last price. */
+function DayRange({ quote }: { quote: Quote | undefined }) {
+  const position = rangePosition(quote?.low, quote?.high, quote?.last);
+  return (
+    <div className="day-range">
+      <span className="day-range__track" aria-hidden="true">
+        {position !== null && <span className="day-range__marker" style={{ left: `${position * 100}%` }} />}
+      </span>
+      <span className="day-range__ends num">
+        <span className="visually-hidden">Low </span>
+        <span>{formatPrice(quote?.low)}</span>
+        <span className="visually-hidden">, high </span>
+        <span>{formatPrice(quote?.high)}</span>
+      </span>
+    </div>
+  );
 }

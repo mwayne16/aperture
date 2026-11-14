@@ -216,29 +216,105 @@
 
 /* ------------------------------------------------------------------ Watchlist page */
 
-.watchlist-page {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 400px;
-  height: 100%;
-  min-height: 0;
+.watchlist-page__add {
+  width: 260px;
 }
 
-.watchlist-page__market,
-.watchlist-page__detail {
+/* Four summary tiles; two per row once the page gets narrow. */
+.watch-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--sp-3);
+}
+
+@media (max-width: 1100px) {
+  .watch-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.watch-summary__tile {
   display: flex;
   flex-direction: column;
+  gap: 6px;
   min-width: 0;
-  min-height: 0;
-  overflow: hidden;
+  padding: 14px var(--sp-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   background-color: var(--bg-panel);
 }
 
-.watchlist-page__detail {
-  border-left: 1px solid var(--border);
+.watch-summary__label {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
 }
 
-@media (max-width: 1200px) {
-  .watchlist-page {
-    grid-template-columns: minmax(0, 1fr) 340px;
-  }
+.watch-summary__value {
+  overflow: clip;
+  color: var(--text-primary);
+  font-size: 22px;
+  font-weight: var(--fw-semibold);
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.watch-summary__counts {
+  display: flex;
+  gap: 10px;
+}
+
+.watch-summary__symbol {
+  align-self: flex-start;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+}
+
+.watch-summary__symbol:hover {
+  color: var(--accent-text);
+}
+
+.watch-summary__detail {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+}
+
+.watch-summary .is-gain {
+  color: var(--gain-text);
+}
+
+.watch-summary .is-loss {
+  color: var(--loss-text);
+}
+
+.watch-summary .is-muted {
+  color: var(--text-muted);
+}
+
+/* Up, unchanged and down counts as one bar. */
+.watch-summary__breadth {
+  display: flex;
+  gap: 2px;
+  height: 6px;
+  margin-top: 4px;
+  overflow: hidden;
+  border-radius: 3px;
+  background-color: var(--bg-neutral-tint);
+}
+
+.watch-summary__bar {
+  flex-basis: 0;
+}
+
+.watch-summary__bar.is-gain {
+  background-color: var(--gain);
+}
+
+.watch-summary__bar.is-loss {
+  background-color: var(--loss);
+}
+
+.watch-summary__bar.is-muted {
+  background-color: var(--text-faint);
 }

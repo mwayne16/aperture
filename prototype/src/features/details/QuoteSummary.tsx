@@ -15,32 +15,13 @@ import {
   formatPercent,
   formatPrice,
 } from '../../lib/format';
-import { awaitingQuote, connectionNotice, describeStatus, quoteStats, quoteTime } from './quoteView';
+import { awaitingQuote, connectionNotice, describeStatus, quoteTime } from './quoteView';
 import { useNow } from './useNow';
 import './details.css';
 
 function directionClass(value: number | null): string | false {
   const direction = changeDirection(value);
   return direction !== 0 && (direction > 0 ? 'is-gain' : 'is-loss');
-}
-
-/** Live quote for one symbol: last price, change, data status and age, then the stats grid. */
-export function QuoteSummary({ symbol }: { symbol: string }) {
-  const quote = useQuote(symbol);
-  return (
-    <div className="details-quote">
-      <h3 className="visually-hidden">Quote</h3>
-      <LiveQuote symbol={symbol} />
-      <dl className="details-stats">
-        {quoteStats(quote).map((stat) => (
-          <div key={stat.label} className="details-stats__item">
-            <dt>{stat.label}</dt>
-            <dd className="num">{stat.value}</dd>
-          </div>
-        ))}
-      </dl>
-    </div>
-  );
 }
 
 type QuoteSize = 'md' | 'lg';

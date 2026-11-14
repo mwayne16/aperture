@@ -36,8 +36,7 @@ const row = (symbol: string) => {
   return element;
 };
 const addBox = () => screen.getByRole('combobox', { name: 'Add symbol to watchlist' });
-const detailHeading = () =>
-  within(screen.getByRole('region', { name: 'Stock details' })).getByRole('heading', { level: 2 });
+const pageHeading = () => screen.getByRole('heading', { level: 1 });
 
 function persistedSymbols(): string[] | undefined {
   return parsePersisted(localStorage.getItem(STORAGE_KEY), new Date().toISOString())?.watchlist.symbols;
@@ -105,7 +104,7 @@ describe('the watchlist and the market table (QA)', () => {
     await grid();
     expect(rowSymbols()).toEqual(['AAPL']);
 
-    const menu = await openRowMenu(user, 'Actions for AAPL');
+    const menu = await openRowMenu(user, 'More actions for AAPL');
     await user.click(within(menu).getByRole('menuitem', { name: 'Remove from watchlist' }));
     expect(await screen.findByText('Your watchlist is empty')).toBeInTheDocument();
     await waitFor(() => {
@@ -122,9 +121,9 @@ describe('the watchlist and the market table (QA)', () => {
     const { unmount } = render(<App />);
     await grid();
 
-    let menu = await openRowMenu(user, 'Actions for MSFT');
+    let menu = await openRowMenu(user, 'More actions for MSFT');
     await user.click(within(menu).getByRole('menuitem', { name: 'Move up' }));
-    menu = await openRowMenu(user, 'Actions for NVDA');
+    menu = await openRowMenu(user, 'More actions for NVDA');
     await user.click(within(menu).getByRole('menuitem', { name: 'Remove from watchlist' }));
 
     const expected = ['MSFT', 'AAPL', 'GOOGL', 'AMZN', 'META', 'TSLA', 'AMD', 'AVGO', 'NFLX'];
@@ -214,22 +213,22 @@ describe('the watchlist and the market table (QA)', () => {
     expect(rowSymbols()).toHaveLength(MAX_WATCHLIST_SYMBOLS);
   });
 
-  it('drives the detail panel from row clicks and the arrow keys', async () => {
+  it('opens a symbol page from a row click and from the keyboard', async () => {
     const user = userEvent.setup();
     render(<App />);
     await grid();
 
     await user.click(within(row('MSFT')).getByText('MSFT'));
-    expect(detailHeading()).toHaveTextContent('MSFT');
-    expect(row('MSFT')).toHaveFocus();
+    expect(window.location.hash).toBe('#/symbol/MSFT');
+    expect(pageHeading()).toHaveTextContent('MSFT');
 
-    await user.keyboard('{ArrowDown}');
-    expect(detailHeading()).toHaveTextContent('NVDA');
-    expect(row('NVDA')).toHaveFocus();
-    await user.keyboard('{End}');
-    expect(detailHeading()).toHaveTextContent('NFLX');
-    await user.keyboard('{Home}');
-    expect(detailHeading()).toHaveTextContent('AAPL');
-    expect(row('AAPL')).toHaveAttribute('aria-selected', 'true');
+    window.history.back();
+    await grid();
+    act(() => {
+      row('AAPL').focus();
+    });
+    await user.keyboard('{End}{ArrowUp}{Enter}');
+    expect(window.location.hash).toBe('#/symbol/AVGO');
+    expect(pageHeading()).toHaveTextContent('AVGO');
   });
 });

@@ -6,10 +6,10 @@ import {
   flashDirection,
   flashIsDue,
   moveSymbol,
-  navigationTarget,
   neighborAfterRemoval,
   quoteDataTime,
   quoteStatusView,
+  rangePosition,
   retryCountdown,
 } from './marketModel';
 
@@ -34,30 +34,28 @@ describe('moveSymbol', () => {
   });
 });
 
-describe('navigationTarget', () => {
-  it('moves one row with the arrows and stops at the ends', () => {
-    expect(navigationTarget(SYMBOLS, 'MSFT', 'ArrowDown', true)).toBe('NVDA');
-    expect(navigationTarget(SYMBOLS, 'MSFT', 'ArrowUp', true)).toBe('AAPL');
-    expect(navigationTarget(SYMBOLS, 'NVDA', 'ArrowDown', true)).toBe('NVDA');
-    expect(navigationTarget(SYMBOLS, 'AAPL', 'ArrowUp', true)).toBe('AAPL');
+describe('rangePosition', () => {
+  it('places a price between the low and the high', () => {
+    expect(rangePosition(100, 110, 100)).toBe(0);
+    expect(rangePosition(100, 110, 107.5)).toBe(0.75);
+    expect(rangePosition(100, 110, 110)).toBe(1);
   });
 
-  it('jumps to the first and last row with Home and End', () => {
-    expect(navigationTarget(SYMBOLS, 'MSFT', 'Home', true)).toBe('AAPL');
-    expect(navigationTarget(SYMBOLS, 'MSFT', 'End', true)).toBe('NVDA');
+  it('clamps a price outside the range to the nearest end', () => {
+    expect(rangePosition(100, 110, 95)).toBe(0);
+    expect(rangePosition(100, 110, 120)).toBe(1);
   });
 
-  it('selects the focused row first when it is not selected yet', () => {
-    expect(navigationTarget(SYMBOLS, 'AAPL', 'ArrowDown', false)).toBe('AAPL');
+  it('puts the price in the middle of a flat day', () => {
+    expect(rangePosition(100, 100, 100)).toBe(0.5);
   });
 
-  it('starts from an end when the focused row has left the list', () => {
-    expect(navigationTarget(SYMBOLS, 'TSLA', 'ArrowDown', true)).toBe('AAPL');
-    expect(navigationTarget(SYMBOLS, 'TSLA', 'ArrowUp', true)).toBe('NVDA');
-  });
-
-  it('returns null for an empty list', () => {
-    expect(navigationTarget([], 'AAPL', 'Home', true)).toBeNull();
+  it('has no position without a usable range', () => {
+    expect(rangePosition(null, 110, 105)).toBeNull();
+    expect(rangePosition(100, undefined, 105)).toBeNull();
+    expect(rangePosition(100, 110, null)).toBeNull();
+    expect(rangePosition(110, 100, 105)).toBeNull();
+    expect(rangePosition(100, Number.NaN, 105)).toBeNull();
   });
 });
 

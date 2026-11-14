@@ -10,7 +10,7 @@ import { SEED_WATCHLIST_SYMBOLS } from '../../data/mock/seed';
 import { resetSimulation, updateSimulation } from '../../data/simulationStore';
 import { useWatchlistStore } from '../watchlists/watchlistStore';
 import { useInstrumentStore } from './instrumentStore';
-import { MarketTable } from './MarketTable';
+import { WatchlistPage } from '../watchlists/WatchlistPage';
 
 /**
  * The market table's add box against the real watchlist store and mock API, with enough latency
@@ -66,7 +66,7 @@ describe('market add box type-ahead (QA)', () => {
   it('still adds a symbol when Enter beats the search and the next symbol is typed right away', async () => {
     await loadWatchlist();
     const user = userEvent.setup();
-    render(<MarketTable />);
+    render(<WatchlistPage />);
     // Enter lands before the results for "jpm" arrive, then the user types the next symbol.
     await user.type(addBox(), 'jpm{Enter}xom');
     await waitFor(
@@ -81,7 +81,7 @@ describe('market add box type-ahead (QA)', () => {
   it('keeps the next symbol typed while the first symbol of an empty list saves', async () => {
     await loadWatchlist({ empty: true });
     const user = userEvent.setup();
-    render(<MarketTable />);
+    render(<WatchlistPage />);
     await user.type(addBox(), 'nvda');
     await screen.findByRole('option', { name: /^NVDA, NVIDIA/ }, { timeout: 2000 });
     await user.keyboard('{Enter}');
@@ -101,7 +101,7 @@ describe('market add box type-ahead (QA)', () => {
     const user = userEvent.setup();
     render(
       <>
-        <MarketTable />
+        <WatchlistPage />
         <ToastViewport />
       </>,
     );

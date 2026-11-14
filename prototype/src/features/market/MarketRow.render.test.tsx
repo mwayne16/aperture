@@ -50,12 +50,12 @@ afterEach(() => {
   });
 });
 
-it('re-renders only the row whose quote, selection or tab stop changed', () => {
+it('re-renders only the row whose quote changed', () => {
   act(() => {
     useWatchlistStore.setState({ status: 'ready', watchlist: { symbols: ['AAPL', 'MSFT', 'NVDA'], updatedAt: '' } });
     useQuoteStore.getState().applyBatch([quote('AAPL', 100), quote('MSFT', 100), quote('NVDA', 100)]);
   });
-  render(<MarketTable />);
+  render(<MarketTable onRequestAdd={() => undefined} />);
 
   const before = { AAPL: renders('AAPL'), MSFT: renders('MSFT'), NVDA: renders('NVDA') };
   act(() => {

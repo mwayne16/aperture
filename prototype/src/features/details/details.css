@@ -1,53 +1,7 @@
 /*
- * Stock detail panel: identity header, live quote with stats, and the history chart.
- * The panel scrolls as a whole; the chart takes the remaining height but never shrinks below a
- * readable size.
+ * Shared pieces of the stock page: the instrument line, the live quote headline and the history chart.
+ * The chart takes the remaining height but never shrinks below a readable size.
  */
-
-.details {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-height: 0;
-  overflow-y: auto;
-}
-
-.details--empty {
-  justify-content: center;
-}
-
-/* ---------------------------------------------------------------- Header */
-
-.details__header {
-  display: flex;
-  flex: none;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--sp-3);
-  padding: var(--sp-3) var(--sp-3) var(--sp-2);
-}
-
-.details__identity {
-  min-width: 0;
-}
-
-/* Focus targets for Retry, not controls: they hold focus without a ring while content reloads. */
-.details__identity:focus,
-.details-chart__body:focus {
-  outline: none;
-}
-
-.details__title-row {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-}
-
-.details__symbol {
-  font-size: var(--fs-xl);
-  font-weight: var(--fw-semibold);
-  letter-spacing: -0.01em;
-}
 
 .details__instrument {
   display: flex;
@@ -80,13 +34,12 @@
   content: '·';
 }
 
-/* ---------------------------------------------------------------- Quote */
-
-.details-quote {
-  flex: none;
-  padding: 0 var(--sp-3) var(--sp-3);
-  border-bottom: 1px solid var(--border);
+/* A focus target for Retry, not a control: it holds focus without a ring while the chart reloads. */
+.details-chart__body:focus {
+  outline: none;
 }
+
+/* ---------------------------------------------------------------- Quote */
 
 .details-quote__notice {
   display: flex;
@@ -169,36 +122,6 @@
 
 .details-quote__status-label {
   display: inline-flex;
-}
-
-.details-stats {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: var(--sp-4);
-  margin-top: var(--sp-3);
-}
-
-.details-stats__item {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--sp-2);
-  padding: 5px 0;
-  border-bottom: 1px solid var(--border-subtle);
-  font-size: var(--fs-sm);
-}
-
-.details-stats__item dt {
-  flex: none;
-  color: var(--text-muted);
-}
-
-.details-stats__item dd {
-  min-width: 0;
-  overflow: hidden;
-  text-align: right;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* ---------------------------------------------------------------- Chart */

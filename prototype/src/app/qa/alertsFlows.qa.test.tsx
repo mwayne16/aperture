@@ -141,7 +141,7 @@ async function runFeedUntil(done: () => boolean, maxMs: number, invariant: () =>
 /** Removes a symbol with its row menu on the watchlist page, which drops its quotes unless something else needs them. */
 async function removeFromWatchlist(symbol: string) {
   if (window.location.hash !== '#/watchlist') await goTo('#/watchlist');
-  await chooseMenuItem(screen.getByRole('button', { name: `Actions for ${symbol}` }), 'Remove from watchlist');
+  await chooseMenuItem(screen.getByRole('button', { name: `More actions for ${symbol}` }), 'Remove from watchlist');
   await advance(500);
 }
 
@@ -160,12 +160,13 @@ function unreadBadge(): string | null {
 }
 
 describe('alerts end to end (QA)', () => {
-  it('creates an alert from a market row menu that triggers once, with one toast, one history entry and one notification', async () => {
+  it('creates an alert from a watchlist row that triggers once, with one toast, one history entry and one notification', async () => {
     await startApp();
     const last = getQuote('AMD')?.last ?? Number.NaN;
     const target = Math.floor(last) - 5;
 
-    await chooseMenuItem(screen.getByRole('button', { name: 'Actions for AMD' }), 'Create alert');
+    fireEvent.click(screen.getByRole('button', { name: 'Create alert for AMD' }));
+    await advance(0);
     expect(dialog()).toHaveAccessibleName('New alert');
     expect(field('Symbol')).toHaveValue('AMD');
     type(field('Target price'), String(target));
