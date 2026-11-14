@@ -4,8 +4,9 @@ A desktop app for **monitoring and analysing** US stocks, ETFs and crypto: a wat
 prices, charts, price alerts and market news. Aperture never places orders or executes trades; Buy and
 Sell on alerts are labels only.
 
-The user interface currently runs on clearly labelled **simulated data**. Real market data arrives with
-the market-data integration (see [`stock-app-plan.md`](stock-app-plan.md)).
+The user interface currently runs on clearly labelled **simulated data**. The backend already serves real
+market data from Alpaca (see [Market data](#market-data)); the app switches to it once it talks to the
+backend (see [`stock-app-plan.md`](stock-app-plan.md)).
 
 ## Repository layout
 
@@ -44,6 +45,7 @@ cp .env.example .env
 
 Replace every `<PLACEHOLDER>` in `.env` with a real value. Optional settings can be deleted instead to use
 their defaults (see [Configuration](#configuration)); delete the two Alpaca lines until you have an account.
+Without Alpaca keys the server still runs; only the market-data endpoints answer 503.
 The server refuses to start while a placeholder is left in place and names the variable.
 
 `.env` holds secrets (the database password, market-data API keys). It is git-ignored; never commit it.
@@ -130,8 +132,9 @@ must be running**. They never touch the database in your `.env`.
 
 The backend listens on `127.0.0.1:4100`. Request and response types live in `packages/shared`. Every
 error uses one shape, `{ "error": { "code", "message", "details": [{ "field", "message" }] } }`, with
-the codes `VALIDATION_ERROR` (400), `NOT_FOUND` (404), `CONFLICT` (409), `UNAVAILABLE` (503, e.g. the
-database is down) and `INTERNAL` (500). Unknown fields in a request are rejected.
+the codes `VALIDATION_ERROR` (400), `NOT_FOUND` (404), `CONFLICT` (409), `PROVIDER_ERROR` (502, the
+market-data provider failed or rejected the keys), `UNAVAILABLE` (503, e.g. the database is down or market
+data isn't configured) and `INTERNAL` (500). Unknown fields and query parameters are rejected.
 
 | Method and path | Does |
 | --- | --- |
@@ -144,6 +147,12 @@ database is down) and `INTERNAL` (500). Unknown fields in a request are rejected
 | `POST /alerts` | Create `{ symbol, condition, targetPrice, tag, enabled?, note? }` (201) |
 | `PATCH /alerts/:id` | Change any of `condition`, `targetPrice`, `tag`, `enabled`, `note`; `note: null` clears it |
 | `DELETE /alerts/:id` | Delete (204) |
+| `GET /instruments` | `{ instruments }` ordered by symbol; `assetClass=stock\|etf\|crypto` filters, `limit` caps |
+| `GET /instruments?q=app` | Search: exact symbol, then symbol prefix, then name; 8 results by default, `limit` up to 50 |
+| `GET /instruments/:symbol` | One instrument; 404 if the provider doesn't list it |
+| `GET /instruments/:symbol/history?range=1M` | Chart bars for `1D`, `1W`, `1M`, `3M`, `6M`, `YTD`, `1Y`, `5Y`, `10Y` or `ALL` |
+| `GET /quotes?symbols=AAPL,BTC/USD` | `{ quotes }` in the order asked, up to 200 symbols; unknown ones are `unavailable` |
+| `GET /movers?limit=5` | Today's top stock gainers, losers and most active, with quotes (`limit` up to 50) |
 
 Alerts are evaluated on the last trade price. Changing an alert's condition or target price, or enabling
 it again, re-arms it so it can fire again.
@@ -163,7 +172,7 @@ messages name the variable and never print its value.
 | `REDIS_URL` | required | Redis connection URL |
 | `MARKET_DATA_PROVIDER` | `alpaca` | Which market-data adapter to use |
 | `ALPACA_DATA_FEED` | `iex` | `iex` (free, IEX exchange only), `sip` (all exchanges, paid) or `delayed_sip` |
-| `ALPACA_API_KEY_ID`, `ALPACA_API_SECRET_KEY` | unset | Alpaca credentials; set both or neither |
+| `ALPACA_API_KEY_ID`, `ALPACA_API_SECRET_KEY` | unset | Alpaca **paper-trading** keys; set both or neither |
 | `POSTGRES_USER`, `POSTGRES_DB` | `aperture` | Database account and name Docker Compose creates |
 | `POSTGRES_PASSWORD` | required | Password for that account; Docker Compose won't start without it |
 | `POSTGRES_PORT`, `REDIS_PORT` | `5432`, `6379` | Host ports for Docker Compose |
@@ -184,3 +193,23 @@ first adapter; another source means a new adapter and a change to `MARKET_DATA_P
 Alpaca's free plan allows 200 REST calls a minute, one stream connection and 30 live symbols per
 stream, with real-time prices from the IEX exchange only. Aperture caps the watchlist at 30 symbols so
 a full watchlist still streams live, and labels IEX prices as such rather than as consolidated prices.
+
+To connect Alpaca, create a free account at alpaca.markets, open the **paper-trading** dashboard, generate
+API keys and put them in `.env` as `ALPACA_API_KEY_ID` and `ALPACA_API_SECRET_KEY`. Paper keys read the same
+market data as live ones and can never touch real money. The server reads the instrument list from
+Alpaca's paper-trading host, so it needs paper keys. It uses only Alpaca's market-data and read-only asset
+APIs and never calls the trading API.
+
+How the server uses the free plan:
+
+- It throttles itself to 180 requests a minute and retries rate-limited or failed reads twice with backoff.
+  Quotes for many symbols, and bars for many symbols, each take one request.
+- The instrument list is cached for a day, chart history for a minute (intraday ranges) or 15 minutes
+  (daily and longer), and movers for a minute. The caches live in memory and hold a bounded number of
+  entries.
+- With `ALPACA_DATA_FEED=delayed_sip`, quotes come 15 minutes late and are marked `delayed`, and chart
+  history comes from SIP and ends 15 minutes ago, which the free plan allows.
+- Alpaca has no fund flag, so ETFs are recognized by name ("ETF", "ETN" or "Trust, Series"). A fund whose
+  name has none of these shows as a stock. OTC listings are left out because the IEX feed has no prices
+  for them.
+- Alpaca provides no fundamentals (market cap, P/E, EPS), so Aperture doesn't show them.
