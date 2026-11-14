@@ -1,12 +1,12 @@
 import { validateAlertFields } from '@aperture/shared/alertRules';
 import { resolveRange } from '@aperture/shared/chartRanges';
+import { DEFAULT_SEARCH_LIMIT, MAX_SEARCH_LIMIT, searchInstruments } from '@aperture/shared/instrumentSearch';
 import { MAX_WATCHLIST_SYMBOLS, normalizeSymbol, validateSymbol } from '@aperture/shared/symbols';
 import {
   CHART_RANGES,
   type AssetClass,
   type ChartRange,
   type HistoryResult,
-  type Instrument,
   type PriceAlert,
   type Quote,
   type UpdateAlertInput,
@@ -30,12 +30,10 @@ import { createSimulationSource, type SimulationSource } from './simulationSourc
  */
 
 export const HISTORY_DELAY_MS = { normal: 400, slow: 2500 } as const;
-export const DEFAULT_SEARCH_LIMIT = 8;
 const DEFAULT_MOVERS_LIMIT = 5;
 const DEFAULT_NEWS_LIMIT = 10;
 const MAX_LIST_LIMIT = 50;
 const ASSET_CLASSES: readonly AssetClass[] = ['stock', 'etf', 'crypto'];
-export const MAX_SEARCH_LIMIT = 50;
 
 export interface MockApiOptions {
   repo: Repository;
@@ -145,23 +143,6 @@ export function createMockApi(options: MockApiOptions): MarketApi {
       if (isApiError(error)) throw error;
       throw new ApiError('INTERNAL', 'Unexpected error in the simulated backend.', 500);
     }
-  }
-
-  function searchUniverse(query: string, limit: number): Instrument[] {
-    const upper = query.toUpperCase();
-    const lower = query.toLowerCase();
-    const exact = instruments.filter((i) => i.symbol === upper);
-    const prefix = instruments
-      .filter((i) => i.symbol !== upper && i.symbol.startsWith(upper))
-      .sort((a, b) => a.symbol.length - b.symbol.length || a.symbol.localeCompare(b.symbol));
-    const byName = instruments
-      .filter((i) => !i.symbol.startsWith(upper) && i.name.toLowerCase().includes(lower))
-      .sort(
-        (a, b) =>
-          a.name.toLowerCase().indexOf(lower) - b.name.toLowerCase().indexOf(lower) ||
-          a.name.localeCompare(b.name),
-      );
-    return [...exact, ...prefix, ...byName].slice(0, limit).map(toInstrument);
   }
 
   function checkLimit(limit: unknown, fallback: number): number {
@@ -336,7 +317,7 @@ export function createMockApi(options: MockApiOptions): MarketApi {
         }
         const trimmed = asString(query).trim();
         if (trimmed === '') return [];
-        return searchUniverse(trimmed, Math.min(limit, MAX_SEARCH_LIMIT));
+        return searchInstruments(instruments, trimmed, Math.min(limit, MAX_SEARCH_LIMIT)).map(toInstrument);
       }),
 
     getInstrument: (symbol) =>
