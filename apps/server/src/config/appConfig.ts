@@ -50,7 +50,10 @@ export class AppConfig {
   @IsIn(ALPACA_FEEDS)
   alpacaDataFeed: AlpacaFeed = 'iex';
 
-  /** Optional until market data is wired in; when one Alpaca key is set, the other is required. */
+  /**
+   * Optional: without keys the server still runs and the market-data endpoints answer UNAVAILABLE. When
+   * one key is set, the other is required.
+   */
   @Env('ALPACA_API_KEY_ID')
   @ValidateIf(
     (config: AppConfig) => config.alpacaApiKeyId !== undefined || config.alpacaApiSecretKey !== undefined,

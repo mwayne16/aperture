@@ -13,7 +13,7 @@ let app: FastifyInstance;
 
 beforeAll(async () => {
   dataSource = await openTestDatabase();
-  app = buildApp({ config: testConfig, dataSource }, { logger: false });
+  app = buildApp({ config: testConfig, dataSource, marketData: null }, { logger: false });
 });
 
 afterAll(async () => {

@@ -6,6 +6,7 @@ import { ConfigError, describeConfig, loadConfig } from './config/loadConfig.js'
 import { createDataSource } from './db/dataSource.js';
 import { closeDatabase, openDatabase } from './db/database.js';
 import { describeDatabaseError } from './db/errors.js';
+import { createMarketDataProvider } from './marketData/createProvider.js';
 
 function readConfig(): AppConfig {
   try {
@@ -23,7 +24,8 @@ function readConfig(): AppConfig {
 
 const config = readConfig();
 const dataSource = createDataSource(config.databaseUrl);
-const app = buildApp({ config, dataSource });
+const marketData = createMarketDataProvider(config);
+const app = buildApp({ config, dataSource, marketData });
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
@@ -46,3 +48,8 @@ try {
 
 await app.listen({ host: config.serverHost, port: config.serverPort });
 app.log.info(describeConfig(config));
+if (marketData === null) {
+  app.log.warn(
+    'Market data is off: set ALPACA_API_KEY_ID and ALPACA_API_SECRET_KEY in .env (paper-trading keys), then restart.',
+  );
+}
