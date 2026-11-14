@@ -173,7 +173,7 @@ describe('watchToggleView', () => {
     );
     expect(watchToggleView(full, 'AAPL', 'ready')).toMatchObject({
       disabled: true,
-      hint: 'Your watchlist is full (100 symbols max).',
+      hint: 'Your watchlist is full (30 symbols max).',
     });
     const holding = list([...full.symbols.slice(1), 'AAPL']);
     expect(watchToggleView(holding, 'AAPL', 'ready')).toMatchObject({ watching: true, disabled: false });
