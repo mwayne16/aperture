@@ -1,0 +1,43 @@
+{
+  "name": "@aperture/server",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Aperture backend: market data, watchlist and alerts API.",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "tsc -b tsconfig.build.json",
+    "start": "node --env-file-if-exists=../../.env dist/main.js",
+    "typecheck": "tsc -b tsconfig.build.json && tsc -p tsconfig.json",
+    "lint": "eslint . --max-warnings=0",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "knip": "knip --no-progress",
+    "check": "npm run typecheck && npm run lint && npm run knip && npm run test"
+  },
+  "knip": {
+    "entry": [
+      "src/main.ts",
+      "scripts/*.mjs"
+    ],
+    "ignoreExportsUsedInFile": {
+      "interface": true,
+      "type": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "eslint": "^10.15.0",
+    "globals": "^17.14.0",
+    "knip": "^6.45.1",
+    "typescript": "~6.0.3",
+    "vitest": "^5.1.0"
+  },
+  "dependencies": {
+    "@aperture/shared": "0.0.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.15.1",
+    "fastify": "^5.12.8",
+    "reflect-metadata": "^0.2.2"
+  }
+}

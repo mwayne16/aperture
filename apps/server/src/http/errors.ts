@@ -1,0 +1,43 @@
+import { API_ERROR_STATUS, type ApiErrorBody, type ApiErrorCode, type ApiErrorDetail } from '@aperture/shared/errors';
+import type { FastifyError, FastifyInstance } from 'fastify';
+
+/** An error that becomes an API error response. Throw it from services, hooks or handlers. */
+export class ApiHttpError extends Error {
+  readonly code: ApiErrorCode;
+  readonly status: number;
+  readonly details: ApiErrorDetail[];
+
+  constructor(code: ApiErrorCode, message: string, details: ApiErrorDetail[] = []) {
+    super(message);
+    this.name = 'ApiHttpError';
+    this.code = code;
+    this.status = API_ERROR_STATUS[code];
+    this.details = details;
+  }
+}
+
+function body(code: ApiErrorCode, message: string, details: ApiErrorDetail[] = []): ApiErrorBody {
+  return { error: { code, message, details } };
+}
+
+/**
+ * Sends every failure in the shared error shape. Expected errors keep their message; anything
+ * unexpected is logged in full and answered with a generic message, so internals never reach clients.
+ */
+export function registerErrorHandling(app: FastifyInstance): void {
+  app.setNotFoundHandler((request, reply) => {
+    void reply.code(404).send(body('NOT_FOUND', `No route for ${request.method} ${request.url}.`));
+  });
+
+  app.setErrorHandler((error: FastifyError, request, reply) => {
+    if (error instanceof ApiHttpError) {
+      return reply.code(error.status).send(body(error.code, error.message, error.details));
+    }
+    // Fastify's own client errors (malformed JSON, oversized or unsupported bodies) explain themselves safely.
+    if (error.statusCode !== undefined && error.statusCode >= 400 && error.statusCode < 500) {
+      return reply.code(error.statusCode).send(body('VALIDATION_ERROR', error.message));
+    }
+    request.log.error({ err: error }, 'Unhandled error');
+    return reply.code(500).send(body('INTERNAL', 'Something went wrong on the server.'));
+  });
+}
