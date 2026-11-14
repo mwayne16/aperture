@@ -8,10 +8,11 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
 - Phase 0 (interactive prototype): **approved by the user on 2026-11-13.** It includes the multi-page
   redesign, the visual polish pass (tag `before-ui-polish` marks the state before it) and the news card.
   Watchlist-curated news ranking is specified in plan section 2.6 for later.
-- Phase 1 (project foundation): **built on `feat/project-foundation`, awaiting merge.** Workspaces, the
-  hardened Electron shell, the Fastify server (config, validation pipeline, errors, health), shared
-  contracts, Docker Compose (verified healthy 2026-11-14: Postgres 18.7, Redis 8.8.4) and the README are
-  done. Next: Phase 2, persistence and API.
+- Phase 1 (project foundation): **merged 2026-11-14.** Workspaces, the hardened Electron shell, the Fastify
+  server (config, validation pipeline, errors, health), shared contracts, Docker Compose and the README.
+- Phase 2 (persistence and API): **built on `feat/persistence-api`, awaiting merge.** Schema and the first
+  migration, watchlist and alert endpoints, DB-unavailable handling, Testcontainers-backed tests, and a
+  manual check that data survives a backend restart. Next: Phase 3, market data integration.
 - Track phase status in this section. Update it whenever a phase is approved or completed.
 
 ## Product decisions that override the plan
@@ -39,7 +40,9 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
 - Remote: https://github.com/mwayne16/aperture (private). The local folder is still named `aperture-client`.
 - **Monorepo** with npm workspaces from Phase 1: `apps/desktop` (Electron + React), `apps/server` (Fastify),
   `packages/shared` (typed HTTP/WebSocket contracts). Chosen so client and API share types and change atomically.
-- `main` is protected by convention: work happens on `feat/*` branches and merges only with a green check.
+- `main` is protected on GitHub (2026-11-14): merging needs the CI check "Typecheck, lint, knip, test and build
+  (all workspaces)" to pass. Branch protection matches that job name exactly, so don't rename or split the job.
+  Work happens on `feat/*` branches; PRs use auto-merge (rebase).
 - Ports: desktop renderer dev server 5173, server API 4100, Postgres 5432, Redis 6379 (all on 127.0.0.1).
 - One `.env` at the repo root (from `.env.example`) feeds Docker Compose and the server
   (`node --env-file-if-exists=../../.env`). No dotenv package.
@@ -83,11 +86,36 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
   port in `apps/server/src/marketData/provider.ts`; each vendor is an adapter selected by
   `MARKET_DATA_PROVIDER`, and its plan limits are data the rate limiter and stream budget read.
 - Lint config: one `eslint.base.js` at the root; each workspace adds its globals and plugins.
+- Shared code: `packages/shared` holds the API contracts and the symbol and alert rules both sides enforce.
+  Each export has a `source` condition pointing at its TypeScript, which the desktop app resolves
+  (`customConditions` and Vite `resolve.conditions`), so it never needs the package built. The server
+  resolves `dist` through its project reference. The app keeps its own copies of the API types until it
+  talks to the backend; `domain/contracts.test.ts` fails typecheck when they drift.
+- Persistence (verified at runtime 2026-11-14 with TypeORM 1.1.3, pg 8.23, Postgres 18.7):
+  - Entities and migrations are listed explicitly in `db/dataSource.ts`, never found by glob.
+    `synchronize` stays off everywhere. The server runs pending migrations at startup.
+  - Single local user, no users table. The `watchlists` table holds exactly one row (id 1, a CHECK
+    constraint), seeded by the first migration. Watchlist changes lock that row, which serializes them.
+  - Prices are `double precision` (round-trips JS numbers exactly). Alert ids are UUIDs made in the app.
+  - `updatedAt` strictly increases (`nextUpdatedAt`), because the app drops alert copies older than the
+    one it has.
+  - Server tests run against a Testcontainers PostgreSQL started once per run (`src/test/globalSetup.ts`,
+    image read from `compose.yaml`), with test files run one at a time. **Docker must be running for
+    `npm run check`.** `migrations.test.ts` fails when entities and migrations drift.
+  - Alert trigger history stays session-only until the alerting work adds a table for it.
+
+## Server architecture (`apps/server`)
+- One folder per feature (`watchlist/`, `alerts/`) with its entities, DTOs, service and routes. Services hold
+  the business rules; routes only validate (`validateRequest` with DTO classes) and call a service.
+- DTOs check fields with the shared rules through `FollowsRule`, so the API and the app report the same
+  messages. `Omittable` marks optional fields in partial updates: unlike `IsOptional` it still rejects null.
+- `db/`: the data source, migrations, startup (`openDatabase`, bounded retry) and `isDatabaseUnavailable`,
+  which the error handler turns into 503 UNAVAILABLE.
 
 ## Desktop app architecture (`apps/desktop`)
 - `electron/`: main process (`main.ts`), preload (`preload.ts`, the typed `window.aperture` bridge from
   `bridge.ts`) and the navigation policy. `src/`: the React renderer, described below.
-- `domain/`: pure types and logic that carry over to production (types, alert engine, chart ranges, symbol rules).
+- `domain/`: pure types and logic that carry over to production (types, alert engine, chart ranges).
 - `lib/`: formatting and small utilities.
 - `data/api.ts` and `data/realtime.ts`: **interfaces** that mirror the future HTTP API and WebSocket client.
   `data/mock/` implements them with clearly labeled simulated data. In Phase 5 the mocks are replaced
@@ -98,8 +126,8 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
 - `App.tsx` owns the layout grid and landmarks; each feature renders content only inside its area.
   `app/` holds cross-feature UI state (`uiStore.ts`), startup, quote subscriptions and global shortcuts.
   The design-system showcase is at `#showcase`.
-- Domain rules that both the UI and the API enforce (symbols, watchlist names, alert fields) live in
-  `domain/`, so forms validate without a round trip and report the same messages as the API.
+- Rules that both the UI and the API enforce (symbols, the watchlist limit, alert fields) live in
+  `packages/shared`, so forms validate without a round trip and report the same messages as the API.
 - Alert evaluation lives behind the realtime interface (the "backend" side), never inside UI components.
 
 ## Rules
@@ -177,5 +205,7 @@ Inline comments that explain a non-obvious decision start with `// **`.
 - Never give two files in one folder names that differ only by case (`WatchlistSummary.tsx` and
   `watchlistSummary.ts`, `SimulatedBadge.tsx` and `simulatedBadge.css`). Windows resolves them as one,
   and both times Vite served the wrong module.
+- `git stash push <path>` also stashes renames already staged with `git mv`, and popping it then conflicts.
+  Commit or unstage the renames before stashing one path.
 - `npm install` didn't download Electron's runtime here (2026-11-14). Run `node node_modules/electron/install.js`
   with `electron_config_cache` set, and check `node_modules/electron/dist` exists.
