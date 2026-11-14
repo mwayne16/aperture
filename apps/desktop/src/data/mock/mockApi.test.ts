@@ -1,12 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { resolveRange } from '@aperture/shared/chartRanges';
+import { DEFAULT_SEARCH_LIMIT, MAX_SEARCH_LIMIT } from '@aperture/shared/instrumentSearch';
 import { MAX_WATCHLIST_SYMBOLS } from '@aperture/shared/symbols';
 import { CHART_RANGES, type Bar, type ChartRange, type CreateAlertInput } from '../../domain/types';
 import { isApiError, type ApiError, type ApiErrorCode } from '../api';
 import type { SimulationState } from '../simulation';
 import { RETENTION_FLOOR_MS } from './history';
 import { createMockMarket } from './market';
-import { createMockApi, DEFAULT_SEARCH_LIMIT, HISTORY_DELAY_MS, MAX_SEARCH_LIMIT } from './mockApi';
+import { createMockApi, HISTORY_DELAY_MS } from './mockApi';
 import { createRepository } from './repository';
 import { SEED_WATCHLIST_SYMBOLS } from './seed';
 import { createSimulationSource } from './simulationSource';

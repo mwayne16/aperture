@@ -30,6 +30,11 @@
       "types": "./dist/health.d.ts",
       "default": "./dist/health.js"
     },
+    "./instrumentSearch": {
+      "source": "./src/instrumentSearch.ts",
+      "types": "./dist/instrumentSearch.d.ts",
+      "default": "./dist/instrumentSearch.js"
+    },
     "./marketData": {
       "source": "./src/marketData.ts",
       "types": "./dist/marketData.d.ts",
