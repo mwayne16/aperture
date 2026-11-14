@@ -1,11 +1,10 @@
 import { IsIn, IsInt, IsNotEmpty, IsString, IsUrl, Max, Min, ValidateIf } from 'class-validator';
+import { ALPACA_FEEDS, type AlpacaFeed } from '../marketData/alpaca/alpacaProvider.js';
 import { MARKET_DATA_PROVIDERS, type MarketDataProviderId } from '../marketData/provider.js';
 import { Env, EnvInt } from './env.js';
 
 const NODE_ENVS = ['development', 'test', 'production'] as const;
 const LOG_LEVELS = ['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'] as const;
-/** Alpaca feeds: real-time IEX (free), all exchanges (paid), or all exchanges 15 minutes late. */
-const ALPACA_FEEDS = ['iex', 'sip', 'delayed_sip'] as const;
 
 const URL_RULES = { require_tld: false, require_protocol: true } as const;
 
@@ -49,16 +48,20 @@ export class AppConfig {
 
   @Env('ALPACA_DATA_FEED')
   @IsIn(ALPACA_FEEDS)
-  alpacaDataFeed: (typeof ALPACA_FEEDS)[number] = 'iex';
+  alpacaDataFeed: AlpacaFeed = 'iex';
 
   /** Optional until market data is wired in; when one Alpaca key is set, the other is required. */
   @Env('ALPACA_API_KEY_ID')
-  @ValidateIf((config: AppConfig) => config.alpacaApiKeyId !== undefined || config.alpacaApiSecretKey !== undefined)
+  @ValidateIf(
+    (config: AppConfig) => config.alpacaApiKeyId !== undefined || config.alpacaApiSecretKey !== undefined,
+  )
   @IsNotEmpty({ message: 'ALPACA_API_KEY_ID is required when ALPACA_API_SECRET_KEY is set' })
   alpacaApiKeyId?: string;
 
   @Env('ALPACA_API_SECRET_KEY')
-  @ValidateIf((config: AppConfig) => config.alpacaApiKeyId !== undefined || config.alpacaApiSecretKey !== undefined)
+  @ValidateIf(
+    (config: AppConfig) => config.alpacaApiKeyId !== undefined || config.alpacaApiSecretKey !== undefined,
+  )
   @IsNotEmpty({ message: 'ALPACA_API_SECRET_KEY is required when ALPACA_API_KEY_ID is set' })
   alpacaApiSecretKey?: string;
 }
