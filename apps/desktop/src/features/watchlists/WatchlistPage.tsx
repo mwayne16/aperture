@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { PageHeader } from '../../components/ui/PageHeader';
+import { MAX_WATCHLIST_SYMBOLS } from '../../domain/symbols';
 import { useConnectionStore } from '../../data/connectionStore';
 import { SimulatedBadge } from '../discover/SimulatedBadge';
 import { MarketTable } from '../market/MarketTable';
@@ -29,7 +30,7 @@ export function WatchlistPage() {
 
   let description: string | undefined;
   if (symbols !== undefined) {
-    const count = `${symbols.length} ${symbols.length === 1 ? 'symbol' : 'symbols'}`;
+    const count = `${String(symbols.length)} of ${String(MAX_WATCHLIST_SYMBOLS)} symbols`;
     description = symbols.length > 1 ? `${count} · drag rows to set your order` : count;
   }
 

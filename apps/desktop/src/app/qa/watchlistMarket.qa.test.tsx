@@ -201,14 +201,14 @@ describe('the watchlist and the market table (QA)', () => {
 
     await user.type(addBox(), 'intc{Enter}');
     expect(
-      await screen.findByText('This watchlist is full (100 symbols max).', { selector: 'p' }),
+      await screen.findByText('This watchlist is full (30 symbols max).', { selector: 'p' }),
     ).toBeInTheDocument();
 
     await user.type(screen.getByRole('combobox', { name: 'Search symbols' }), 'intc');
     await screen.findByRole('option', { name: /^INTC, Intel/ }, FEED_TIMEOUT);
     await user.keyboard('{Shift>}{Enter}{/Shift}');
     expect(
-      await screen.findByText('This watchlist is full (100 symbols max).', { selector: '.ui-toast__title' }),
+      await screen.findByText('This watchlist is full (30 symbols max).', { selector: '.ui-toast__title' }),
     ).toBeInTheDocument();
     expect(rowSymbols()).toHaveLength(MAX_WATCHLIST_SYMBOLS);
   });
