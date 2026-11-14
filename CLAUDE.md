@@ -72,8 +72,8 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
   - 200 REST calls/min: batch with multi-symbol endpoints (snapshots, bars), cache, and rate-limit below 200
     with backoff on 429. Never fetch history or sparklines one symbol per request.
   - Streams: 1 connection per endpoint (a second client on the same keys gets 406) and 30 symbols per
-    stream; the 30-symbol cap applies to the crypto stream too. Budget slots by priority: open symbol
-    page, enabled alerts, watchlist rows; poll the rest.
+    stream; the 30-symbol cap applies to the crypto stream too. Budget slots by priority: watchlist rows
+    (always fit, see the 30-symbol decision), then the open symbol page, then enabled alerts; poll the rest.
   - REST requests can't reach the latest 15 minutes of SIP data, so current snapshots use `feed=iex`.
   - News: the Benzinga feed is included in the free plan.
   - Keep the feed in configuration, so Algo Trader Plus (all exchanges, no caps) is a config change.

@@ -11,6 +11,7 @@ import {
 } from '@alpacahq/alpaca-trade-api';
 import type { BarTimeframe, Instrument } from '@aperture/shared/marketData';
 import {
+  isCryptoSymbol,
   ProviderError,
   type BarsRequest,
   type MarketDataProvider,
@@ -67,8 +68,6 @@ export interface AlpacaProviderOptions {
   now?: () => number;
 }
 
-const isCrypto = (symbol: string) => symbol.includes('/');
-
 /** Stands in for a request that was skipped because no symbol needed it. */
 const NO_RESULTS: Readonly<Record<string, unknown>> = {};
 
@@ -109,8 +108,8 @@ export function createAlpacaProvider(options: AlpacaProviderOptions): MarketData
     },
 
     async getSnapshots(symbols) {
-      const stocks = symbols.filter((s) => !isCrypto(s));
-      const crypto = symbols.filter(isCrypto);
+      const stocks = symbols.filter((s) => !isCryptoSymbol(s));
+      const crypto = symbols.filter(isCryptoSymbol);
       const [stockMap, cryptoMap] = await Promise.all([
         stocks.length === 0
           ? NO_RESULTS
@@ -122,7 +121,7 @@ export function createAlpacaProvider(options: AlpacaProviderOptions): MarketData
             ),
       ]);
       return symbols.flatMap((symbol): ProviderSnapshot[] => {
-        const raw: unknown = isCrypto(symbol) ? cryptoMap[symbol] : stockMap[symbol];
+        const raw: unknown = isCryptoSymbol(symbol) ? cryptoMap[symbol] : stockMap[symbol];
         return raw === undefined ? [] : [normalizeSnapshot(symbol, raw)];
       });
     },
@@ -132,8 +131,8 @@ export function createAlpacaProvider(options: AlpacaProviderOptions): MarketData
       const start = request.start ?? new Date(FREE_PLAN_LIMITS.historyStartMs);
       const end = new Date(Math.min(request.end.getTime(), now() - historyLagMs));
       const limits = { maxPerSymbol: MAX_BARS_PER_SYMBOL };
-      const stocks = request.symbols.filter((s) => !isCrypto(s));
-      const crypto = request.symbols.filter(isCrypto);
+      const stocks = request.symbols.filter((s) => !isCryptoSymbol(s));
+      const crypto = request.symbols.filter(isCryptoSymbol);
       const [stockBars, cryptoBars] = await Promise.all([
         stocks.length === 0
           ? NO_RESULTS
@@ -151,7 +150,7 @@ export function createAlpacaProvider(options: AlpacaProviderOptions): MarketData
       ]);
       const result = new Map<string, ProviderBar[]>();
       for (const symbol of request.symbols) {
-        const raw: unknown = isCrypto(symbol) ? cryptoBars[symbol] : stockBars[symbol];
+        const raw: unknown = isCryptoSymbol(symbol) ? cryptoBars[symbol] : stockBars[symbol];
         if (!Array.isArray(raw)) continue;
         const bars = raw.flatMap((bar: unknown) => normalizeBar(bar) ?? []);
         if (bars.length > 0)

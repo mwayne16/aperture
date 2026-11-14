@@ -12,6 +12,9 @@ export const MARKET_DATA_PROVIDERS = ['alpaca'] as const;
 
 export type MarketDataProviderId = (typeof MARKET_DATA_PROVIDERS)[number];
 
+/** Crypto symbols are pairs such as "BTC/USD"; stocks and ETFs never contain a slash. */
+export const isCryptoSymbol = (symbol: string) => symbol.includes('/');
+
 /** Usage limits of the provider's plan. Shared services stay inside them for any provider. */
 export interface ProviderLimits {
   /** REST requests allowed per minute; the adapter throttles itself below it. */
