@@ -1,15 +1,16 @@
-import { FlaskConical, Monitor, Moon, SlidersHorizontal, Sun } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { Bell, FlaskConical, Moon, SlidersHorizontal, Sun } from 'lucide-react';
+import { Link, useLocation } from 'wouter';
+import { paths } from '../../app/routes';
 import { useUiStore } from '../../app/uiStore';
 import { Badge, type BadgeTone } from '../../components/ui/Badge';
-import { Button } from '../../components/ui/Button';
-import { SegmentedControl, type SegmentedOption } from '../../components/ui/SegmentedControl';
-import { StatusDot } from '../../components/ui/StatusDot';
+import { IconButton } from '../../components/ui/IconButton';
 import { Tooltip } from '../../components/ui/Tooltip';
-import { useTheme, type ThemePreference } from '../../components/ui/theme';
+import { useTheme } from '../../components/ui/theme';
+import { StatusDot } from '../../components/ui/StatusDot';
 import { useConnection, useConnectionStore } from '../../data/connectionStore';
 import { formatClock } from '../../lib/format';
 import { SymbolSearch } from '../market/SymbolSearch';
+import { useUnreadCount } from '../notifications/notificationStore';
 import { Breadcrumbs } from './Breadcrumbs';
 import { connectionDetails, describeConnection } from './connectionStatus';
 import { MARKET_SESSION_LABELS, marketSession, type MarketSession } from './marketSession';
@@ -18,9 +19,9 @@ import { useNow } from './useNow';
 import './shell.css';
 
 /**
- * Top bar content: breadcrumbs, the simulated-data marker, global search, connection status, the New
- * York market clock, the theme control and the simulation controls button. One 40px row; below
- * ~1100px the lower-priority labels collapse to icons but keep their accessible names.
+ * Top bar content: breadcrumbs and the simulated-data marker, global search, then the feed
+ * connection, the New York market clock and icon buttons for notifications, the theme and the
+ * simulation controls. Below ~1100px the lower-priority labels collapse but keep their names.
  */
 export function TopBar() {
   return (
@@ -33,8 +34,11 @@ export function TopBar() {
       <div className="shell-topbar__spacer" />
       <ConnectionIndicator />
       <MarketClock />
-      <ThemeControl />
-      <SimulationControlsButton />
+      <div className="shell-topbar__actions">
+        <NotificationsBell />
+        <ThemeToggle />
+        <SimulationControlsButton />
+      </div>
     </div>
   );
 }
@@ -116,46 +120,53 @@ function MarketClock() {
   );
 }
 
-const THEME_OPTIONS: SegmentedOption<ThemePreference>[] = [
-  { value: 'system', label: <ThemeIcon icon={<Monitor />} name="System" />, title: 'Match the system theme' },
-  { value: 'dark', label: <ThemeIcon icon={<Moon />} name="Dark" />, title: 'Dark theme' },
-  { value: 'light', label: <ThemeIcon icon={<Sun />} name="Light" />, title: 'Light theme' },
-];
-
-function ThemeIcon({ icon, name }: { icon: ReactNode; name: string }) {
+/** Opens the notifications page. A dot marks unread notifications; the count is in its name only. */
+function NotificationsBell() {
+  const unread = useUnreadCount();
+  const [location] = useLocation();
+  const current = location === paths.notifications;
+  const label = unread === 0 ? 'Notifications' : `Notifications, ${String(unread)} unread`;
   return (
-    <>
-      <span className="shell-theme__icon" aria-hidden="true">
-        {icon}
-      </span>
-      <span className="visually-hidden">{name}</span>
-    </>
+    <Tooltip content={label} side="bottom">
+      <Link
+        href={paths.notifications}
+        className="ui-iconbtn shell-bell"
+        aria-label={label}
+        aria-current={current ? 'page' : undefined}
+      >
+        <span className="ui-iconbtn__icon">
+          <Bell aria-hidden="true" />
+        </span>
+        {unread > 0 && <span className="shell-bell__dot" aria-hidden="true" />}
+      </Link>
+    </Tooltip>
   );
 }
 
-function ThemeControl() {
-  const { preference, setPreference } = useTheme();
+/** Switches between the light and dark themes. Following the system theme is set in Settings. */
+function ThemeToggle() {
+  const { resolved, setPreference } = useTheme();
+  const next = resolved === 'dark' ? 'light' : 'dark';
   return (
-    <SegmentedControl size="sm" aria-label="Quick theme" options={THEME_OPTIONS} value={preference} onChange={setPreference} />
+    <IconButton
+      label={`Switch to the ${next} theme`}
+      icon={resolved === 'dark' ? <Moon /> : <Sun />}
+      onClick={() => {
+        setPreference(next);
+      }}
+    />
   );
 }
 
 function SimulationControlsButton() {
   return (
-    <Tooltip content="Simulation controls" side="bottom">
-      <Button
-        variant="ghost"
-        size="sm"
-        icon={<SlidersHorizontal />}
-        aria-label="Simulation controls"
-        aria-haspopup="dialog"
-        className="shell-topbar__controls"
-        onClick={() => {
-          useUiStore.getState().setPrototypeControlsOpen(true);
-        }}
-      >
-        <span className="shell-collapse">Simulation</span>
-      </Button>
-    </Tooltip>
+    <IconButton
+      label="Simulation controls"
+      icon={<SlidersHorizontal />}
+      aria-haspopup="dialog"
+      onClick={() => {
+        useUiStore.getState().setPrototypeControlsOpen(true);
+      }}
+    />
   );
 }

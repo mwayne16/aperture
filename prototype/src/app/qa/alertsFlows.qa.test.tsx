@@ -154,9 +154,10 @@ async function emptyWatchlist() {
   await advance(500);
 }
 
+/** The unread count the top bar bell announces, or null when nothing is unread. */
 function unreadBadge(): string | null {
-  const link = screen.getByRole('link', { name: /^Notifications/ });
-  return link.querySelector('.sidebar-nav__badge')?.textContent ?? null;
+  const bell = screen.getByRole('link', { name: /^Notifications/ });
+  return /, (\d+) unread$/.exec(bell.getAttribute('aria-label') ?? '')?.[1] ?? null;
 }
 
 describe('alerts end to end (QA)', () => {
@@ -398,7 +399,7 @@ describe('alerts end to end (QA)', () => {
     expect(within(alertRow('MSFT')).getByText('Never')).toBeInTheDocument();
   });
 
-  it('records triggers and one coalesced entry for a dropped connection in Notifications, with the sidebar badge', async () => {
+  it('records triggers and one coalesced entry for a dropped connection in Notifications, with the unread count on the bell', async () => {
     await startApp();
     expect(unreadBadge()).toBeNull();
     const last = getQuote('AMD')?.last ?? Number.NaN;

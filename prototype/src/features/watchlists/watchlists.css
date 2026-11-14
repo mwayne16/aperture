@@ -9,7 +9,7 @@
   flex: 1;
   flex-direction: column;
   min-height: 0;
-  padding: 0 var(--sp-2) var(--sp-2);
+  padding: 0 var(--sp-3) var(--sp-3);
 }
 
 .watch-section__header {
@@ -26,11 +26,11 @@
   align-items: center;
   gap: var(--sp-1);
   min-width: 0;
-  padding: 2px var(--sp-1) 2px 2px;
+  padding: 2px var(--sp-1) 2px 4px;
   border: 0;
   border-radius: var(--radius-sm);
   background: none;
-  color: var(--text-muted);
+  color: var(--text-faint);
   cursor: pointer;
 }
 
@@ -56,9 +56,9 @@
 .watch-section__title {
   margin: 0;
   color: inherit;
-  font-size: var(--fs-xs);
-  font-weight: var(--fw-semibold);
-  letter-spacing: 0.06em;
+  font-size: 11px;
+  font-weight: var(--fw-medium);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -106,9 +106,9 @@
 .watch-row__link {
   display: flex;
   align-items: center;
-  gap: var(--sp-2);
-  height: 32px;
-  padding: 0 var(--sp-2);
+  gap: 10px;
+  height: 34px;
+  padding: 0 10px;
   border-radius: var(--radius-md);
   color: var(--text-primary);
   font-size: var(--fs-md);
@@ -133,8 +133,8 @@
   display: inline-grid;
   flex: none;
   place-items: center;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   background-color: var(--bg-neutral-tint);
   color: var(--text-muted);

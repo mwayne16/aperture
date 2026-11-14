@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useUiStore } from '../../app/uiStore';
+import type { AppNotification } from '../notifications/notificationRules';
+import { useNotificationStore } from '../notifications/notificationStore';
 import { resetShellStores, quote, setConnection, setQuotes, watch } from './testUtils';
 import { TopBar } from './TopBar';
 
@@ -13,9 +15,16 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   resetShellStores();
+  act(() => {
+    useNotificationStore.getState().clear();
+  });
 });
 
 const connectionStatus = () => screen.getByRole('status');
+
+function unreadNotification(id: string): AppNotification {
+  return { id, kind: 'alert', title: `Alert ${id}`, body: '', at: Date.now(), read: false, symbol: null };
+}
 
 describe('TopBar', () => {
   it('shows where the user is and hosts the global symbol search', () => {
@@ -89,17 +98,28 @@ describe('TopBar', () => {
     expect(screen.getByText('Closed')).toBeInTheDocument();
   });
 
-  it('switches the theme and applies it to the document', async () => {
+  it('toggles between the light and dark themes and applies them to the document', async () => {
     const user = userEvent.setup();
     render(<TopBar />);
-    const theme = screen.getByRole('radiogroup', { name: 'Quick theme' });
-    await user.click(within(theme).getByRole('radio', { name: 'Light' }));
+    await user.click(screen.getByRole('button', { name: 'Switch to the light theme' }));
     expect(document.documentElement.dataset.theme).toBe('light');
-    expect(within(theme).getByRole('radio', { name: 'Light' })).toHaveAttribute('aria-checked', 'true');
-    await user.click(within(theme).getByRole('radio', { name: 'Dark' }));
+    await user.click(screen.getByRole('button', { name: 'Switch to the dark theme' }));
     expect(document.documentElement.dataset.theme).toBe('dark');
-    await user.click(within(theme).getByRole('radio', { name: 'System' }));
-    expect(within(theme).getByRole('radio', { name: 'System' })).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('links the bell to Notifications and marks unread ones with a dot, not a count', () => {
+    render(<TopBar />);
+    const bell = () => screen.getByRole('link', { name: /^Notifications/ });
+    expect(bell()).toHaveAttribute('href', '/notifications');
+    expect(bell()).toHaveAccessibleName('Notifications');
+    expect(bell().querySelector('.shell-bell__dot')).toBeNull();
+
+    act(() => {
+      useNotificationStore.setState({ notifications: [unreadNotification('a'), unreadNotification('b')] });
+    });
+    expect(bell()).toHaveAccessibleName('Notifications, 2 unread');
+    expect(bell().querySelector('.shell-bell__dot')).not.toBeNull();
+    expect(bell()).not.toHaveTextContent('2');
   });
 
   it('opens the simulation controls', async () => {

@@ -81,10 +81,12 @@ describe('app chrome flows (QA)', () => {
     await user.tab();
     expect(screen.getByRole('combobox', { name: 'Search symbols' })).toHaveFocus();
     await user.tab();
-    expect(screen.getByRole('radio', { name: 'System' })).toHaveFocus();
-    await user.keyboard('{ArrowRight}');
-    expect(screen.getByRole('radio', { name: 'Dark' })).toHaveFocus();
-    expect(document.documentElement.dataset.theme).toBe('dark');
+    expect(screen.getByRole('link', { name: /^Notifications/ })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole('button', { name: 'Switch to the light theme' })).toHaveFocus();
+    await user.keyboard('{Enter}');
+    expect(document.documentElement.dataset.theme).toBe('light');
+    expect(screen.getByRole('button', { name: 'Switch to the dark theme' })).toHaveFocus();
     await user.tab();
     const opener = screen.getByRole('button', { name: 'Simulation controls' });
     expect(opener).toHaveFocus();
