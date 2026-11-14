@@ -10,9 +10,10 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
   Watchlist-curated news ranking is specified in plan section 2.6 for later.
 - Phase 1 (project foundation): **merged 2026-11-14.** Workspaces, the hardened Electron shell, the Fastify
   server (config, validation pipeline, errors, health), shared contracts, Docker Compose and the README.
-- Phase 2 (persistence and API): **built on `feat/persistence-api`, awaiting merge.** Schema and the first
-  migration, watchlist and alert endpoints, DB-unavailable handling, Testcontainers-backed tests, and a
-  manual check that data survives a backend restart. Next: Phase 3, market data integration.
+- Phase 2 (persistence and API): **merged 2026-11-14.** Schema and the first migration, watchlist and alert
+  endpoints, DB-unavailable handling, Testcontainers-backed tests, and a manual check that data survives a
+  backend restart.
+- Phase 3 (market data integration): next.
 - Track phase status in this section. Update it whenever a phase is approved or completed.
 
 ## Product decisions that override the plan
@@ -42,8 +43,8 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
   `packages/shared` (typed HTTP/WebSocket contracts). Chosen so client and API share types and change atomically.
 - `main` is protected on GitHub (2026-11-14): merging needs the CI check "Typecheck, lint, knip, test and build
   (all workspaces)" to pass. Branch protection matches that job name exactly, so don't rename or split the job.
-  Work happens on `feat/*` branches. PR #1 merged with auto-merge (rebase) at the user's request; ask before
-  opening, auto-merging or merging a PR.
+  Work happens on `feat/*` branches. PRs so far merged by rebase once CI passed, each at the user's request;
+  ask before opening, auto-merging or merging a PR.
 - Ports: desktop renderer dev server 5173, server API 4100, Postgres 5432, Redis 6379 (all on 127.0.0.1).
 - One `.env` at the repo root (from `.env.example`) feeds Docker Compose and the server
   (`node --env-file-if-exists=../../.env`). No dotenv package.
@@ -210,3 +211,6 @@ Inline comments that explain a non-obvious decision start with `// **`.
   Commit or unstage the renames before stashing one path.
 - `npm install` didn't download Electron's runtime here (2026-11-14). Run `node node_modules/electron/install.js`
   with `electron_config_cache` set, and check `node_modules/electron/dist` exists.
+- Reproduce a flaky test before fixing it: run it with `{ repeats: 40 }` and log the state it asserts on.
+  A guessed fix (`ea66de1`) left the unread-count flake in place; the cause was the seeded demo alerts, which
+  fire about a minute into a session. QA tests that count app-wide state must turn those alerts off first.
