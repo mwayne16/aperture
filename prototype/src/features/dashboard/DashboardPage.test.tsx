@@ -7,7 +7,7 @@ import { memoryLocation } from 'wouter/memory-location';
 import { ApiError } from '../../data/api';
 import { api, resetDemoData } from '../../data/dataLayer';
 import { updateSimulation } from '../../data/simulationStore';
-import type { AlertEvent, MarketMovers, Quote } from '../../domain/types';
+import type { AlertEvent, MarketMovers, NewsItem, Quote } from '../../domain/types';
 import { useAlertStore } from '../alerts/alertStore';
 import { instrumentCatalog } from '../discover/instrumentCatalog';
 import { sparklineCache } from '../discover/sparklineCache';
@@ -264,7 +264,7 @@ describe('Market news card', () => {
     renderDashboard();
     const news = card('Market news');
     const stories = await within(news).findAllByRole('article');
-    expect(stories.length).toBe(6);
+    expect(stories.length).toBe(5);
     for (const story of stories) {
       expect(within(story).getByText('Simulated')).toBeInTheDocument();
       const headline = within(story).getByRole('heading', { level: 3 });
@@ -290,9 +290,55 @@ describe('Market news card', () => {
     const alert = await within(news).findByRole('alert');
     expect(alert).toHaveTextContent("Couldn't load news");
     await user.click(within(alert).getByRole('button', { name: 'Retry' }));
-    expect(await within(news).findAllByRole('article')).toHaveLength(6);
+    expect(await within(news).findAllByRole('article')).toHaveLength(5);
+  });
+
+  it('asks for up to 25 stories and shows five until the feed is expanded', async () => {
+    const getNews = vi.spyOn(api, 'getNews');
+    const user = userEvent.setup();
+    renderDashboard();
+    const news = card('Market news');
+    expect(await within(news).findAllByRole('article')).toHaveLength(5);
+    expect(getNews).toHaveBeenCalledWith({ limit: 25 });
+
+    const more = within(news).getByRole('button', { name: 'Show more' });
+    expect(more).toHaveAttribute('aria-expanded', 'false');
+    const list = document.getElementById(more.getAttribute('aria-controls') ?? '');
+    expect(list).toContainElement(within(news).getAllByRole('article')[0] ?? null);
+
+    await user.click(more);
+    const less = within(news).getByRole('button', { name: 'Show less' });
+    expect(less).toHaveAttribute('aria-expanded', 'true');
+    expect(less).toHaveFocus();
+    expect(within(news).getAllByRole('article')).toHaveLength(25);
+    expect(list).toHaveClass('is-expanded');
+
+    await user.click(less);
+    expect(within(news).getAllByRole('article')).toHaveLength(5);
+    expect(within(news).getByRole('button', { name: 'Show more' })).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('offers no Show more when there are five stories or fewer', async () => {
+    vi.spyOn(api, 'getNews').mockResolvedValue([newsItem('a'), newsItem('b'), newsItem('c'), newsItem('d')]);
+    renderDashboard();
+    const news = card('Market news');
+    expect(await within(news).findAllByRole('article')).toHaveLength(4);
+    expect(within(news).queryByRole('button', { name: /^Show (more|less)$/ })).not.toBeInTheDocument();
   });
 });
+
+function newsItem(id: string): NewsItem {
+  return {
+    id,
+    headline: `Sample headline ${id}`,
+    summary: 'Sample text.',
+    source: 'Simulated newswire',
+    symbols: [],
+    publishedAt: new Date().toISOString(),
+    url: null,
+    simulated: true,
+  };
+}
 
 describe('Dashboard page', () => {
   it('loads every card under StrictMode', async () => {
@@ -300,7 +346,7 @@ describe('Dashboard page', () => {
     renderDashboard({ strict: true });
     expect(await within(card('Markets')).findByText(/as of/)).toBeInTheDocument();
     expect(await within(card('Top movers')).findByText(/as of/)).toBeInTheDocument();
-    expect(await within(card('Market news')).findAllByRole('article')).toHaveLength(6);
+    expect(await within(card('Market news')).findAllByRole('article')).toHaveLength(5);
     expect(within(card('Your watchlist')).getAllByRole('listitem')).toHaveLength(8);
   });
 });

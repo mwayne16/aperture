@@ -395,6 +395,45 @@
   border-top: 1px solid var(--border-subtle);
 }
 
+/* Expanded, the list scrolls inside the card instead of stretching it. The cap is a little taller
+   than the five collapsed stories, so the next story peeks in and shows there is more to scroll. */
+.dash-news__list.is-expanded {
+  max-height: 640px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.dash-news__footer {
+  display: flex;
+  justify-content: center;
+  padding: var(--sp-2) var(--sp-5) var(--sp-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.dash-news__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: var(--h-control-sm);
+  padding: 0 var(--sp-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--accent-text);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.dash-news__toggle:hover {
+  background-color: var(--bg-hover);
+}
+
+.dash-news__toggle svg {
+  width: 14px;
+  height: 14px;
+}
+
 .dash-story {
   display: flex;
   flex-direction: column;
@@ -445,6 +484,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .dash-news__toggle,
   .dash-row,
   .dash-tile {
     transition: none;
