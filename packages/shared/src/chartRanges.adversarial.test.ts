@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { describeTimeframe, resolveRange } from './chartRanges';
-import { type BarTimeframe, type ChartRange, CHART_RANGES } from './types';
+import { describeTimeframe, resolveRange } from './chartRanges.js';
+import { type BarTimeframe, type ChartRange, CHART_RANGES } from './marketData.js';
 
 /** Adversarial tests derived from the chartRanges doc-comment table, not from the implementation. */
 

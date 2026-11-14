@@ -1,5 +1,5 @@
 import { validateAlertFields } from '@aperture/shared/alertRules';
-import { resolveRange } from '../../domain/chartRanges';
+import { resolveRange } from '@aperture/shared/chartRanges';
 import { MAX_WATCHLIST_SYMBOLS, normalizeSymbol, validateSymbol } from '@aperture/shared/symbols';
 import {
   CHART_RANGES,

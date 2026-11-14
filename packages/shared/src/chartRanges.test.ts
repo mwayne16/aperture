@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { describeTimeframe, resolveRange } from './chartRanges';
-import { type BarTimeframe, type ChartRange, CHART_RANGES } from './types';
+import { describeTimeframe, resolveRange } from './chartRanges.js';
+import { type BarTimeframe, type ChartRange, CHART_RANGES } from './marketData.js';
 
 const iso = (date: Date | null) => (date ? date.toISOString() : null);
 const at = (isoString: string) => new Date(isoString);
