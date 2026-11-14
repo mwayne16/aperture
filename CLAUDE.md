@@ -16,8 +16,11 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
 - Phase 3 (market data integration): **in progress, split into three PRs.** (1) REST market data on
   `feat/market-data`: the Alpaca adapter, instruments and search, quote snapshots, chart history, movers.
   (2) The stream: one Alpaca connection, the 30-symbol budget, connection status, polling for the rest.
-  (3) The curated news feed (plan section 2.6). Nothing is verified against real Alpaca until the user adds
-  paper-trading keys to `.env`.
+  (3) The curated news feed (plan section 2.6). Against real Alpaca only the rejected-keys path is verified
+  (2026-11-14, fake keys, both hosts answered 401 and the server answered 502 without logging the keys).
+  Success-path payloads rest on the SDK's types and doc-shaped fixtures until the user adds paper-trading
+  keys to `.env`; whether the free plan includes the screener behind `/movers` is also unverified.
+  `MarketDataProvider.feedLabel` has no reader yet; the stream PR's connection status will show it.
 - Track phase status in this section. Update it whenever a phase is approved or completed.
 
 ## Product decisions that override the plan
