@@ -42,6 +42,13 @@ export function validateSymbol(input: string): ValidationResult<string> {
   return { ok: true, value: symbol };
 }
 
+/** validateSymbol for untrusted input: returns the problem to show, or null for a valid symbol. */
+export function symbolProblem(value: unknown): string | null {
+  if (typeof value !== 'string') return 'Enter a symbol.';
+  const result = validateSymbol(value);
+  return result.ok ? null : result.reason;
+}
+
 /**
  * Validates a symbol before adding it to a watchlist. Rejects invalid format, duplicates already in
  * `existing`, and lists that are full. Returns the normalized symbol on success.

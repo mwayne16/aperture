@@ -1,5 +1,5 @@
 import { ALERT_CONDITIONS, ALERT_TAGS, type CreateAlertInput } from './alerts.js';
-import { validateSymbol } from './symbols.js';
+import { symbolProblem } from './symbols.js';
 
 /**
  * Alert input rules, shared by the alert form and the API so both report the same field errors.
@@ -26,11 +26,7 @@ function isOneOf<T>(options: readonly T[], value: unknown): value is T {
 }
 
 export const alertFieldRules = {
-  symbol: (value) => {
-    if (typeof value !== 'string') return 'Enter a symbol.';
-    const result = validateSymbol(value);
-    return result.ok ? null : result.reason;
-  },
+  symbol: symbolProblem,
   condition: (value) => (isOneOf(ALERT_CONDITIONS, value) ? null : 'Condition must be "above" or "below".'),
   targetPrice: (value) => {
     if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
@@ -46,6 +42,12 @@ export const alertFieldRules = {
     return value.trim().length > NOTE_MAX_LENGTH ? `Use ${NOTE_MAX_LENGTH} characters or fewer.` : null;
   },
 } satisfies Record<keyof CreateAlertInput, FieldRule>;
+
+/** The note as stored: trimmed, with an empty or missing note stored as null. */
+export function normalizeNote(note: string | null | undefined): string | null {
+  const trimmed = note?.trim() ?? '';
+  return trimmed === '' ? null : trimmed;
+}
 
 const FIELD_ORDER = ['symbol', 'condition', 'targetPrice', 'tag', 'enabled', 'note'] as const;
 const REQUIRED_ON_CREATE: ReadonlySet<keyof CreateAlertInput> = new Set([
