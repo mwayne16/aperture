@@ -11,6 +11,9 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
   authorized, so at the user's request the redesign went straight into the working prototype: a
   multi-page app with sidebar navigation, a dashboard, Discover (stocks, ETFs, crypto), a full stock page
   with pop-out, Alerts, Notifications and Settings. **Awaiting the user's review and approval.**
+  2026-11-13: a visual polish pass (Inter, larger scale, soft segmented controls, Settings at the sidebar
+  bottom, notifications bell in the top bar) lives on `feat/ui-polish`; tag `before-ui-polish` marks the
+  state before it so it can be reverted.
 - Track phase status in this section. Update it whenever a phase is approved or completed.
 
 ## Product decisions that override the plan
