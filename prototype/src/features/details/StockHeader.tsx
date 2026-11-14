@@ -7,6 +7,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { IconButton } from '../../components/ui/IconButton';
 import { showToast } from '../../components/ui/toastStore';
+import { SimulatedBadge } from '../discover/SimulatedBadge';
 import { assetClassLabel } from './instrumentInfo';
 import { InstrumentLine } from './InstrumentLine';
 import { openPopOut } from './popOut';
@@ -41,9 +42,7 @@ export function StockHeader({ symbol, view, onRetry }: StockHeaderProps) {
                 {assetClassLabel(instrument.assetClass)}
               </Badge>
             )}
-            <Badge tone="warning" size="sm" title="Simulated prices, not real market data">
-              Simulated
-            </Badge>
+            <SimulatedBadge title="Simulated prices, not real market data" />
           </div>
           <InstrumentLine
             view={view}

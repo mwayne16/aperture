@@ -1,13 +1,13 @@
 import { Plus, Search, Trash2, TriangleAlert } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useUiStore, type AlertsPageTab } from '../../app/uiStore';
-import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import { Tabs } from '../../components/ui/Tabs';
 import { TextInput } from '../../components/ui/TextInput';
 import { useConnectionStore } from '../../data/connectionStore';
+import { SimulatedBadge } from '../discover/SimulatedBadge';
 import { STATUS_FILTERS, type StatusFilter } from './alertFilters';
 import { useAlertStore } from './alertStore';
 import { AlertsTable } from './AlertsTable';
@@ -46,9 +46,7 @@ export function AlertsPage() {
         title="Alerts"
         meta={
           simulated && (
-            <Badge tone="warning" size="sm" title="Prices come from the simulated feed, not a real market">
-              Simulated
-            </Badge>
+            <SimulatedBadge title="Prices come from the simulated feed, not a real market" />
           )
         }
         description="Alerts are evaluated on the server against the last trade price. Buy and Sell are labels only; Aperture never places trades."

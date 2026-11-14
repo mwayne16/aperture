@@ -242,6 +242,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background-color: var(--bg-panel);
+  box-shadow: var(--shadow-card);
 }
 
 .watch-summary__label {

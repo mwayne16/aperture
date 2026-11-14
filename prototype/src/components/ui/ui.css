@@ -1145,38 +1145,37 @@
   font-size: var(--fs-md);
 }
 
+/* Quiet sentence-case headers; the first and last columns line up with the card's 20px padding. */
 .ui-table th {
   position: sticky;
   top: 0;
   z-index: 1;
   height: var(--h-row);
-  padding: 0 var(--sp-2);
+  padding: 0 var(--sp-3);
   border-bottom: 1px solid var(--border);
   background-color: var(--bg-panel);
   color: var(--text-muted);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   font-weight: var(--fw-medium);
-  letter-spacing: 0.02em;
   text-align: left;
-  text-transform: uppercase;
   white-space: nowrap;
 }
 
 .ui-table td {
   height: var(--h-row);
-  padding: 0 var(--sp-2);
+  padding: 0 var(--sp-3);
   border-bottom: 1px solid var(--border-subtle);
   white-space: nowrap;
 }
 
 .ui-table th:first-child,
 .ui-table td:first-child {
-  padding-left: var(--sp-3);
+  padding-left: var(--sp-5);
 }
 
 .ui-table th:last-child,
 .ui-table td:last-child {
-  padding-right: var(--sp-3);
+  padding-right: var(--sp-5);
 }
 
 .ui-table .is-num {
@@ -1313,7 +1312,7 @@
   margin: 0;
   font-size: var(--fs-xl);
   font-weight: var(--fw-semibold);
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
 }
 
 .ui-page-header__description {

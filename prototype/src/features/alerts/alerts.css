@@ -14,8 +14,7 @@
 }
 
 .alerts-table .alerts-table__condition {
-  font-family: var(--font-mono);
-  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
 }
 
 .alerts-table .alerts-table__actions {
@@ -221,10 +220,11 @@
   flex-direction: column;
   gap: var(--sp-1);
   min-width: 0;
-  padding: var(--sp-4);
+  padding: 18px var(--sp-5);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background-color: var(--bg-panel);
+  box-shadow: var(--shadow-card);
 }
 
 .alerts-summary__label {
@@ -274,16 +274,17 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background-color: var(--bg-panel);
+  box-shadow: var(--shadow-card);
 }
 
 .alerts-card__header {
-  padding: 0 var(--sp-2);
+  padding: 0 10px;
   border-bottom: 1px solid var(--border);
 }
 
 /* The header draws the divider, so the tab strip's own bottom border would double it. */
 .alerts-card__header .ui-tabs {
-  height: 40px;
+  height: var(--h-panel-header);
   border-bottom: 0;
 }
 
@@ -292,7 +293,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-2) var(--sp-3);
-  padding: var(--sp-3);
+  padding: var(--sp-3) var(--sp-5);
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -319,7 +320,7 @@
 }
 
 .alerts-card__panel .ui-table td {
-  height: 36px;
+  height: 48px;
 }
 
 /* The note is the first column to go when the card gets narrow; the edit dialog still shows it. */

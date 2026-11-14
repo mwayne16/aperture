@@ -12,11 +12,12 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background-color: var(--bg-panel);
+  box-shadow: var(--shadow-card);
 }
 
 .discover-card .ui-tabs {
-  height: 40px;
-  padding: 0 var(--sp-2);
+  height: var(--h-panel-header);
+  padding: 0 10px;
 }
 
 .discover-card__panel {
@@ -40,7 +41,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-2) var(--sp-3);
-  padding: var(--sp-3) var(--sp-4);
+  padding: var(--sp-3) var(--sp-5);
   border-bottom: 1px solid var(--border);
 }
 
@@ -71,7 +72,7 @@
   align-items: center;
   gap: var(--sp-2);
   min-height: 34px;
-  padding: 2px var(--sp-2) 2px var(--sp-4);
+  padding: 2px var(--sp-2) 2px var(--sp-5);
   border-bottom: 1px solid var(--border);
   background-color: var(--loss-tint);
   font-size: var(--fs-sm);
@@ -96,11 +97,7 @@
 }
 
 .discover-table td {
-  height: 36px;
-}
-
-.discover-table th {
-  height: 32px;
+  height: 48px;
 }
 
 .discover-table .discover-col--symbol {

@@ -101,6 +101,22 @@
   color: var(--text-muted);
 }
 
+/* Narrow windows drop the clock (the dashboard and watchlist still show the session) so the
+   notification, theme and simulation buttons always fit. */
+@media (max-width: 960px) {
+  .shell-topbar {
+    padding-left: var(--sp-4);
+  }
+
+  .shell-topbar__search {
+    min-width: 140px;
+  }
+
+  .shell-clock {
+    display: none;
+  }
+}
+
 /* Icon buttons on the right, set apart from the clock by a hairline. */
 .shell-topbar__actions {
   display: flex;

@@ -17,6 +17,7 @@ import { useNotificationStore } from '../notifications/notificationStore';
 import { describeConnection } from '../shell/connectionStatus';
 import { resetDemoAndReload } from '../shell/resetDemo';
 import { useFeedStatus } from '../shell/useFeedStatus';
+import { SimulatedBadge } from '../discover/SimulatedBadge';
 import { isChartRange, type Settings } from './settingsRules';
 import { useSettingsStore } from './settingsStore';
 import './settings.css';
@@ -176,9 +177,7 @@ function MarketDataSection() {
           <p className="settings-source__name">Current source</p>
           <p className="settings-source__value">{connection.feedName}</p>
           {connection.simulated && (
-            <Badge tone="warning" size="sm" title="Prices are generated in the app, not taken from a real market">
-              Simulated
-            </Badge>
+            <SimulatedBadge title="Prices are generated in the app, not taken from a real market" />
           )}
           <span className="settings-source__status">
             <StatusDot tone={view.tone} label={view.dataNote ? `${view.label} · ${view.dataNote.label}` : view.label} />

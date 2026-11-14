@@ -2,7 +2,6 @@ import { BellRing, Check, CheckCheck, Inbox, Network, Trash2, X } from 'lucide-r
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'wouter';
 import { paths } from '../../app/routes';
-import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { cx } from '../../components/ui/cx';
@@ -19,6 +18,7 @@ import {
   unreadCounts,
   type NotificationFilter,
 } from './notificationFilters';
+import { SimulatedBadge } from '../discover/SimulatedBadge';
 import type { AppNotification } from './notificationRules';
 import { useNotificationStore } from './notificationStore';
 import './notifications.css';
@@ -66,9 +66,7 @@ export function NotificationsPage() {
         title="Notifications"
         meta={
           simulated && (
-            <Badge tone="warning" size="sm" title="Alert triggers come from the simulated feed, not a real market">
-              Simulated
-            </Badge>
+            <SimulatedBadge title="Alert triggers come from the simulated feed, not a real market" />
           )
         }
         description="Alert triggers and connection changes, kept on this device."

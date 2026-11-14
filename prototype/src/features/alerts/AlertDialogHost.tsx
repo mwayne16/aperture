@@ -1,7 +1,6 @@
 import { CircleAlert } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type SyntheticEvent } from 'react';
 import { useUiStore, type AlertDialogState } from '../../app/uiStore';
-import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { cx } from '../../components/ui/cx';
 import { Dialog } from '../../components/ui/Dialog';
@@ -15,6 +14,7 @@ import { useQuote } from '../../data/quoteStore';
 import { validateSymbol } from '../../domain/symbols';
 import type { AlertCondition, AlertTag, PriceAlert } from '../../domain/types';
 import { changeDirection, formatPrice } from '../../lib/format';
+import { SimulatedBadge } from '../discover/SimulatedBadge';
 import { conditionPreview, conditionText, tagLabel } from './alertDisplay';
 import {
   armedAfterSave,
@@ -336,9 +336,7 @@ function LivePrice({ symbol }: { symbol: string }) {
         {quote.status === 'delayed' && ' (delayed)'}
       </span>
       {simulated && (
-        <Badge tone="warning" size="sm" title="Simulated values, not market data">
-          Simulated
-        </Badge>
+        <SimulatedBadge title="Simulated values, not market data" />
       )}
     </p>
   );

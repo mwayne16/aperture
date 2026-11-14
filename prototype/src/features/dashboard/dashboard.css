@@ -13,13 +13,13 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   align-items: start;
-  gap: var(--sp-4);
+  gap: var(--sp-5);
 }
 
 .dashboard__column {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-4);
+  gap: var(--sp-5);
   min-width: 0;
 }
 
@@ -85,14 +85,15 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   background-color: var(--bg-panel);
+  box-shadow: var(--shadow-card);
 }
 
 .dash-card__header {
   display: flex;
   align-items: center;
   gap: var(--sp-2) var(--sp-3);
-  min-height: 48px;
-  padding: var(--sp-3) var(--sp-4) var(--sp-2);
+  min-height: 60px;
+  padding: 18px var(--sp-5) var(--sp-3);
 }
 
 .dash-card__heading {
@@ -107,10 +108,16 @@
 .dash-card__title {
   font-size: var(--fs-lg);
   font-weight: var(--fw-semibold);
-  letter-spacing: -0.005em;
+  letter-spacing: -0.01em;
 }
 
-.dash-card__note,
+/* A card's note reads as a subtitle on its own line under the title. */
+.dash-card__note {
+  flex-basis: 100%;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+
 .dash-card__asof {
   color: var(--text-muted);
   font-size: var(--fs-xs);
@@ -162,7 +169,7 @@
 }
 
 .dash-card__more {
-  margin: 0 var(--sp-4) var(--sp-3);
+  margin: var(--sp-1) var(--sp-5) var(--sp-4);
 }
 
 .dash-card__body {
@@ -188,15 +195,15 @@
 .dash-list {
   display: flex;
   flex-direction: column;
-  padding: 0 var(--sp-2) var(--sp-2);
+  padding: 0 var(--sp-3) var(--sp-3);
 }
 
 .dash-row {
   display: grid;
   align-items: center;
-  gap: var(--sp-3);
-  min-height: 44px;
-  padding: 4px var(--sp-2);
+  gap: var(--sp-4);
+  min-height: 52px;
+  padding: 6px var(--sp-2);
   border-radius: var(--radius-md);
   color: inherit;
   text-decoration: none;
@@ -283,7 +290,7 @@
 .dash-markets__tiles {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  padding: 0 var(--sp-2) var(--sp-2);
+  padding: 0 var(--sp-3) var(--sp-3);
 }
 
 .dash-markets__tiles > li {
@@ -297,7 +304,7 @@
 .dash-tile {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--sp-2);
   height: 100%;
   padding: var(--sp-2) var(--sp-3) var(--sp-3);
   border-radius: var(--radius-md);
@@ -381,7 +388,7 @@
 .dash-news__list {
   display: flex;
   flex-direction: column;
-  padding: 0 var(--sp-4) var(--sp-2);
+  padding: 0 var(--sp-5) var(--sp-2);
 }
 
 .dash-news__list > li + li {

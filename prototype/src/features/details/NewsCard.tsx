@@ -1,10 +1,10 @@
 import { Newspaper, RotateCw, TriangleAlert } from 'lucide-react';
-import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Skeleton } from '../../components/ui/Skeleton';
 import type { NewsItem } from '../../domain/types';
 import { formatAge } from '../../lib/format';
+import { SimulatedBadge } from '../discover/SimulatedBadge';
 import { StockCard } from './StockCard';
 import { useNews } from './useNews';
 import { useNow } from './useNow';
@@ -22,9 +22,7 @@ export function NewsCard({ symbol }: { symbol: string }) {
       className="news-card"
       meta={
         simulated && (
-          <Badge tone="warning" size="sm" title="Sample headlines, not real news">
-            Simulated
-          </Badge>
+          <SimulatedBadge title="Sample headlines, not real news" />
         )
       }
     >

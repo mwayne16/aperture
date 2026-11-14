@@ -1,0 +1,18 @@
+/* A small amber flask and label: present on every simulated surface, but lighter than a chip. */
+.simulated-mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  color: var(--warning-text);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.simulated-mark svg {
+  width: 12px;
+  height: 12px;
+  stroke-width: 2;
+}
