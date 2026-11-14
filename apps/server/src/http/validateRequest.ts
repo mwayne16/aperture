@@ -1,7 +1,7 @@
 import type { ApiErrorDetail } from '@aperture/shared/errors';
 import type { FastifyRequest, preHandlerAsyncHookHandler } from 'fastify';
 import { transformAndValidate, type ClassType } from '../validation/validate.js';
-import { ApiHttpError } from './errors.js';
+import { validationError } from './errors.js';
 
 interface RequestDtos {
   params?: ClassType<object>;
@@ -26,7 +26,6 @@ export function validateRequest(dtos: RequestDtos): preHandlerAsyncHookHandler {
       if (result.ok) (request as unknown as Record<string, unknown>)[part] = result.value;
       else details.push(...result.details);
     }
-    if (details.length === 0) return Promise.resolve();
-    return Promise.reject(new ApiHttpError('VALIDATION_ERROR', details[0]?.message ?? 'The request is invalid.', details));
+    return details.length === 0 ? Promise.resolve() : Promise.reject(validationError(details));
   };
 }

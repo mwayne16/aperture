@@ -8,6 +8,9 @@
     "dev": "node scripts/dev.mjs",
     "build": "tsc -b tsconfig.build.json",
     "start": "node --env-file-if-exists=../../.env dist/main.js",
+    "db:migrate": "tsc -b tsconfig.build.json && node scripts/typeorm.mjs migration:run",
+    "db:revert": "tsc -b tsconfig.build.json && node scripts/typeorm.mjs migration:revert",
+    "db:generate": "tsc -b tsconfig.build.json && node scripts/typeorm.mjs migration:generate --pretty",
     "typecheck": "tsc -b tsconfig.build.json && tsc -p tsconfig.json",
     "lint": "eslint . --max-warnings=0",
     "test": "vitest run",
@@ -18,6 +21,7 @@
   "knip": {
     "entry": [
       "src/main.ts",
+      "src/db/cliDataSource.ts",
       "scripts/*.mjs"
     ],
     "ignoreExportsUsedInFile": {
@@ -26,7 +30,9 @@
     }
   },
   "devDependencies": {
+    "@testcontainers/postgresql": "^12.2.1",
     "@types/node": "^24.19.2",
+    "@types/pg": "^8.23.1",
     "eslint": "^10.15.0",
     "globals": "^17.14.0",
     "knip": "^6.45.1",
@@ -38,6 +44,8 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "fastify": "^5.12.8",
-    "reflect-metadata": "^0.2.2"
+    "pg": "^8.23.1",
+    "reflect-metadata": "^0.2.2",
+    "typeorm": "^1.1.3"
   }
 }

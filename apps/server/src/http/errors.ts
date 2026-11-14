@@ -1,5 +1,11 @@
-import { API_ERROR_STATUS, type ApiErrorBody, type ApiErrorCode, type ApiErrorDetail } from '@aperture/shared/errors';
+import {
+  API_ERROR_STATUS,
+  type ApiErrorBody,
+  type ApiErrorCode,
+  type ApiErrorDetail,
+} from '@aperture/shared/errors';
 import type { FastifyError, FastifyInstance } from 'fastify';
+import { describeDatabaseError, isDatabaseUnavailable } from '../db/errors.js';
 
 /** An error that becomes an API error response. Throw it from services, hooks or handlers. */
 export class ApiHttpError extends Error {
@@ -14,6 +20,11 @@ export class ApiHttpError extends Error {
     this.status = API_ERROR_STATUS[code];
     this.details = details;
   }
+}
+
+/** A VALIDATION_ERROR whose message is the first problem, so a client can show it without the details. */
+export function validationError(details: ApiErrorDetail[]): ApiHttpError {
+  return new ApiHttpError('VALIDATION_ERROR', details[0]?.message ?? 'The request is invalid.', details);
 }
 
 function body(code: ApiErrorCode, message: string, details: ApiErrorDetail[] = []): ApiErrorBody {
@@ -36,6 +47,17 @@ export function registerErrorHandling(app: FastifyInstance): void {
     // Fastify's own client errors (malformed JSON, oversized or unsupported bodies) explain themselves safely.
     if (error.statusCode !== undefined && error.statusCode >= 400 && error.statusCode < 500) {
       return reply.code(error.statusCode).send(body('VALIDATION_ERROR', error.message));
+    }
+    if (isDatabaseUnavailable(error)) {
+      request.log.warn({ reason: describeDatabaseError(error) }, 'Database unavailable');
+      return reply
+        .code(API_ERROR_STATUS.UNAVAILABLE)
+        .send(
+          body(
+            'UNAVAILABLE',
+            'The database is unavailable. Check that PostgreSQL is running, then try again.',
+          ),
+        );
     }
     request.log.error({ err: error }, 'Unhandled error');
     return reply.code(500).send(body('INTERNAL', 'Something went wrong on the server.'));

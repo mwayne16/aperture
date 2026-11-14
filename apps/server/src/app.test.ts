@@ -4,13 +4,12 @@ import { IsInt, IsString, Length, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { afterEach, describe, expect, it } from 'vitest';
 import { buildApp } from './app.js';
-import { loadConfig } from './config/loadConfig.js';
+import { createDataSource } from './db/dataSource.js';
 import { validateRequest } from './http/validateRequest.js';
+import { openTestDatabase, testConfig } from './test/database.js';
 
-const config = loadConfig({
-  DATABASE_URL: 'postgres://aperture:aperture@127.0.0.1:5432/aperture',
-  REDIS_URL: 'redis://127.0.0.1:6379',
-});
+// ** Never opened: these tests cover the HTTP layer, and the health check reads it as a database that is down.
+const closedDataSource = createDataSource(testConfig.databaseUrl);
 
 class SymbolParams {
   @IsString()
@@ -31,24 +30,39 @@ class NoteBody {
   note!: string;
 }
 
-let app = buildApp(config, { logger: false });
+const buildTestApp = () => buildApp({ config: testConfig, dataSource: closedDataSource }, { logger: false });
+let app = buildTestApp();
 
 afterEach(async () => {
   await app.close();
-  app = buildApp(config, { logger: false });
+  app = buildTestApp();
 });
 
 describe('GET /health', () => {
-  it('reports the version and how market data is configured', async () => {
+  it('reports the version, the database and how market data is configured', async () => {
+    const dataSource = await openTestDatabase();
+    const healthy = buildApp({ config: testConfig, dataSource }, { logger: false });
+    try {
+      const response = await healthy.inject({ method: 'GET', url: '/health' });
+      expect(response.statusCode).toBe(200);
+      const body = response.json<HealthResponse>();
+      expect(body).toMatchObject({
+        status: 'ok',
+        version: '0.0.0',
+        database: 'up',
+        marketData: { provider: 'alpaca', feed: 'iex', configured: false },
+      });
+      expect(body.uptimeSeconds).toBeGreaterThanOrEqual(0);
+    } finally {
+      await healthy.close();
+      await dataSource.destroy();
+    }
+  });
+
+  it('answers 503 while the database is down', async () => {
     const response = await app.inject({ method: 'GET', url: '/health' });
-    expect(response.statusCode).toBe(200);
-    const body = response.json<HealthResponse>();
-    expect(body).toMatchObject({
-      status: 'ok',
-      version: '0.0.0',
-      marketData: { provider: 'alpaca', feed: 'iex', configured: false },
-    });
-    expect(body.uptimeSeconds).toBeGreaterThanOrEqual(0);
+    expect(response.statusCode).toBe(503);
+    expect(response.json<HealthResponse>()).toMatchObject({ status: 'unavailable', database: 'down' });
   });
 });
 
@@ -85,6 +99,15 @@ describe('error responses', () => {
       details: [],
     });
     expect(response.body).not.toContain('hunter2');
+  });
+
+  it('answers UNAVAILABLE when the database cannot be reached', async () => {
+    app.get('/boom', () => {
+      throw Object.assign(new Error('connect ECONNREFUSED 127.0.0.1:5432'), { code: 'ECONNREFUSED' });
+    });
+    const response = await app.inject({ method: 'GET', url: '/boom' });
+    expect(response.statusCode).toBe(503);
+    expect(response.json<ApiErrorBody>().error.code).toBe('UNAVAILABLE');
   });
 });
 

@@ -1,8 +1,12 @@
-/** `GET /health`: whether the server is up and how its market data source is set up. */
+/**
+ * `GET /health`: whether the server can serve requests and how its market data source is set up.
+ * Answered with status 200 when the database is reachable and 503 when it isn't.
+ */
 export interface HealthResponse {
-  status: 'ok';
+  status: 'ok' | 'unavailable';
   version: string;
   uptimeSeconds: number;
+  database: 'up' | 'down';
   marketData: {
     /** The configured provider adapter, e.g. "alpaca". */
     provider: string;
