@@ -52,15 +52,15 @@ function norm(value: string | undefined): string {
 }
 
 const SPEC: Record<string, [dark: string, light: string]> = {
-  '--bg-app': ['#0F141B', '#F3F5F9'],
-  '--bg-chrome': ['#131A23', '#E9EDF4'],
-  '--bg-panel': ['#18202B', '#FDFDFE'],
-  '--bg-raised': ['#1D2633', '#FFFFFF'],
-  '--bg-input': ['#111821', '#FFFFFF'],
+  '--bg-app': ['#0B0F14', '#F4F5F7'],
+  '--bg-chrome': ['#0E1319', '#FAFBFC'],
+  '--bg-panel': ['#131920', '#FFFFFF'],
+  '--bg-raised': ['#19202A', '#FFFFFF'],
+  '--bg-input': ['#0F141A', '#FFFFFF'],
   '--bg-hover': ['rgba(232,238,246,0.05)', 'rgba(15,23,42,0.045)'],
   '--bg-selected': ['rgba(96,165,250,0.14)', 'rgba(37,99,235,0.10)'],
-  '--border': ['#273242', '#DCE2EB'],
-  '--border-strong': ['#34425A', '#C7D0DD'],
+  '--border': ['#212A35', '#E4E7EC'],
+  '--border-strong': ['#2E3846', '#D0D5DD'],
   '--text-primary': ['#E8EEF6', '#0F172A'],
   '--text-muted': ['#94A0B2', '#5A6478'],
   '--accent': ['#60A5FA', '#2563EB'],
@@ -127,18 +127,18 @@ describe('tokens.css matches the specified palette exactly', () => {
   it('keeps the specified type, spacing, radius, height and motion scales', () => {
     const t = themeTokens('light');
     expect(t['--font-ui']?.replace(/'/g, '"')).toBe(
-      '"Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif',
+      '"Inter Variable", "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif',
     );
     expect(t['--font-mono']?.replace(/'/g, '"')).toBe(
       '"JetBrains Mono", "Cascadia Mono", Consolas, monospace',
     );
     expect(['xs', 'sm', 'md', 'lg', 'xl', '2xl'].map((s) => t[`--fs-${s}`])).toEqual([
-      '11px',
       '12px',
       '13px',
-      '15px',
-      '20px',
-      '28px',
+      '14px',
+      '16px',
+      '24px',
+      '32px',
     ]);
     expect([1, 2, 3, 4, 5, 6].map((n) => t[`--sp-${n}`])).toEqual([
       '4px',
@@ -148,10 +148,10 @@ describe('tokens.css matches the specified palette exactly', () => {
       '20px',
       '24px',
     ]);
-    expect(['sm', 'md', 'lg'].map((s) => t[`--radius-${s}`])).toEqual(['4px', '6px', '8px']);
+    expect(['sm', 'md', 'lg'].map((s) => t[`--radius-${s}`])).toEqual(['6px', '8px', '12px']);
     expect(
       ['--h-control-sm', '--h-control', '--h-row', '--h-topbar', '--h-panel-header'].map((n) => t[n]),
-    ).toEqual(['24px', '28px', '28px', '40px', '32px']);
+    ).toEqual(['28px', '34px', '40px', '56px', '44px']);
     expect(t['--dur-fast']).toBe('120ms');
   });
 });
@@ -175,10 +175,10 @@ describe('global.css contract', () => {
     expect(body).toMatch(/height:\s*100%/);
   });
 
-  it('never scrolls the body and uses the 13px base', () => {
+  it('never scrolls the body and uses the 14px base', () => {
     const body = ruleBody(/^body$/);
     expect(body).toMatch(/overflow:\s*hidden/);
-    expect(body).toMatch(/font-size:\s*(13px|var\(--fs-md\))/);
+    expect(body).toMatch(/font-size:\s*(14px|var\(--fs-md\))/);
     expect(body).toMatch(/font-family:\s*var\(--font-ui\)/);
   });
 

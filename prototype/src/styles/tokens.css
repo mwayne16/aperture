@@ -14,15 +14,17 @@
   color-scheme: dark;
 
   /* Surfaces */
-  --bg-app: #0f141b;
-  --bg-chrome: #131a23;
-  --bg-panel: #18202b;
-  --bg-raised: #1d2633; /* menus, dialogs, tooltips, toasts */
-  --bg-input: #111821;
-  --bg-track: #111821; /* recessed track behind segmented options */
-  --bg-control: #1d2633; /* secondary buttons, selected segment */
-  --bg-control-hover: #243041;
-  --bg-control-active: #2a3749;
+  --bg-app: #0b0f14;
+  --bg-chrome: #0e1319;
+  --bg-panel: #131920;
+  --bg-raised: #19202a; /* menus, dialogs, tooltips, toasts */
+  --bg-input: #0f141a;
+  --bg-track: #1a212b; /* track behind segmented options */
+  --bg-thumb: #2a3341; /* the selected segment, raised above the track */
+  --edge-thumb: rgba(0, 0, 0, 0.35); /* crisp lower edge under the selected segment */
+  --bg-control: #19202a; /* secondary buttons, selected segment */
+  --bg-control-hover: #202834;
+  --bg-control-active: #27303e;
   --bg-hover: rgba(232, 238, 246, 0.05);
   --bg-active: rgba(232, 238, 246, 0.08);
   --bg-selected: rgba(96, 165, 250, 0.14);
@@ -30,10 +32,10 @@
   --backdrop: rgba(5, 8, 12, 0.62);
 
   /* Borders */
-  --border-subtle: #1f2834; /* row separators inside dense tables */
-  --border: #273242;
-  --border-strong: #34425a;
-  --border-hover: #46556e;
+  --border-subtle: #1a212a; /* row separators inside dense tables */
+  --border: #212a35;
+  --border-strong: #2e3846;
+  --border-hover: #404c5e;
 
   /* Text */
   --text-primary: #e8eef6;
@@ -81,21 +83,24 @@
   --selection-bg: rgba(96, 165, 250, 0.32);
   --shadow-window: rgba(0, 0, 0, 0.5);
   --shadow-popover: 0 10px 28px -6px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.3);
+  --shadow-card: none; /* cards rely on their border in the dark theme */
 }
 
 :root[data-theme='light'] {
   color-scheme: light;
 
   /* Surfaces */
-  --bg-app: #f3f5f9;
-  --bg-chrome: #e9edf4;
-  --bg-panel: #fdfdfe;
+  --bg-app: #f4f5f7;
+  --bg-chrome: #fafbfc;
+  --bg-panel: #ffffff;
   --bg-raised: #ffffff;
   --bg-input: #ffffff;
-  --bg-track: #eef1f6;
+  --bg-track: #eff1f4;
+  --bg-thumb: #ffffff;
+  --edge-thumb: rgba(16, 24, 40, 0.1);
   --bg-control: #ffffff;
-  --bg-control-hover: #f4f6fa;
-  --bg-control-active: #eaeef4;
+  --bg-control-hover: #f6f7f9;
+  --bg-control-active: #eceef2;
   --bg-hover: rgba(15, 23, 42, 0.045);
   --bg-active: rgba(15, 23, 42, 0.08);
   --bg-selected: rgba(37, 99, 235, 0.1);
@@ -103,10 +108,10 @@
   --backdrop: rgba(15, 23, 42, 0.32);
 
   /* Borders */
-  --border-subtle: #e9edf3;
-  --border: #dce2eb;
-  --border-strong: #c7d0dd;
-  --border-hover: #a9b4c4;
+  --border-subtle: #eef0f3;
+  --border: #e4e7ec;
+  --border-strong: #d0d5dd;
+  --border-hover: #b3bac6;
 
   /* Text */
   --text-primary: #0f172a;
@@ -151,23 +156,24 @@
   --selection-bg: rgba(37, 99, 235, 0.2);
   --shadow-window: rgba(15, 23, 42, 0.12);
   --shadow-popover: 0 10px 28px -6px rgba(15, 23, 42, 0.16), 0 2px 6px rgba(15, 23, 42, 0.08);
+  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.03);
 }
 
 :root {
   /* Typography */
-  --font-ui: 'Inter', 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+  --font-ui: 'Inter Variable', 'Inter', 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', 'Cascadia Mono', Consolas, monospace;
-  --fs-xs: 11px;
-  --fs-sm: 12px;
-  --fs-md: 13px;
-  --fs-lg: 15px;
-  --fs-xl: 20px;
-  --fs-2xl: 28px;
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-md: 14px;
+  --fs-lg: 16px;
+  --fs-xl: 24px;
+  --fs-2xl: 32px;
   --fw-regular: 400;
   --fw-medium: 500;
   --fw-semibold: 600;
   --lh-tight: 1.25;
-  --lh-normal: 1.45;
+  --lh-normal: 1.5;
 
   /* Spacing (4px scale) */
   --sp-1: 4px;
@@ -178,16 +184,17 @@
   --sp-6: 24px;
 
   /* Radii */
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 999px;
 
   /* Heights */
-  --h-control-sm: 24px;
-  --h-control: 28px;
-  --h-row: 28px;
-  --h-topbar: 40px;
-  --h-panel-header: 32px;
+  --h-control-sm: 28px;
+  --h-control: 34px;
+  --h-row: 40px;
+  --h-topbar: 56px;
+  --h-panel-header: 44px;
 
   /* Motion */
   --dur-fast: 120ms;

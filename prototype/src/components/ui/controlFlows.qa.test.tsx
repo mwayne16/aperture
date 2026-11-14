@@ -374,13 +374,13 @@ describe('theme switching and chart colors (QA)', () => {
       expect(screen.getByRole('status', { name: 'Resolved theme' })).toHaveTextContent('light');
       const light = readThemeColors();
       expect(light.accent).toBe('#2563eb');
-      expect(light.bgApp).toBe('#f3f5f9');
+      expect(light.bgApp).toBe('#f4f5f7');
       expect(light.textPrimary).toBe('#0f172a');
 
       await user.keyboard('{ArrowLeft}');
       expect(radio('Dark')).toBeChecked();
       expect(document.documentElement.dataset.theme).toBe('dark');
-      expect(readThemeColors().bgApp).toBe('#0f141b');
+      expect(readThemeColors().bgApp).toBe('#0b0f14');
     } finally {
       await user.click(radio('System'));
       style.remove();

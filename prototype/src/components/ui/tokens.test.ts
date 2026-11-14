@@ -220,15 +220,15 @@ describe.each(['dark', 'light'] as const)('tokens.css — %s theme', (theme) => 
 
   it('keeps the specified sizes', () => {
     expect([tokens['--fs-md'], tokens['--h-control'], tokens['--h-row'], tokens['--h-topbar']]).toEqual([
-      '13px',
-      '28px',
-      '28px',
+      '14px',
+      '34px',
       '40px',
+      '56px',
     ]);
     expect([tokens['--sp-1'], tokens['--sp-6'], tokens['--radius-md'], tokens['--dur-fast']]).toEqual([
       '4px',
       '24px',
-      '6px',
+      '8px',
       '120ms',
     ]);
   });

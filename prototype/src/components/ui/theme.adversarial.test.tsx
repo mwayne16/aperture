@@ -131,9 +131,9 @@ describe('theme (adversarial)', () => {
     // If jsdom cannot cascade custom properties, both reads fall back; only assert when it can.
     if (
       dark.bgPanel.toLowerCase() !== light.bgPanel.toLowerCase() ||
-      light.bgPanel.toLowerCase() === '#fdfdfe'
+      light.bgPanel.toLowerCase() === '#ffffff'
     ) {
-      expect(light.bgPanel.toLowerCase()).toBe('#fdfdfe');
+      expect(light.bgPanel.toLowerCase()).toBe('#ffffff');
       expect(light.textPrimary.toLowerCase()).toBe('#0f172a');
       expect(light.gain.toLowerCase()).toBe('#047857');
     }
