@@ -13,7 +13,11 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
 - Phase 2 (persistence and API): **merged 2026-11-14.** Schema and the first migration, watchlist and alert
   endpoints, DB-unavailable handling, Testcontainers-backed tests, and a manual check that data survives a
   backend restart.
-- Phase 3 (market data integration): next.
+- Phase 3 (market data integration): **in progress, split into three PRs.** (1) REST market data on
+  `feat/market-data`: the Alpaca adapter, instruments and search, quote snapshots, chart history, movers.
+  (2) The stream: one Alpaca connection, the 30-symbol budget, connection status, polling for the rest.
+  (3) The curated news feed (plan section 2.6). Nothing is verified against real Alpaca until the user adds
+  paper-trading keys to `.env`.
 - Track phase status in this section. Update it whenever a phase is approved or completed.
 
 ## Product decisions that override the plan
@@ -87,8 +91,27 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
 - Market data is **provider-agnostic** (user request, 2026-11-14): services depend on the `MarketDataProvider`
   port in `apps/server/src/marketData/provider.ts`; each vendor is an adapter selected by
   `MARKET_DATA_PROVIDER`, and its plan limits are data the rate limiter and stream budget read.
+- Alpaca SDK: **`@alpacahq/alpaca-trade-api` 5.x**, the official TypeScript SDK (checked 2026-11-14 against
+  5.0.0's shipped types and source). It passes what the adapter needs: `fetchApi` and stream `url` overrides
+  make it testable without keys (the `/testing` subpath has `mockFetch`); streams expose state, auth results,
+  Alpaca's error codes (406 = second connection) and bounded reconnects (10 attempts, 1 s to 64 s backoff);
+  REST throttles itself and retries idempotent reads. Its generated parsers copy values unchecked, so
+  `alpacaPayloads.ts` validates every field. Alpaca's `@alpacahq/typescript-sdk` is still a 2025 preview.
+- Market-data safety and setup:
+  - The adapter builds only `MarketDataClient` and the read-only `trading.AssetsApi`, never `Alpaca` or
+    `TradingClient`, so no order method is reachable from the server.
+  - The asset list lives on the paper-trading host, so the app needs **paper-trading keys**, which can't
+    touch real money either way.
+  - Without keys the server still runs; the provider is `null` and market-data endpoints answer 503
+    UNAVAILABLE with setup steps. `/health` doesn't fail over it.
+  - Provider failures become `ProviderError` (credentials, entitlement, rate_limited, unavailable,
+    rejected) with our own messages; SDK errors are never logged raw, and a test checks the keys never reach
+    the log.
+  - Caches are in memory with TTLs and size caps (`TtlCache`), not Redis: one backend instance needs nothing
+    shared. Redis comes in when something does (the news cache per plan section 2.6).
 - Lint config: one `eslint.base.js` at the root; each workspace adds its globals and plugins.
-- Shared code: `packages/shared` holds the API contracts and the symbol and alert rules both sides enforce.
+- Shared code: `packages/shared` holds the API contracts and the rules both sides enforce: symbols, alerts,
+  chart ranges (`resolveRange`) and the instrument search ranking.
   Each export has a `source` condition pointing at its TypeScript, which the desktop app resolves
   (`customConditions` and Vite `resolve.conditions`), so it never needs the package built. The server
   resolves `dist` through its project reference. The app keeps its own copies of the API types until it
@@ -113,11 +136,16 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
   messages. `Omittable` marks optional fields in partial updates: unlike `IsOptional` it still rejects null.
 - `db/`: the data source, migrations, startup (`openDatabase`, bounded retry) and `isDatabaseUnavailable`,
   which the error handler turns into 503 UNAVAILABLE.
+- `marketData/`: the provider port (`provider.ts`), one folder per adapter (`alpaca/`: adapter, payload
+  checks, doc-shaped fixtures), `createProvider.ts` (picks the adapter from config), and the service, DTOs
+  and routes. Tests use `test/fakeProvider.ts` for the service and routes and the SDK's `mockFetch` for the
+  adapter; `npm run check` never opens a real Alpaca connection.
 
 ## Desktop app architecture (`apps/desktop`)
 - `electron/`: main process (`main.ts`), preload (`preload.ts`, the typed `window.aperture` bridge from
   `bridge.ts`) and the navigation policy. `src/`: the React renderer, described below.
-- `domain/`: pure types and logic that carry over to production (types, alert engine, chart ranges).
+- `domain/`: pure types and logic that carry over to production (types, alert engine). Chart ranges and
+  search ranking now live in `packages/shared`.
 - `lib/`: formatting and small utilities.
 - `data/api.ts` and `data/realtime.ts`: **interfaces** that mirror the future HTTP API and WebSocket client.
   `data/mock/` implements them with clearly labeled simulated data. In Phase 5 the mocks are replaced
