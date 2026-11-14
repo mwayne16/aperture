@@ -12,6 +12,11 @@ export function envNameOf(property: string): string {
   return envNames.get(property) ?? property;
 }
 
+/** Every environment variable a config class reads. */
+export function declaredEnvNames(): string[] {
+  return [...envNames.values()];
+}
+
 function readText(value: unknown): unknown {
   return typeof value === 'string' ? value.trim() : value;
 }

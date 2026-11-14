@@ -1,7 +1,10 @@
 import { plainToInstance } from 'class-transformer';
 import { validateSync, type ValidationError } from 'class-validator';
 import { AppConfig } from './appConfig.js';
-import { envNameOf } from './env.js';
+import { declaredEnvNames, envNameOf } from './env.js';
+
+/** A value copied from .env.example without filling it in, e.g. `<SERVER_PORT>`. */
+const PLACEHOLDER = /^<[A-Z0-9_]+>$/;
 
 /** Startup configuration problems, one readable line per invalid variable. */
 export class ConfigError extends Error {
@@ -20,6 +23,12 @@ export class ConfigError extends Error {
  * never its value, so a mistyped secret is not printed to the console.
  */
 export function loadConfig(env: Readonly<Record<string, string | undefined>>): AppConfig {
+  const placeholders = declaredEnvNames().filter((name) => PLACEHOLDER.test(env[name]?.trim() ?? ''));
+  if (placeholders.length > 0) {
+    throw new ConfigError(
+      placeholders.map((name) => `${name} still has its .env.example placeholder; set a value or delete the line`),
+    );
+  }
   // ** A blank variable must fall back to the default, and defaults only apply to absent keys.
   const present = Object.fromEntries(Object.entries(env).filter(([, value]) => value !== undefined && value.trim() !== ''));
   const config = plainToInstance(AppConfig, present, { excludeExtraneousValues: true, exposeDefaultValues: true });
