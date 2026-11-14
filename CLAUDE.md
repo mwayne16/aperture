@@ -5,15 +5,10 @@ It must never place orders or execute trades. Buy/Sell on alerts are user labels
 The full spec is `stock-app-plan.md`. Read it before you change architecture.
 
 ## Current phase
-- Phase 0: interactive prototype in `prototype/`. **It is an approval gate.** Do not start
-  backend, database, Docker or Electron scaffolding until the user has approved the prototype in chat.
-  Status (2026-11-13): the first prototype was reviewed and changes were requested. Figma couldn't be
-  authorized, so at the user's request the redesign went straight into the working prototype: a
-  multi-page app with sidebar navigation, a dashboard, Discover (stocks, ETFs, crypto), a full stock page
-  with pop-out, Alerts, Notifications and Settings. **Awaiting the user's review and approval.**
-  2026-11-13: a visual polish pass (Inter, larger scale, soft segmented controls, Settings at the sidebar
-  bottom, notifications bell in the top bar) is merged; tag `before-ui-polish` marks the state before it
-  so it can be reverted. Watchlist-curated news ranking is specified in plan section 2.6 for later.
+- Phase 0 (interactive prototype): **approved by the user on 2026-11-13.** It includes the multi-page
+  redesign, the visual polish pass (tag `before-ui-polish` marks the state before it) and the news card.
+  Watchlist-curated news ranking is specified in plan section 2.6 for later.
+- Phase 1 (project foundation): **in progress** on `feat/project-foundation`.
 - Track phase status in this section. Update it whenever a phase is approved or completed.
 
 ## Product decisions that override the plan
