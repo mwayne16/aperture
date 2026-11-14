@@ -13,6 +13,7 @@ import { useQuote } from '../../data/quoteStore';
 import { changeDirection, formatPercent } from '../../lib/format';
 import { SymbolSearch } from '../market/SymbolSearch';
 import { nextListIndex } from './listNavigation';
+import { useDragClickGuard } from './useDragClickGuard';
 import { useWatchlistStore, useWatchlistSymbols } from './watchlistStore';
 import './watchlists.css';
 
@@ -34,8 +35,7 @@ export function WatchlistSection() {
   const [adding, setAdding] = useState(false);
   const [focusSymbol, setFocusSymbol] = useState<string | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
-  // ** Releasing a drag clicks the row under the pointer; that click must not open the symbol's page.
-  const justDragged = useRef(false);
+  const dragClickGuard = useDragClickGuard();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: DRAG_THRESHOLD_PX } }));
   const headingId = useId();
   const listId = useId();
@@ -68,14 +68,8 @@ export function WatchlistSection() {
     void useWatchlistStore.getState().reorder(arrayMove([...symbols], from, to));
   };
 
-  const endDrag = () => {
-    setTimeout(() => {
-      justDragged.current = false;
-    }, 0);
-  };
-
   const onDragEnd = ({ active, over }: DragEndEvent) => {
-    endDrag();
+    dragClickGuard.onDragEnd();
     if (over && active.id !== over.id) move(String(active.id), symbols.indexOf(String(over.id)));
   };
 
@@ -135,11 +129,8 @@ export function WatchlistSection() {
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
-        onDragStart={() => {
-          justDragged.current = true;
-        }}
         onDragEnd={onDragEnd}
-        onDragCancel={endDrag}
+        onDragCancel={dragClickGuard.onDragCancel}
       >
         <SortableContext items={[...symbols]} strategy={verticalListSortingStrategy}>
           <ul id={listId} ref={listRef} className="watch-list" aria-labelledby={headingId} onKeyDown={onListKeyDown}>
@@ -151,7 +142,6 @@ export function WatchlistSection() {
                 tabbable={symbol === tabStop}
                 onFocus={setFocusSymbol}
                 onRemove={remove}
-                isClickSuppressed={() => justDragged.current}
               />
             ))}
           </ul>
@@ -218,12 +208,10 @@ interface WatchRowProps {
   tabbable: boolean;
   onFocus: (symbol: string) => void;
   onRemove: (symbol: string) => void;
-  /** True right after a drag, when the release click should be ignored. */
-  isClickSuppressed: () => boolean;
 }
 
 /** One watched symbol, draggable to reorder. It reads its own quote, so a tick re-renders only this row. */
-function WatchRow({ symbol, current, tabbable, onFocus, onRemove, isClickSuppressed }: WatchRowProps) {
+function WatchRow({ symbol, current, tabbable, onFocus, onRemove }: WatchRowProps) {
   const { setNodeRef, listeners, transform, transition, isDragging } = useSortable({ id: symbol });
   const quote = useQuote(symbol);
   const live = quote?.status === 'live' || quote?.status === 'delayed';
@@ -243,9 +231,6 @@ function WatchRow({ symbol, current, tabbable, onFocus, onRemove, isClickSuppres
         data-watch-symbol={symbol}
         aria-current={current ? 'page' : undefined}
         aria-keyshortcuts="Delete Alt+ArrowUp Alt+ArrowDown"
-        onClick={(event) => {
-          if (isClickSuppressed()) event.preventDefault();
-        }}
         tabIndex={tabbable ? 0 : -1}
         onFocus={() => {
           onFocus(symbol);
