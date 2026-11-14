@@ -6,7 +6,7 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default defineConfig([
-  globalIgnores(['dist', 'coverage', 'eslint.config.js']),
+  globalIgnores(['dist', 'out', 'coverage', 'eslint.config.js', 'scripts']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -20,7 +20,7 @@ export default defineConfig([
       ecmaVersion: 2023,
       globals: globals.browser,
       parserOptions: {
-        projectService: { allowDefaultProject: ['vite.config.ts'] },
+        projectService: { allowDefaultProject: ['vite.config.ts', 'electron.vite.config.ts'] },
         tsconfigRootDir: import.meta.dirname,
       },
     },
