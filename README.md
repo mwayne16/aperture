@@ -14,7 +14,7 @@ An npm-workspaces monorepo:
 | Path | What it is |
 | --- | --- |
 | `apps/desktop` | The Electron app: the React renderer in `src/`, the Electron main process and preload script in `electron/` |
-| `apps/server` | The Fastify backend: configuration, request validation, error handling, the market-data provider interface |
+| `apps/server` | The Fastify backend: the watchlist and alerts API on PostgreSQL (TypeORM), configuration, request validation, error handling, the market-data provider interface |
 | `packages/shared` | Typed contracts shared by the app and the server, such as the API error shape |
 | `compose.yaml` | PostgreSQL and Redis for local development |
 
@@ -69,8 +69,9 @@ docker compose down
 docker compose down -v
 ```
 
-Both services listen on `127.0.0.1` only. PostgreSQL keeps its data in the `postgres-data` volume;
-Redis holds only caches and transient state, so it keeps nothing on disk.
+Both services listen on `127.0.0.1` only. PostgreSQL keeps the watchlist and alerts in the `postgres-data`
+volume, so `docker compose down -v` deletes them. Redis holds only caches and transient state, so it keeps
+nothing on disk.
 
 ## Development
 
@@ -83,6 +84,24 @@ npm run dev --workspace @aperture/desktop
 
 # The backend at http://127.0.0.1:4100 (try GET /health), restarting on changes
 npm run dev --workspace @aperture/server
+```
+
+The backend applies pending database migrations when it starts. If PostgreSQL isn't reachable yet it retries
+for about 30 seconds, then stops with the reason.
+
+### Database migrations
+
+The schema changes only through migrations in `apps/server/src/db/migrations`, never by syncing it to the
+entities. After changing an entity, generate a migration, review it, and add its class to the list in
+`apps/server/src/db/dataSource.ts`:
+
+```bash
+# Generate a migration from the difference between the entities and your database
+npm run db:generate --workspace @aperture/server -- src/db/migrations/AddSomething
+
+# Apply pending migrations, or undo the latest one
+npm run db:migrate --workspace @aperture/server
+npm run db:revert --workspace @aperture/server
 ```
 
 Build and try the packaged app:
@@ -103,6 +122,31 @@ npm run check
 
 Runs typecheck, lint, unused-code detection (knip), tests and builds for every workspace. A green check
 is required before merging into `main`. Inside a workspace, `npm run check` checks only that workspace.
+
+The server tests start their own throwaway PostgreSQL container (the image from `compose.yaml`), so **Docker
+must be running**. They never touch the database in your `.env`.
+
+## HTTP API
+
+The backend listens on `127.0.0.1:4100`. Request and response types live in `packages/shared`. Every
+error uses one shape, `{ "error": { "code", "message", "details": [{ "field", "message" }] } }`, with
+the codes `VALIDATION_ERROR` (400), `NOT_FOUND` (404), `CONFLICT` (409), `UNAVAILABLE` (503, e.g. the
+database is down) and `INTERNAL` (500). Unknown fields in a request are rejected.
+
+| Method and path | Does |
+| --- | --- |
+| `GET /health` | Server, database and market-data status; 503 while the database is down |
+| `GET /watchlist` | The watchlist: `{ symbols, updatedAt }` |
+| `POST /watchlist/symbols` | Append `{ symbol }`. 409 for a duplicate, 400 once the list holds 30 symbols |
+| `DELETE /watchlist/symbols/:symbol` | Remove a symbol. Encode crypto pairs: `BTC%2FUSD` |
+| `PUT /watchlist/order` | Reorder with `{ symbols }`, which must list every current symbol once |
+| `GET /alerts` | `{ alerts }`, oldest first |
+| `POST /alerts` | Create `{ symbol, condition, targetPrice, tag, enabled?, note? }` (201) |
+| `PATCH /alerts/:id` | Change any of `condition`, `targetPrice`, `tag`, `enabled`, `note`; `note: null` clears it |
+| `DELETE /alerts/:id` | Delete (204) |
+
+Alerts are evaluated on the last trade price. Changing an alert's condition or target price, or enabling
+it again, re-arms it so it can fire again.
 
 ## Configuration
 
