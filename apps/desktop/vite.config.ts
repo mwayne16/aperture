@@ -12,6 +12,6 @@ export default defineConfig({
     restoreMocks: true,
     // Timing-based tests exceed the 5s default when several checks share the machine.
     testTimeout: 15_000,
-    include: ['src/**/*.test.{ts,tsx}'],
+    include: ['src/**/*.test.{ts,tsx}', 'electron/**/*.test.ts'],
   },
 });
