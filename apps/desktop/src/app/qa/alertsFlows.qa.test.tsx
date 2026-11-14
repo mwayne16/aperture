@@ -401,6 +401,11 @@ describe('alerts end to end (QA)', () => {
 
   it('records triggers and one coalesced entry for a dropped connection in Notifications, with the unread count on the bell', async () => {
     await startApp();
+    // ** Startup can leave an entry in the inbox under heavy load, so it starts empty here: every unread
+    // count below then comes from this test's own alert and outage.
+    act(() => {
+      useNotificationStore.setState({ notifications: [] });
+    });
     expect(unreadBadge()).toBeNull();
     const last = getQuote('AMD')?.last ?? Number.NaN;
     const alert = await createAlert('AMD', Math.floor(last) - 5);
