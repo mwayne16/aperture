@@ -47,7 +47,7 @@ export function TriggerHistory({ query, onClearFilters }: TriggerHistoryProps) {
       <caption className="visually-hidden">Trigger history, newest first</caption>
       <thead>
         <tr>
-          <th scope="col" className="is-num alerts-table__time">
+          <th scope="col" className="alerts-table__time">
             Time (ET)
           </th>
           <th scope="col">Symbol</th>
@@ -66,7 +66,7 @@ export function TriggerHistory({ query, onClearFilters }: TriggerHistoryProps) {
       <tbody>
         {visible.map((event) => (
           <tr key={event.id}>
-            <td className="is-num alerts-table__time">{formatDateTime(event.triggeredAt, ALERT_TIME_ZONE)}</td>
+            <td className="num alerts-table__time">{formatDateTime(event.triggeredAt, ALERT_TIME_ZONE)}</td>
             <td>
               <AlertSymbolLink symbol={event.symbol} />
             </td>

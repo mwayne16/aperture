@@ -186,12 +186,8 @@ export function AlertsTable({ status, query, onClearFilters }: AlertsTableProps)
                 <th scope="col">Label</th>
                 <th scope="col">Status</th>
                 <th scope="col">Enabled</th>
-                <th scope="col" className="is-num">
-                  Last triggered (ET)
-                </th>
-                <th scope="col" className="is-num">
-                  Updated (ET)
-                </th>
+                <th scope="col">Last triggered (ET)</th>
+                <th scope="col">Updated (ET)</th>
                 <th scope="col" className="alerts-table__note">
                   Note
                 </th>
@@ -296,8 +292,8 @@ const AlertRow = memo(function AlertRow({ alert, onDelete, onToggle }: AlertRowP
           hideLabel
         />
       </td>
-      <td className="is-num">{lastTriggeredText(alert)}</td>
-      <td className="is-num">{formatDateTime(alert.updatedAt, ALERT_TIME_ZONE)}</td>
+      <td className="num">{lastTriggeredText(alert)}</td>
+      <td className="num">{formatDateTime(alert.updatedAt, ALERT_TIME_ZONE)}</td>
       <td className="alerts-table__note" title={alert.note ?? undefined}>
         {alert.note}
       </td>
