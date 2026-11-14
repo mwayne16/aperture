@@ -5,7 +5,7 @@ import {
   type ValidationResult,
   validateSymbol,
   validateSymbolForWatchlist,
-} from './symbols';
+} from './symbols.js';
 
 /** Adversarial tests derived from the symbols doc-comment spec. */
 

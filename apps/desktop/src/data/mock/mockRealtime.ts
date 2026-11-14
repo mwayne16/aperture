@@ -1,5 +1,5 @@
 import { evaluateAlert } from '../../domain/alertEngine';
-import { normalizeSymbol } from '../../domain/symbols';
+import { normalizeSymbol } from '@aperture/shared/symbols';
 import type { AlertEvent, ConnectionInfo, PriceAlert, Quote } from '../../domain/types';
 import type { RealtimeClient, Unsubscribe } from '../realtime';
 import { STALE_AFTER_MS, type FeedScenario } from '../simulation';

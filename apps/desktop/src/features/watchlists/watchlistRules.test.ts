@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isApiError } from '../../data/api';
-import { MAX_WATCHLIST_SYMBOLS } from '../../domain/symbols';
+import { MAX_WATCHLIST_SYMBOLS } from '@aperture/shared/symbols';
 import { checkWatchlistSymbol, isPermutation, reinsertAt, undoReorder } from './watchlistRules';
 
 function thrown(fn: () => unknown): unknown {

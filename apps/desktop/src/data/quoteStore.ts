@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
-import { normalizeSymbol } from '../domain/symbols';
+import { normalizeSymbol } from '@aperture/shared/symbols';
 import type { Quote } from '../domain/types';
 
 /**

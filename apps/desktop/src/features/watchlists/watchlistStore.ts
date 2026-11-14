@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { showToast } from '../../components/ui/toastStore';
 import { isApiError } from '../../data/api';
 import { api } from '../../data/dataLayer';
-import { normalizeSymbol } from '../../domain/symbols';
+import { normalizeSymbol } from '@aperture/shared/symbols';
 import type { Watchlist } from '../../domain/types';
 import { checkWatchlistSymbol, isPermutation, reinsertAt, undoReorder } from './watchlistRules';
 

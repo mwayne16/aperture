@@ -6,7 +6,7 @@ import {
   validateSymbol,
   validateSymbolForWatchlist,
   type ValidationResult,
-} from './symbols';
+} from './symbols.js';
 
 /**
  * Round-2 adversarial tests for symbols: exhaustive length boundaries, a brute-force check that

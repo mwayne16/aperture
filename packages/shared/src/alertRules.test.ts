@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_TARGET_PRICE, NOTE_MAX_LENGTH, validateAlertFields } from './alertRules';
+import { MAX_TARGET_PRICE, NOTE_MAX_LENGTH, validateAlertFields } from './alertRules.js';
 
 const valid = { symbol: 'AAPL', condition: 'above', targetPrice: 200, tag: 'buy' } as const;
 
@@ -27,9 +27,9 @@ describe('validateAlertFields', () => {
 
   it('allows a target price up to the maximum', () => {
     expect(fields({ ...valid, targetPrice: MAX_TARGET_PRICE })).toEqual([]);
-    expect(validateAlertFields({ ...valid, targetPrice: MAX_TARGET_PRICE + 0.01 }, 'create')[0]?.message).toBe(
-      `Target price must be ${MAX_TARGET_PRICE} or less.`,
-    );
+    expect(
+      validateAlertFields({ ...valid, targetPrice: MAX_TARGET_PRICE + 0.01 }, 'create')[0]?.message,
+    ).toBe(`Target price must be ${MAX_TARGET_PRICE} or less.`);
   });
 
   it('measures the note after trimming, and allows a null note', () => {

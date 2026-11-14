@@ -4,7 +4,7 @@ import {
   normalizeSymbol,
   validateSymbol,
   validateSymbolForWatchlist,
-} from './symbols';
+} from './symbols.js';
 
 /**
  * Round-3 adversarial tests for symbols, derived from the doc-comment rules.

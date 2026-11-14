@@ -1,6 +1,6 @@
 import type { ApiError } from '../../data/api';
-import { validateAlertFields } from '../../domain/alertRules';
-import { normalizeSymbol } from '../../domain/symbols';
+import { validateAlertFields } from '@aperture/shared/alertRules';
+import { normalizeSymbol } from '@aperture/shared/symbols';
 import type {
   AlertCondition,
   AlertTag,

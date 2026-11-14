@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_WATCHLIST_SYMBOLS } from '../../domain/symbols';
+import { MAX_WATCHLIST_SYMBOLS } from '@aperture/shared/symbols';
 import type { Instrument, Quote, Watchlist } from '../../domain/types';
 import {
   ariaSort,

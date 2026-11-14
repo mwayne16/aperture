@@ -1,4 +1,4 @@
-import { MAX_WATCHLIST_SYMBOLS, normalizeSymbol } from '../../domain/symbols';
+import { MAX_WATCHLIST_SYMBOLS, normalizeSymbol } from '@aperture/shared/symbols';
 import type { Watchlist } from '../../domain/types';
 
 /** What the stock page's watch (star) toggle shows for a symbol and the watchlist. */

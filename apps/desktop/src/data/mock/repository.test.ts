@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { MAX_WATCHLIST_SYMBOLS } from '../../domain/symbols';
+import { MAX_WATCHLIST_SYMBOLS } from '@aperture/shared/symbols';
 import type { PriceAlert, Watchlist } from '../../domain/types';
 import { createMockMarket } from './market';
 import { createRepository, parsePersisted, STORAGE_KEY, type StorageLike } from './repository';

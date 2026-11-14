@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeSymbol, validateSymbol, validateSymbolForWatchlist } from './symbols';
+import { normalizeSymbol, validateSymbol, validateSymbolForWatchlist } from './symbols.js';
 
 /**
  * Symbols are trimmed of every Unicode White_Space character, not just what String#trim removes.

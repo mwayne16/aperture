@@ -11,7 +11,7 @@ import { showToast } from '../../components/ui/toastStore';
 import { isApiError } from '../../data/api';
 import { useConnectionStore } from '../../data/connectionStore';
 import { useQuote } from '../../data/quoteStore';
-import { validateSymbol } from '../../domain/symbols';
+import { validateSymbol } from '@aperture/shared/symbols';
 import type { AlertCondition, AlertTag, PriceAlert } from '../../domain/types';
 import { changeDirection, formatPrice } from '../../lib/format';
 import { SimulatedBadge } from '../discover/SimulatedBadge';
