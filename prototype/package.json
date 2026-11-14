@@ -18,6 +18,8 @@
     "knip": "knip --no-progress"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
     "dayjs": "^1.11.23",
     "lightweight-charts": "^5.2.1",
     "lucide-react": "^1.61.0",

@@ -195,6 +195,25 @@
   visibility: hidden;
 }
 
+/* The row being dragged lifts above its neighbours; its remove button stays out of the way. */
+.watch-row.is-dragging {
+  z-index: 1;
+  cursor: grabbing;
+}
+
+.watch-row.is-dragging .watch-row__link {
+  background-color: var(--bg-raised);
+  box-shadow: var(--shadow-popover);
+}
+
+.watch-row.is-dragging .watch-row__remove {
+  visibility: hidden;
+}
+
+.watch-row.is-dragging .watch-row__change {
+  visibility: visible;
+}
+
 /* ------------------------------------------------------------------ Watchlist page */
 
 .watchlist-page {

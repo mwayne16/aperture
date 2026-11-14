@@ -100,6 +100,30 @@ describe('WatchlistSection', () => {
     expect(rows()[0]).toHaveFocus();
   });
 
+  it('moves the focused symbol with Alt+Up and Alt+Down, keeping focus on it', async () => {
+    const user = userEvent.setup();
+    setWatchlist(['AAPL', 'MSFT', 'NVDA']);
+    const orders: string[][] = [];
+    act(() => {
+      useWatchlistStore.setState({
+        reorder: (next) => {
+          orders.push([...next]);
+          useWatchlistStore.setState({ watchlist: { symbols: [...next], updatedAt: '' } });
+          return Promise.resolve();
+        },
+      });
+    });
+    renderAt('/');
+    rows()[0]!.focus();
+    await user.keyboard('{Alt>}{ArrowDown}{/Alt}');
+    expect(orders.at(-1)).toEqual(['MSFT', 'AAPL', 'NVDA']);
+    expect(document.activeElement).toHaveAttribute('data-watch-symbol', 'AAPL');
+    await user.keyboard('{Alt>}{ArrowUp}{ArrowUp}{/Alt}');
+    // The second Alt+Up is already at the top, so it changes nothing.
+    expect(orders).toHaveLength(2);
+    expect(orders.at(-1)).toEqual(['AAPL', 'MSFT', 'NVDA']);
+  });
+
   it('collapses and expands from the heading', async () => {
     const user = userEvent.setup();
     setWatchlist(['AAPL']);

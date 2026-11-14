@@ -1,3 +1,5 @@
+import { closestCenter, DndContext, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
+import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { ChevronDown, Plus, RotateCw, X } from 'lucide-react';
 import { useId, useRef, useState, type KeyboardEvent } from 'react';
 import { Link, useLocation } from 'wouter';
@@ -16,9 +18,13 @@ import './watchlists.css';
 
 const SYMBOL_PATH = /^\/symbol\/([^/]+)$/;
 
+/** Pointer travel before a press becomes a drag, so a plain click still opens the symbol. */
+const DRAG_THRESHOLD_PX = 4;
+
 /**
- * The sidebar's watchlist: every watched symbol with its live change, linking to its page. Up/Down,
- * Home and End move between symbols and Delete removes one. The + button adds a symbol.
+ * The sidebar's watchlist: every watched symbol with its live change, linking to its page. Rows can
+ * be dragged to reorder them. Up/Down, Home and End move between symbols, Alt+Up/Down moves the
+ * focused symbol, and Delete removes one. The + button adds a symbol.
  */
 export function WatchlistSection() {
   const status = useWatchlistStore((s) => s.status);
@@ -28,6 +34,9 @@ export function WatchlistSection() {
   const [adding, setAdding] = useState(false);
   const [focusSymbol, setFocusSymbol] = useState<string | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  // ** Releasing a drag clicks the row under the pointer; that click must not open the symbol's page.
+  const justDragged = useRef(false);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: DRAG_THRESHOLD_PX } }));
   const headingId = useId();
   const listId = useId();
   const [location] = useLocation();
@@ -52,9 +61,33 @@ export function WatchlistSection() {
     }
   };
 
+  /** Moves `symbol` to position `to`, ignoring moves past either end. */
+  const move = (symbol: string, to: number) => {
+    const from = symbols.indexOf(symbol);
+    if (from === -1 || to < 0 || to >= symbols.length || from === to) return;
+    void useWatchlistStore.getState().reorder(arrayMove([...symbols], from, to));
+  };
+
+  const endDrag = () => {
+    setTimeout(() => {
+      justDragged.current = false;
+    }, 0);
+  };
+
+  const onDragEnd = ({ active, over }: DragEndEvent) => {
+    endDrag();
+    if (over && active.id !== over.id) move(String(active.id), symbols.indexOf(String(over.id)));
+  };
+
   const onListKeyDown = (event: KeyboardEvent<HTMLUListElement>) => {
     const symbol = (event.target as HTMLElement).dataset.watchSymbol;
     if (symbol === undefined) return;
+    if (event.altKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+      event.preventDefault();
+      // ** Rows are keyed by symbol, so the focused link moves with its row and keeps focus.
+      move(symbol, symbols.indexOf(symbol) + (event.key === 'ArrowUp' ? -1 : 1));
+      return;
+    }
     if (event.key === 'Delete') {
       event.preventDefault();
       remove(symbol);
@@ -99,18 +132,31 @@ export function WatchlistSection() {
     );
   } else {
     body = (
-      <ul id={listId} ref={listRef} className="watch-list" aria-labelledby={headingId} onKeyDown={onListKeyDown}>
-        {symbols.map((symbol) => (
-          <WatchRow
-            key={symbol}
-            symbol={symbol}
-            current={symbol === currentSymbol}
-            tabbable={symbol === tabStop}
-            onFocus={setFocusSymbol}
-            onRemove={remove}
-          />
-        ))}
-      </ul>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={() => {
+          justDragged.current = true;
+        }}
+        onDragEnd={onDragEnd}
+        onDragCancel={endDrag}
+      >
+        <SortableContext items={[...symbols]} strategy={verticalListSortingStrategy}>
+          <ul id={listId} ref={listRef} className="watch-list" aria-labelledby={headingId} onKeyDown={onListKeyDown}>
+            {symbols.map((symbol) => (
+              <WatchRow
+                key={symbol}
+                symbol={symbol}
+                current={symbol === currentSymbol}
+                tabbable={symbol === tabStop}
+                onFocus={setFocusSymbol}
+                onRemove={remove}
+                isClickSuppressed={() => justDragged.current}
+              />
+            ))}
+          </ul>
+        </SortableContext>
+      </DndContext>
     );
   }
 
@@ -172,22 +218,34 @@ interface WatchRowProps {
   tabbable: boolean;
   onFocus: (symbol: string) => void;
   onRemove: (symbol: string) => void;
+  /** True right after a drag, when the release click should be ignored. */
+  isClickSuppressed: () => boolean;
 }
 
-/** One watched symbol. It reads its own quote, so a tick re-renders only this row. */
-function WatchRow({ symbol, current, tabbable, onFocus, onRemove }: WatchRowProps) {
+/** One watched symbol, draggable to reorder. It reads its own quote, so a tick re-renders only this row. */
+function WatchRow({ symbol, current, tabbable, onFocus, onRemove, isClickSuppressed }: WatchRowProps) {
+  const { setNodeRef, listeners, transform, transition, isDragging } = useSortable({ id: symbol });
   const quote = useQuote(symbol);
   const live = quote?.status === 'live' || quote?.status === 'delayed';
   const direction = live ? changeDirection(quote.changePct) : 0;
   const tone = direction > 0 ? 'gain' : direction < 0 ? 'loss' : 'muted';
   return (
-    <li className={cx('watch-row', current && 'is-current')}>
+    <li
+      ref={setNodeRef}
+      className={cx('watch-row', current && 'is-current', isDragging && 'is-dragging')}
+      // ** Only the vertical offset applies, so a dragged row stays inside the sidebar.
+      style={{ transform: transform ? `translate3d(0, ${Math.round(transform.y)}px, 0)` : undefined, transition }}
+      {...listeners}
+    >
       <Link
         href={paths.symbol(symbol)}
         className="watch-row__link"
         data-watch-symbol={symbol}
         aria-current={current ? 'page' : undefined}
-        aria-keyshortcuts="Delete"
+        aria-keyshortcuts="Delete Alt+ArrowUp Alt+ArrowDown"
+        onClick={(event) => {
+          if (isClickSuppressed()) event.preventDefault();
+        }}
         tabIndex={tabbable ? 0 : -1}
         onFocus={() => {
           onFocus(symbol);
