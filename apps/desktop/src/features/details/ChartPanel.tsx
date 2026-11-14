@@ -4,7 +4,7 @@ import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { SegmentedControl, type SegmentedOption } from '../../components/ui/SegmentedControl';
 import { Spinner } from '../../components/ui/Spinner';
-import { describeTimeframe } from '../../domain/chartRanges';
+import { describeTimeframe } from '@aperture/shared/chartRanges';
 import { useQuote } from '../../data/quoteStore';
 import { CHART_RANGES, type ChartRange, type HistoryResult } from '../../domain/types';
 import type { ChartStyle } from './chartData';

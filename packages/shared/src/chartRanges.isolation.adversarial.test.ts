@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { describeTimeframe, resolveRange } from './chartRanges';
-import { CHART_RANGES } from './types';
+import { describeTimeframe, resolveRange } from './chartRanges.js';
+import { CHART_RANGES } from './marketData.js';
 
 /**
  * Round-5 adversarial tests: results never share Date objects with `now` or with each other, so a

@@ -1,12 +1,12 @@
 import dayjs, { type Dayjs } from 'dayjs';
-import utc from 'dayjs/plugin/utc';
-import type { BarTimeframe, ChartRange } from './types';
+import utc from 'dayjs/plugin/utc.js';
+import type { BarTimeframe, ChartRange } from './marketData.js';
 
 dayjs.extend(utc);
 
 /**
  * Maps a chart range to the bar size and time window to request. Bar counts stay in the low hundreds
- * so no range fetches an oversized dataset. Shared with the future backend history endpoint.
+ * so no range fetches an oversized dataset. Shared by the app's chart and the server's history endpoint.
  *
  * | Range | Timeframe | Window start                                  |
  * |-------|-----------|-----------------------------------------------|

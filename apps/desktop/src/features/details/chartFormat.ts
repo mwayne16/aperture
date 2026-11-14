@@ -1,5 +1,5 @@
 import { TickMarkType, type Time } from 'lightweight-charts';
-import { describeTimeframe, resolveRange } from '../../domain/chartRanges';
+import { describeTimeframe, resolveRange } from '@aperture/shared/chartRanges';
 import type { Bar, BarTimeframe, ChartRange, HistoryResult } from '../../domain/types';
 import {
   EMPTY_VALUE,

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { resolveRange } from '../../domain/chartRanges';
+import { resolveRange } from '@aperture/shared/chartRanges';
 import { MAX_WATCHLIST_SYMBOLS } from '@aperture/shared/symbols';
 import { CHART_RANGES, type Bar, type ChartRange, type CreateAlertInput } from '../../domain/types';
 import { isApiError, type ApiError, type ApiErrorCode } from '../api';
