@@ -11,7 +11,7 @@ import type {
 import { normalizeSymbol } from '@aperture/shared/symbols';
 import { ApiHttpError } from '../http/errors.js';
 import { isTruncated, lastSessionBars, toChartBars } from './history.js';
-import type { MarketDataProvider, ProviderSnapshot } from './provider.js';
+import { isCryptoSymbol, type MarketDataProvider, type ProviderSnapshot } from './provider.js';
 import { TtlCache } from './ttlCache.js';
 
 const NOT_CONFIGURED =
@@ -31,8 +31,6 @@ interface Catalog {
   all: Instrument[];
   bySymbol: ReadonlyMap<string, Instrument>;
 }
-
-const isCrypto = (symbol: string) => symbol.includes('/');
 
 /**
  * Instruments, quotes, chart history and movers from the configured provider. Without a provider every
@@ -105,7 +103,7 @@ export class MarketDataService {
         end: spec.end,
       });
       const all = result.get(instrument.symbol) ?? [];
-      const bars = spec.lastSessionOnly ? lastSessionBars(all, isCrypto(instrument.symbol), now) : all;
+      const bars = spec.lastSessionOnly ? lastSessionBars(all, isCryptoSymbol(instrument.symbol), now) : all;
       return {
         symbol: instrument.symbol,
         range,
