@@ -401,8 +401,16 @@ describe('alerts end to end (QA)', () => {
 
   it('records triggers and one coalesced entry for a dropped connection in Notifications, with the unread count on the bell', async () => {
     await startApp();
-    // ** Startup can leave an entry in the inbox under heavy load, so it starts empty here: every unread
-    // count below then comes from this test's own alert and outage.
+    // ** The MSFT and TSLA demo alerts are placed to fire about a minute in, and the random trade order
+    // can bring that inside this test. Turn them off and empty the inbox, so every unread count below
+    // comes from this test's own alert and outage.
+    await goTo('#/alerts');
+    for (const symbol of ['MSFT', 'TSLA']) {
+      fireEvent.click(within(alertRow(symbol)).getByRole('switch', { name: new RegExp(`^Enabled: ${symbol}`) }));
+    }
+    await advance(0);
+    expect(within(alertRow('MSFT')).getByRole('switch')).not.toBeChecked();
+    expect(within(alertRow('TSLA')).getByRole('switch')).not.toBeChecked();
     act(() => {
       useNotificationStore.setState({ notifications: [] });
     });
