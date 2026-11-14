@@ -16,6 +16,9 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
   found that overcomplicated. Users add any stock, ETF or crypto pair to their single watchlist; there is
   no create, rename, delete or switching of lists. The API has `getWatchlist`, `addSymbol`, `removeSymbol`
   and `reorderSymbols` without ids, and the backend stores one watchlist per user.
+- 2026-11-14: **the watchlist holds at most 30 symbols**, the free Alpaca plan's live-stream symbol limit, so
+  a full watchlist still streams live. Symbols outside it that need prices (alerts on unwatched symbols,
+  an open stock page) fall back to polled snapshots once the 30 stream slots are taken.
 
 ## Machine constraints (Windows, low C: drive)
 - C: has very little free space. Everything heavy lives on D:.
@@ -47,13 +50,21 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
 - Market data: Alpaca **free plan, IEX feed** (decided 2026-11-07; the user has no Alpaca account yet).
   IEX quotes and trades are real-time but cover only the IEX exchange, so label them "IEX" and never as
   consolidated prices or volume. Alpaca provides no fundamentals (market cap, P/E, EPS): don't show them
-  unless another source is added.
+  unless another source is added. Free-plan limits the backend must respect (checked 2026-11-14):
+  - 200 REST calls/min: batch with multi-symbol endpoints (snapshots, bars), cache, and rate-limit below 200
+    with backoff on 429. Never fetch history or sparklines one symbol per request.
+  - Streams: 1 connection per endpoint (a second client on the same keys gets 406) and 30 symbols per
+    stream; the 30-symbol cap applies to the crypto stream too. Budget slots by priority: open symbol
+    page, enabled alerts, watchlist rows; poll the rest.
+  - REST requests can't reach the latest 15 minutes of SIP data, so current snapshots use `feed=iex`.
+  - News: the Benzinga feed is included in the free plan.
+  - Keep the feed in configuration, so Algo Trader Plus (all exchanges, no caps) is a config change.
 - UI primitives: `radix-ui` provides focus, layering and keyboard behavior for Dialog, Menu, Tooltip,
   SegmentedControl, Tabs and Switch. Features import our `components/ui/*` wrappers, never Radix directly.
 - Client state: `zustand` stores. Live quotes use per-symbol selectors so one tick re-renders one row.
 - Validation (backend): `class-validator` + `class-transformer` only. No Zod.
 
-## Prototype architecture (`prototype/src`)
+## Desktop renderer architecture (`apps/desktop/src`)
 - `domain/`: pure types and logic that carry over to production (types, alert engine, chart ranges, symbol rules).
 - `lib/`: formatting and small utilities.
 - `data/api.ts` and `data/realtime.ts`: **interfaces** that mirror the future HTTP API and WebSocket client.
@@ -123,9 +134,8 @@ The goal is for a developer to read the comment and immediately understand **"Wh
 Inline comments that explain a non-obvious decision start with `// **`.
 
 ## Verification (run it; never assume)
-From `prototype/`:
-- `npm run typecheck` · `npm run lint` · `npm run test` · `npm run build`
-- `npm run check` runs all four. Green `check` is the bar for every task.
+- From the repo root, `npm run check` runs every workspace's check (typecheck, lint, knip, test, build).
+  Green `check` is the bar for every task. Inside one workspace, `npm run check` runs just that one.
 - UI changes must also be opened in the browser and walked end to end.
 - A failed check sends the task back with evidence. Three attempts max, then escalate.
 
