@@ -31,7 +31,7 @@ describe('watchView', () => {
     const full = list(Array.from({ length: MAX_WATCHLIST_SYMBOLS }, (_, i) => `X${i}`));
     const view = watchView('ready', full, 'AAPL');
     expect(view.action).toBeNull();
-    expect(view.hint).toBe('Your watchlist is full (100 symbols max). Remove a symbol to add AAPL.');
+    expect(view.hint).toBe('Your watchlist is full (30 symbols max). Remove a symbol to add AAPL.');
   });
 
   it('still lets a symbol in a full list be removed', () => {
