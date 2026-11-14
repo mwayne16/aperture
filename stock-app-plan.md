@@ -107,6 +107,97 @@ The backend is responsible for evaluating alerts. The frontend must not be the s
 
 Never expose unrestricted Node.js or Electron APIs directly to the renderer process.
 
+### 2.6. Market News Feed
+
+The dashboard shows a news feed curated from the user's watchlist, with market-wide top stories filling
+any gap. The feed shows 5 stories at first; "Show more" opens up to 25 in a scrolling list and "Show
+less" returns to 5. The prototype already has this layout on simulated stories; the curation below is
+backend work for later.
+
+The backend's News Service fetches, filters, ranks and assembles the feed. The client renders the
+order it receives and never ranks on its own.
+
+#### Fetching
+
+- Read news through source adapters behind one `NewsSource` interface. Each adapter maps provider
+  payloads to the shared `NewsItem` contract (id, headline, summary, source, symbols, publishedAt, url)
+  and validates them at the boundary like any other external input.
+- Use more than one source for breadth. Candidates are the Alpaca News API and at least one other
+  financial news provider. Verify licensing, rate limits and free-plan access for each before adopting
+  it, and record the decision in CLAUDE.md.
+- Each refresh runs two queries: news for the watchlist symbols, and general market news with no symbol
+  filter. Both cover a recency window, 48 hours by default.
+- Refresh on a schedule, cache results in Redis with a short TTL (2 to 5 minutes) and stay within each
+  provider's rate limits. Client requests read the cache instead of calling providers.
+
+#### Filtering and de-duplication
+
+- Drop items with no headline, a publish time in the future or outside the window, or no valid symbols
+  where symbols are expected.
+- Treat two items as duplicates when their canonical URLs match (lower-cased host, tracking parameters
+  removed) or when their headlines are near-identical (word-set Jaccard similarity of 0.8 or more)
+  and they were published within 6 hours of each other.
+- Keep one item per duplicate group: the most complete one, then the earliest. Merge the group's
+  symbols into it and record `coverage`, the number of distinct sources that carried the story.
+- Exclude configured categories that add noise, such as generic promotional content.
+
+#### Watchlist relevance score
+
+For an article `a` and each watched symbol `s` it covers:
+
+- `match(a, s)` is 1.0 when `s` is a primary subject (the headline names the ticker or company, or the
+  provider tags at most two symbols) and 0.5 when `s` is only tagged.
+- `move(s) = min(|change % today| / 5, 1)`: the day's price move, capped at 5%.
+- `volume(s) = min(max(volume ratio − 1, 0) / 2, 1)`, where the volume ratio is today's volume over the
+  20-day average daily volume computed from daily bars. IEX volume is partial, so compare IEX volume
+  with IEX history, never with consolidated figures.
+- `event(a)` is 1.0 for earnings, guidance, mergers and acquisitions, analyst rating changes,
+  regulatory or legal news and trading halts; 0.5 for other company news; 0 for general commentary.
+  Classify from provider tags first, then keywords.
+
+`symbolScore(a, s) = 0.40·match + 0.25·move + 0.20·volume + 0.15·event`, and an article's relevance is
+its highest `symbolScore` across the watched symbols it covers (0 when it covers none).
+
+`watchlistScore(a) = relevance × recency × sourceWeight + coverageBonus`, where:
+
+- `recency = 0.5 ^ (age in hours / 6)`, a 6-hour half-life.
+- `sourceWeight` is a per-source value between 0.5 and 1.
+- `coverageBonus = 0.1 × min(coverage − 1, 3)`.
+
+The weights are starting values to tune against real data. Keep them in one configuration object.
+
+#### Top-news score (default aggregation)
+
+Market-wide stories rank by impact rather than watchlist relevance:
+
+`impact = 0.4·min(coverage / 4, 1) + 0.3·macro + 0.3·active`, where `macro` is 1 for broad-market topics
+(rates and the Federal Reserve, inflation and jobs data, index moves, earnings season) and `active` is 1
+when a story covers a symbol in the day's most-active list. Alpaca provides no market capitalization,
+so activity stands in for company size.
+
+`topScore(a) = impact × recency × sourceWeight + coverageBonus`, with the same recency, source weight and
+coverage bonus as above.
+
+#### Assembling the feed
+
+1. Rank watchlist stories by `watchlistScore`. Cap any one symbol at 3 stories within the first 10
+   positions, so a single busy ticker can't take over the feed.
+2. Rank market stories by `topScore`, skipping any story already in the watchlist list.
+3. The feed is the watchlist list followed by the market list, cut to the requested limit (5 to 25).
+   When the watchlist is empty, the feed is the market list alone. When the watchlist yields fewer
+   than 5 stories, market stories fill the remaining places up to at least 5.
+4. Break ties by publish time, newest first, then by id, so the order is stable between refreshes.
+5. Tag every story with why it appears, for example "About AAPL" or "Top market story", and show the
+   tag in the feed.
+
+#### Contract and testing
+
+- Keep `getNews({ symbols, limit })` and add a `reason` field to `NewsItem` for the tag.
+- Put the filtering, scoring and assembly in pure functions with unit tests over fixture articles,
+  including the empty-watchlist and fewer-than-five cases.
+- Never present simulated stories as real. Until a source is connected, the feed stays on the labelled
+  simulated newswire.
+
 ## 3. Technology Stack
 
 Use the following technologies unless a documented technical limitation justifies a change.
@@ -438,6 +529,8 @@ Prefer a clear project structure over unnecessary abstraction or premature modul
 - Implement historical data retrieval for chart views.
 - Add connection-state tracking, reconnection, and error handling.
 - Handle provider limitations and subscription entitlements explicitly.
+- Implement the market news feed described in section 2.6: source adapters, de-duplication, ranking and
+  the watchlist-first assembly.
 
 ### Phase 4: Real-Time Updates and Alerting
 
