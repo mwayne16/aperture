@@ -71,9 +71,15 @@ export function openAlpacaStream(options: AlpacaStreamOptions): MarketStream {
   const connections: Partial<Record<StreamChannel, Connection>> = {};
   const { handlers } = options;
 
-  function report(channel: StreamChannel, state: StreamStatus['state'], connection: Connection): void {
+  /** `notice` is a refusal reported while the channel stays connected, e.g. a symbol limit. */
+  function report(
+    channel: StreamChannel,
+    state: StreamStatus['state'],
+    connection: Connection,
+    notice: string | null = null,
+  ): void {
     const failure = connection.closing ? null : connection.failure;
-    let error = state === 'connected' ? null : (failure?.message ?? null);
+    let error = state === 'connected' ? notice : (failure?.message ?? null);
     if (state === 'disconnected' && !connection.closing && error === null)
       error = 'The connection to Alpaca closed.';
     if (
@@ -123,10 +129,12 @@ export function openAlpacaStream(options: AlpacaStreamOptions): MarketStream {
     });
     client.onError((message) => {
       if (MESSAGE_ERROR.test(message)) return;
-      connection.failure = FAILURES[message] ?? {
-        message: 'The connection to Alpaca failed.',
-        retryable: true,
-      };
+      const failure = FAILURES[message] ?? { message: 'The connection to Alpaca failed.', retryable: true };
+      connection.failure = failure;
+      // ** A refusal on a working connection (symbol limit, missing entitlement) changes no state, so it is
+      // reported here; otherwise it would only show as symbols quietly moving to polling.
+      if (client.getState() === streaming.STATE.AUTHENTICATED)
+        report(channel, 'connected', connection, failure.message);
     });
     client.onStateChange((state) => {
       switch (state) {
@@ -178,6 +186,11 @@ export function openAlpacaStream(options: AlpacaStreamOptions): MarketStream {
       connection.client.subscribeForQuotes(added);
     }
     connection.symbols = [...wanted];
+    // ** A channel that gave up while it had nothing to stream would otherwise stay down once symbols return.
+    const stopped = connection.client.getState() === streaming.STATE.DISCONNECTED;
+    if (stopped && added.length > 0 && !connection.closing && connection.failure?.retryable !== false) {
+      connection.client.connect();
+    }
   }
 
   return {
