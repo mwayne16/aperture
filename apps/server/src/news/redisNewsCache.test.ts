@@ -1,10 +1,11 @@
+import { createServer, type AddressInfo } from 'node:net';
 import { afterEach, describe, expect, inject, it, vi } from 'vitest';
 import { RedisConnection } from '../redis/redisConnection.js';
 import { newsArticle } from '../test/fakeNewsSource.js';
 import { RedisNewsCache } from './redisNewsCache.js';
 
 const NOW = Date.parse('2026-11-16T15:00:00Z');
-const connections: RedisConnection[] = [];
+const opened: RedisConnection[] = [];
 let warnings: string[] = [];
 
 const log = {
@@ -19,13 +20,13 @@ function connect(
   options: ConstructorParameters<typeof RedisConnection>[1] = {},
 ): RedisConnection {
   const redis = new RedisConnection(url, options);
-  connections.push(redis);
+  opened.push(redis);
   redis.start(log);
   return redis;
 }
 
 afterEach(async () => {
-  await Promise.all(connections.splice(0).map((redis) => redis.close()));
+  await Promise.all(opened.splice(0).map((redis) => redis.close()));
   warnings = [];
 });
 
@@ -76,5 +77,31 @@ describe('RedisConnection', () => {
     });
     await redis.close();
     expect(redis.ready).toBe(false);
+  });
+});
+
+describe('RedisConnection recovery', () => {
+  it('connects again after it stopped retrying', async () => {
+    let connections = 0;
+    // ** A server that accepts and drops every connection, so the client exhausts its attempts.
+    const server = createServer((socket) => {
+      connections += 1;
+      socket.destroy();
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const { port } = server.address() as AddressInfo;
+    try {
+      connect(`redis://127.0.0.1:${String(port)}`, { maxAttempts: 1, recoveryDelayMs: 50 });
+      await vi.waitFor(
+        () => {
+          expect(connections).toBeGreaterThanOrEqual(5);
+        },
+        { timeout: 5_000 },
+      );
+      expect(warnings).toEqual(['Redis is unavailable; caching in memory until it is back']);
+    } finally {
+      await Promise.all(opened.splice(0).map((redis) => redis.close()));
+      await new Promise((resolve) => server.close(resolve));
+    }
   });
 });

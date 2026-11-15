@@ -237,3 +237,14 @@ describe('quotes with live prices', () => {
     live.stop();
   });
 });
+
+describe('movers for different limits', () => {
+  it('caches each limit, so the dashboard and news ranking do not evict each other', async () => {
+    provider.movers = { gainers: [], losers: [], mostActive: [], asOf: 1 };
+    await service.getMovers(5);
+    await service.getMovers(10);
+    await service.getMovers(5);
+    await service.getMovers(10);
+    expect(provider.calls.getMovers).toEqual([5, 10]);
+  });
+});

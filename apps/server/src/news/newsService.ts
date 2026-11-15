@@ -26,6 +26,8 @@ const POOL_TTL_MS = 5 * 60_000;
 const SYMBOL_NEWS_TTL_MS = 3 * 60_000;
 /** Articles read per query, newest first: enough to rank 25 stories after de-duplication. */
 const ARTICLES_PER_QUERY = 100;
+/** Pools whose last good copy is kept: the two feed pools plus recently opened stock pages. */
+const MAX_LAST_GOOD = 20;
 /** Bump when the cached shape changes, so old entries are ignored. */
 const KEY_PREFIX = 'news:v1';
 
@@ -52,11 +54,12 @@ const describe = (error: unknown) =>
 export class NewsService {
   private readonly options: NewsServiceOptions;
   private readonly now: () => number;
-  /** The last good copy of each pool, for when the cache has expired and a fetch fails. */
+  /** The last good copy of recent pools, for when the cache has expired and a fetch fails. Bounded. */
   private readonly lastGood = new Map<string, Article[]>();
   private readonly fetching = new Map<string, Promise<Article[]>>();
+  /** Each pool's current failure, so a lasting one is logged once and its recovery once. */
+  private readonly failures = new Map<string, string>();
   private timer: ReturnType<typeof setInterval> | null = null;
-  private lastFailure: string | null = null;
 
   constructor(options: NewsServiceOptions) {
     this.options = options;
@@ -137,21 +140,33 @@ export class NewsService {
       .fetch({ symbols, since, limit: ARTICLES_PER_QUERY })
       .then(async (articles) => {
         await this.options.cache.set(key, articles, ttlMs);
-        this.lastGood.set(key, articles);
-        if (this.lastFailure !== null) this.options.log.info('Fetching news works again');
-        this.lastFailure = null;
+        this.keepLastGood(key, articles);
+        if (this.failures.delete(key)) this.options.log.info({ pool: key }, 'Fetching news works again');
         return articles;
       })
       .catch((error: unknown) => {
         const reason = describe(error);
         // ** A lasting failure (e.g. rejected keys) would otherwise repeat the same warning every refresh.
-        if (reason !== this.lastFailure) this.options.log.warn({ reason }, 'Fetching news failed');
-        this.lastFailure = reason;
+        if (this.failures.get(key) !== reason)
+          this.options.log.warn({ pool: key, reason }, 'Fetching news failed');
+        this.failures.set(key, reason);
         throw error;
       })
       .finally(() => this.fetching.delete(key));
     this.fetching.set(key, request);
     return request;
+  }
+
+  /** Keeps the most recently fetched pools only, so opening many stock pages can't grow memory. */
+  private keepLastGood(key: string, articles: Article[]): void {
+    this.lastGood.delete(key);
+    this.lastGood.set(key, articles);
+    while (this.lastGood.size > MAX_LAST_GOOD) {
+      const oldest = this.lastGood.keys().next();
+      if (oldest.done === true) break;
+      this.lastGood.delete(oldest.value);
+      this.failures.delete(oldest.value);
+    }
   }
 
   private requireSource(): NewsSource {

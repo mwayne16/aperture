@@ -18,9 +18,10 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
   **merged 2026-11-14** (PR #5).
   (2) Live prices: one Alpaca connection per channel, the 30-symbol budget, connection status
   (`GET /market-data/status`), polling for the rest: **merged 2026-11-15** (PR #6).
-  (3) The curated news feed (plan section 2.6) on `feat/news-feed`: built, awaiting merge. Alpaca news only
-  for now (user's choice, 2026-11-15); a second source waits for the user to pick a provider. The `reason`
-  tag isn't shown in the UI yet (frontend integration).
+  (3) The curated news feed (plan section 2.6) with the Redis cache: built 2026-11-15 on `feat/news-feed`.
+  Alpaca news only for now (user's choice, 2026-11-15); a second source waits for the user to pick a
+  provider. The `reason` tag isn't shown in the UI yet (frontend integration). Phase 3 is complete once this
+  PR merges, apart from the second news source; next is Phase 4, real-time updates and alerting.
   Against real Alpaca only the rejected-keys path is verified (2026-11-14, fake keys): the REST hosts answer
   401 and the server answers 502; both stream endpoints (IEX stocks, crypto) complete the handshake, Alpaca's
   msgpack auth error decodes, and status reports "Alpaca rejected the API keys." without retrying. No log
