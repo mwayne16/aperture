@@ -1,18 +1,8 @@
-import {
-  ApiError,
-  AuthError,
-  FetchError,
-  MarketDataClient,
-  PermissionError,
-  RateLimitError,
-  TimeFrameUnit,
-  timeFrame,
-  trading,
-} from '@alpacahq/alpaca-trade-api';
+import { MarketDataClient, TimeFrameUnit, timeFrame, trading } from '@alpacahq/alpaca-trade-api';
 import type { BarTimeframe, Instrument } from '@aperture/shared/marketData';
+import type { NewsSource } from '../../news/newsSource.js';
 import {
   isCryptoSymbol,
-  ProviderError,
   type BarsRequest,
   type MarketDataProvider,
   type ProviderBar,
@@ -20,6 +10,8 @@ import {
   type ProviderMovers,
   type ProviderSnapshot,
 } from '../provider.js';
+import { call } from './alpacaErrors.js';
+import { createAlpacaNewsSource } from './alpacaNews.js';
 import { normalizeAsset, normalizeBar, normalizeSnapshot, rankedSymbols, time } from './alpacaPayloads.js';
 import { openAlpacaStream, type AlpacaStreamOptions } from './alpacaStream.js';
 
@@ -42,7 +34,6 @@ const REQUEST_TIMEOUT_MS = 10_000;
 const SIP_DELAY_MS = 15 * 60_000;
 /** Upper bound on bars kept per symbol, so a bad request can't fill memory. */
 const MAX_BARS_PER_SYMBOL = 10_000;
-const MAX_ERROR_DETAIL_LENGTH = 200;
 
 const FEED_LABELS: Record<AlpacaFeed, string> = {
   iex: 'Alpaca IEX',
@@ -76,12 +67,15 @@ export interface AlpacaProviderOptions {
 /** Stands in for a request that was skipped because no symbol needed it. */
 const NO_RESULTS: Readonly<Record<string, unknown>> = {};
 
+/** The adapter plus Alpaca's news, which shares its client and so its rate limit. */
+export type AlpacaProvider = MarketDataProvider & { readonly news: NewsSource };
+
 /**
  * The Alpaca adapter. It uses only market-data clients and the read-only assets API, so nothing it
  * holds can place orders. The assets API lives on the paper-trading host, which is why the app expects
  * paper-trading keys.
  */
-export function createAlpacaProvider(options: AlpacaProviderOptions): MarketDataProvider {
+export function createAlpacaProvider(options: AlpacaProviderOptions): AlpacaProvider {
   const now = options.now ?? Date.now;
   const rest = {
     keyId: options.keyId,
@@ -103,6 +97,7 @@ export function createAlpacaProvider(options: AlpacaProviderOptions): MarketData
 
   return {
     id: 'alpaca',
+    news: createAlpacaNewsSource(data),
     limits: FREE_PLAN_LIMITS,
     feedLabel: FEED_LABELS[options.feed],
     delayed: options.feed === 'delayed_sip',
@@ -190,45 +185,4 @@ export function createAlpacaProvider(options: AlpacaProviderOptions): MarketData
       });
     },
   };
-}
-
-/** Runs one SDK request and turns any failure into a ProviderError that is safe to log and show. */
-async function call<T>(request: () => Promise<T>): Promise<T> {
-  try {
-    return await request();
-  } catch (error) {
-    throw toProviderError(error);
-  }
-}
-
-function toProviderError(error: unknown): ProviderError {
-  if (!(error instanceof ApiError)) {
-    const reason =
-      error instanceof FetchError ? 'could not be reached' : 'sent a response the server could not read';
-    return new ProviderError('unavailable', `Alpaca ${reason}.`);
-  }
-  const requestId = error.requestId ?? null;
-  const detail = error.message.trim().slice(0, MAX_ERROR_DETAIL_LENGTH);
-  if (error instanceof AuthError) {
-    return new ProviderError('credentials', 'Alpaca rejected the API keys.', requestId);
-  }
-  if (error instanceof PermissionError) {
-    return new ProviderError(
-      'entitlement',
-      "The Alpaca plan doesn't include this data. The free plan covers the IEX feed (ALPACA_DATA_FEED=iex).",
-      requestId,
-    );
-  }
-  if (error instanceof RateLimitError) {
-    return new ProviderError('rate_limited', "Alpaca's request limit was reached.", requestId);
-  }
-  if (error.status >= 500) {
-    return new ProviderError(
-      'unavailable',
-      `Alpaca failed to answer (HTTP ${String(error.status)}).`,
-      requestId,
-    );
-  }
-  const reason = detail === '' ? `HTTP ${String(error.status)}` : detail;
-  return new ProviderError('rejected', `Alpaca refused the request: ${reason}.`, requestId);
 }

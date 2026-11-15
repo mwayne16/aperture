@@ -274,3 +274,53 @@ export const MOST_ACTIVES = {
   ],
   last_updated: '2026-11-13T20:59:00.123Z',
 };
+
+/** `GET /v1beta1/news`, first page. */
+export const NEWS_PAGE_1 = {
+  news: [
+    {
+      id: 41_000_002,
+      headline: 'Apple Q4 results top revenue estimates',
+      author: 'Benzinga Newsdesk',
+      created_at: '2026-11-16T14:30:00Z',
+      updated_at: '2026-11-16T14:31:00Z',
+      summary: 'Apple reported fourth-quarter revenue above estimates.',
+      url: 'https://www.benzinga.com/news/26/11/41000002/apple-q4',
+      images: [],
+      symbols: ['AAPL', 'not a symbol!'],
+      source: 'benzinga',
+    },
+    {
+      id: 41_000_001,
+      headline: 'Bitcoin tops 90,000',
+      author: 'Benzinga Newsdesk',
+      created_at: '2026-11-16T13:00:00Z',
+      updated_at: '2026-11-16T13:00:00Z',
+      summary: '',
+      url: 'javascript:alert(1)',
+      images: [],
+      symbols: ['BTCUSD'],
+      source: 'benzinga',
+    },
+  ],
+  next_page_token: 'NDEwMDAwMDA=',
+};
+
+/** `GET /v1beta1/news`, last page, with an article that has no headline. */
+export const NEWS_PAGE_2 = {
+  news: [
+    {
+      id: 41_000_000,
+      headline: '',
+      author: '',
+      created_at: '2026-11-16T12:00:00Z',
+      updated_at: '2026-11-16T12:00:00Z',
+      summary: '',
+      url: '',
+      images: [],
+      symbols: [],
+      source: 'benzinga',
+    },
+  ],
+  next_page_token: null,
+};
