@@ -337,6 +337,7 @@ function newsItem(id: string): NewsItem {
     publishedAt: new Date().toISOString(),
     url: null,
     simulated: true,
+    reason: 'Top market story',
   };
 }
 
