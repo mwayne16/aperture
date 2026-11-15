@@ -6,7 +6,7 @@ import { ConfigError, describeConfig, loadConfig } from './config/loadConfig.js'
 import { createDataSource } from './db/dataSource.js';
 import { closeDatabase, openDatabase } from './db/database.js';
 import { describeDatabaseError } from './db/errors.js';
-import { createMarketDataProvider } from './marketData/createProvider.js';
+import { createMarketDataSources } from './marketData/createProvider.js';
 
 function readConfig(): AppConfig {
   try {
@@ -24,8 +24,8 @@ function readConfig(): AppConfig {
 
 const config = readConfig();
 const dataSource = createDataSource(config.databaseUrl);
-const marketData = createMarketDataProvider(config);
-const app = buildApp({ config, dataSource, marketData });
+const { marketData, news } = createMarketDataSources(config);
+const app = buildApp({ config, dataSource, marketData, news });
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
