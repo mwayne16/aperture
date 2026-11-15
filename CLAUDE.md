@@ -267,3 +267,6 @@ Inline comments that explain a non-obvious decision start with `// **`.
 - Reproduce a flaky test before fixing it: run it with `{ repeats: 40 }` and log the state it asserts on.
   A guessed fix (`ea66de1`) left the unread-count flake in place; the cause was the seeded demo alerts, which
   fire about a minute into a session. QA tests that count app-wide state must turn those alerts off first.
+- Run prettier on the files you changed, never on a whole folder (`prettier --write src`). It reformatted the
+  same untouched files (`loadConfig.ts`, `loadConfig.test.ts`, `validate.ts`) in three PRs, and each time they
+  had to be restored by hand. Check `git status` for unexpected files before committing.

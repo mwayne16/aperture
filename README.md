@@ -219,7 +219,8 @@ Live prices:
 
 - The server keeps one stream connection for stocks and ETFs and one for crypto, each opened when it first
   has symbols. The watchlist always streams (it holds at most 30 symbols, the per-connection limit); spare
-  room goes to an open stock page, then to symbols of enabled alerts.
+  room goes to symbols of enabled alerts. Once the app talks to the server over its live connection, an open
+  stock page will get spare room ahead of alerts.
 - Symbols that don't fit, or whose connection is down, are polled: one batched snapshot request every 15
   seconds. Streamed symbols also get a snapshot once a minute for the day's volume, range and previous close.
 - A symbol counts as streamed only after Alpaca confirms the subscription; anything Alpaca refuses stays

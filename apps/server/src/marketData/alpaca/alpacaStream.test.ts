@@ -87,7 +87,7 @@ describe('Alpaca stream: connecting', () => {
     });
   });
 
-  it('confirms only what Alpaca accepted when it refuses symbols over the limit', async () => {
+  it('confirms only what Alpaca accepted and reports why when it refuses symbols over the limit', async () => {
     stocks.symbolLimit = 2;
     open().setSymbols({ stocks: ['AAPL', 'MSFT'], crypto: [] });
     await vi.waitFor(() => {
@@ -95,10 +95,13 @@ describe('Alpaca stream: connecting', () => {
     });
     stream.setSymbols({ stocks: ['AAPL', 'MSFT', 'NVDA'], crypto: [] });
     await vi.waitFor(() => {
-      expect(stocks.received).toHaveLength(4);
+      expect(lastStatus('stocks')?.error).not.toBeNull();
     });
     expect(confirmed.at(-1)?.symbols).toEqual(['AAPL', 'MSFT']);
-    expect(lastStatus('stocks')?.state).toBe('connected');
+    expect(lastStatus('stocks')).toMatchObject({
+      state: 'connected',
+      error: 'Alpaca refused more symbols than the plan allows on one connection.',
+    });
   });
 });
 
@@ -188,6 +191,21 @@ describe('Alpaca stream: failures', () => {
     await vi.waitFor(() => {
       expect(confirmed.at(-1)?.symbols).toEqual(['AAPL']);
     });
+  });
+
+  it('connects again when symbols arrive for a channel that had given up', async () => {
+    stocks.authReply = { code: 406, msg: 'connection limit exceeded' };
+    open(1).setSymbols({ stocks: ['AAPL'], crypto: [] });
+    await vi.waitFor(() => {
+      expect(lastStatus('stocks')?.state).toBe('disconnected');
+    });
+    stream.setSymbols({ stocks: [], crypto: [] });
+    stocks.authReply = 'ok';
+    stream.setSymbols({ stocks: ['MSFT'], crypto: [] });
+    await vi.waitFor(() => {
+      expect(confirmed.at(-1)).toEqual({ channel: 'stocks', symbols: ['MSFT'] });
+    });
+    expect(lastStatus('stocks')?.state).toBe('connected');
   });
 
   it('never reports the keys in a status', async () => {

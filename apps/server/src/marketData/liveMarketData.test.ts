@@ -218,3 +218,15 @@ describe('logging', () => {
     expect(warnings.filter((w) => w === 'Polling market data failed')).toHaveLength(1);
   });
 });
+
+describe('refusals on a working connection', () => {
+  it('warns once and shows the reason while the connection stays up', async () => {
+    await live.start();
+    stream().connect('stocks');
+    const refusal = 'Alpaca refused more symbols than the plan allows on one connection.';
+    stream().status('stocks', 'connected', { error: refusal });
+    stream().status('stocks', 'connected', { error: refusal });
+    expect(warnings.filter((w) => w === 'Market data stream refused a request')).toHaveLength(1);
+    expect(live.status().stocks).toMatchObject({ state: 'connected', error: refusal });
+  });
+});

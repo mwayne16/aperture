@@ -214,6 +214,12 @@ export class LiveMarketData {
     channel.status = status;
     if (status.state === 'connected') {
       this.clearRecovery(status.channel);
+      if (status.error !== null && status.error !== previous.error) {
+        this.options.log.warn(
+          { channel: status.channel, reason: status.error },
+          'Market data stream refused a request',
+        );
+      }
       if (previous.state !== 'connected')
         this.options.log.info({ channel: status.channel }, 'Market data stream connected');
       return;
