@@ -7,6 +7,8 @@ export interface HealthResponse {
   version: string;
   uptimeSeconds: number;
   database: 'up' | 'down';
+  /** Information only: Redis holds caches, so the server serves requests without it. */
+  redis: 'up' | 'down';
   marketData: {
     /** The configured provider adapter, e.g. "alpaca". */
     provider: string;

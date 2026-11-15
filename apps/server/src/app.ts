@@ -43,6 +43,8 @@ interface AppDependencies {
   news?: NewsSource | null;
   /** Where fetched news waits between refreshes. Defaults to an in-process cache. */
   newsCache?: NewsCache;
+  /** Reported by /health when given; the caller connects and closes it. */
+  redis?: { readonly ready: boolean };
 }
 
 interface BuildOptions {
@@ -64,7 +66,7 @@ async function databaseReachable(dataSource: DataSource): Promise<boolean> {
 
 /** Creates the HTTP server with its error handling and routes, without starting it. */
 export function buildApp(
-  { config, dataSource, marketData, news = null, newsCache = new MemoryNewsCache() }: AppDependencies,
+  { config, dataSource, marketData, news = null, newsCache = new MemoryNewsCache(), redis }: AppDependencies,
   { logger = true, logStream }: BuildOptions = {},
 ): FastifyInstance {
   const app = Fastify({
@@ -85,6 +87,7 @@ export function buildApp(
       version: VERSION,
       uptimeSeconds: Math.round(process.uptime()),
       database: up ? 'up' : 'down',
+      redis: redis?.ready === true ? 'up' : 'down',
       marketData: {
         provider: config.marketDataProvider,
         feed: marketDataFeed(config),

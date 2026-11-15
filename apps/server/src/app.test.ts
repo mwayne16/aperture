@@ -42,7 +42,10 @@ afterEach(async () => {
 describe('GET /health', () => {
   it('reports the version, the database and how market data is configured', async () => {
     const dataSource = await openTestDatabase();
-    const healthy = buildApp({ config: testConfig, dataSource, marketData: null }, { logger: false });
+    const healthy = buildApp(
+      { config: testConfig, dataSource, marketData: null, redis: { ready: true } },
+      { logger: false },
+    );
     try {
       const response = await healthy.inject({ method: 'GET', url: '/health' });
       expect(response.statusCode).toBe(200);
@@ -51,6 +54,7 @@ describe('GET /health', () => {
         status: 'ok',
         version: '0.0.0',
         database: 'up',
+        redis: 'up',
         marketData: { provider: 'alpaca', feed: 'iex', configured: false },
       });
       expect(body.uptimeSeconds).toBeGreaterThanOrEqual(0);
@@ -63,7 +67,7 @@ describe('GET /health', () => {
   it('answers 503 while the database is down', async () => {
     const response = await app.inject({ method: 'GET', url: '/health' });
     expect(response.statusCode).toBe(503);
-    expect(response.json<HealthResponse>()).toMatchObject({ status: 'unavailable', database: 'down' });
+    expect(response.json<HealthResponse>()).toMatchObject({ status: 'unavailable', database: 'down', redis: 'down' });
   });
 });
 
