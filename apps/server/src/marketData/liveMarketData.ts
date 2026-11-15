@@ -197,10 +197,13 @@ export class LiveMarketData {
       const at = this.now();
       for (const snapshot of snapshots) this.state.applySnapshot(snapshot, at);
       this.lastPollAt = at;
+      if (this.pollError !== null) this.options.log.info('Polling market data works again');
       this.pollError = null;
     } catch (error) {
-      this.pollError = describe(error);
-      this.options.log.warn({ reason: this.pollError }, 'Polling market data failed');
+      const reason = describe(error);
+      // ** A lasting failure (e.g. rejected keys) would otherwise repeat the same warning every round.
+      if (reason !== this.pollError) this.options.log.warn({ reason }, 'Polling market data failed');
+      this.pollError = reason;
     }
   }
 

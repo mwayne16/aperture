@@ -209,3 +209,12 @@ describe('stopping', () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 });
+
+describe('logging', () => {
+  it('warns once about a lasting poll failure, not every round', async () => {
+    provider.failWith = new ProviderError('credentials', 'Alpaca rejected the API keys.');
+    await live.start();
+    await vi.advanceTimersByTimeAsync(5 * POLL_INTERVAL_MS);
+    expect(warnings.filter((w) => w === 'Polling market data failed')).toHaveLength(1);
+  });
+});

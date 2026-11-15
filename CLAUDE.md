@@ -13,14 +13,18 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
 - Phase 2 (persistence and API): **merged 2026-11-14.** Schema and the first migration, watchlist and alert
   endpoints, DB-unavailable handling, Testcontainers-backed tests, and a manual check that data survives a
   backend restart.
-- Phase 3 (market data integration): **in progress, split into three PRs.** (1) REST market data on
-  `feat/market-data`: the Alpaca adapter, instruments and search, quote snapshots, chart history, movers.
-  (2) The stream: one Alpaca connection, the 30-symbol budget, connection status, polling for the rest.
-  (3) The curated news feed (plan section 2.6). Against real Alpaca only the rejected-keys path is verified
-  (2026-11-14, fake keys, both hosts answered 401 and the server answered 502 without logging the keys).
-  Success-path payloads rest on the SDK's types and doc-shaped fixtures until the user adds paper-trading
-  keys to `.env`; whether the free plan includes the screener behind `/movers` is also unverified.
-  `MarketDataProvider.feedLabel` has no reader yet; the stream PR's connection status will show it.
+- Phase 3 (market data integration): **in progress, split into three PRs.**
+  (1) REST market data (the Alpaca adapter, instruments and search, quote snapshots, chart history, movers):
+  **merged 2026-11-14** (PR #5).
+  (2) Live prices on `feat/market-stream`: one Alpaca connection per channel, the 30-symbol budget,
+  connection status (`GET /market-data/status`), polling for the rest. Built, awaiting merge.
+  (3) The curated news feed (plan section 2.6): next.
+  Against real Alpaca only the rejected-keys path is verified (2026-11-14, fake keys): the REST hosts answer
+  401 and the server answers 502; both stream endpoints (IEX stocks, crypto) complete the handshake, Alpaca's
+  msgpack auth error decodes, and status reports "Alpaca rejected the API keys." without retrying. No log
+  line contains the keys. Success-path payloads and ticks rest on the SDK's types and doc-shaped fixtures
+  until the user adds paper-trading keys to `.env`; whether the free plan includes the screener behind
+  `/movers` is also unverified.
 - Track phase status in this section. Update it whenever a phase is approved or completed.
 
 ## Product decisions that override the plan
@@ -112,6 +116,22 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
     the log.
   - Caches are in memory with TTLs and size caps (`TtlCache`), not Redis: one backend instance needs nothing
     shared. Redis comes in when something does (the news cache per plan section 2.6).
+- Live prices (`liveMarketData.ts`, `alpaca/alpacaStream.ts`):
+  - `planSubscriptions` puts the watchlist first (it always fits a stream), then focus (the open stock page,
+    wired by the client WebSocket later), then enabled alerts; the rest is polled.
+  - A symbol is streamed only once Alpaca's `subscription` frame confirms it and its channel is connected.
+    Everything else, including a dropped channel's symbols, is polled: one batched snapshot per 15 s round.
+    Streamed symbols get a snapshot once a minute (volume, range, previous close).
+  - `MarketState` merges per field group: trade time owns `last`, quote time owns bid/ask, snapshots own the
+    day bar and previous close, so a late snapshot never overwrites a newer tick.
+  - The SDK reconnects 10 times (1 s to 64 s). Once it gives up, the live service calls `reconnect()` every
+    5 minutes; rejected keys (`retryable: false`) are never retried. The adapter reports "disconnected" only
+    when no retry follows (the SDK sets "waiting to reconnect" in the same tick).
+  - Watchlist and alert services take an `onChange` callback, called after commit; `refresh()` folds bursts
+    into at most one extra run. `start()` never rejects and runs from `onReady` without blocking `listen`;
+    `stop()` runs in `onClose`, before the database closes.
+  - Stream errors are mapped to our own words (`FAILURES` in `alpacaStream.ts`) because the auth frame
+    carries the keys. Tests run the real SDK against `test/fakeAlpacaStream.ts`, a local msgpack server.
 - Lint config: one `eslint.base.js` at the root; each workspace adds its globals and plugins.
 - Shared code: `packages/shared` holds the API contracts and the rules both sides enforce: symbols, alerts,
   chart ranges (`resolveRange`) and the instrument search ranking.
@@ -139,10 +159,12 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
   messages. `Omittable` marks optional fields in partial updates: unlike `IsOptional` it still rejects null.
 - `db/`: the data source, migrations, startup (`openDatabase`, bounded retry) and `isDatabaseUnavailable`,
   which the error handler turns into 503 UNAVAILABLE.
-- `marketData/`: the provider port (`provider.ts`), one folder per adapter (`alpaca/`: adapter, payload
-  checks, doc-shaped fixtures), `createProvider.ts` (picks the adapter from config), and the service, DTOs
-  and routes. Tests use `test/fakeProvider.ts` for the service and routes and the SDK's `mockFetch` for the
-  adapter; `npm run check` never opens a real Alpaca connection.
+- `marketData/`: the provider port (`provider.ts`), one folder per adapter (`alpaca/`: REST adapter, stream,
+  payload checks, doc-shaped fixtures), `createProvider.ts` (picks the adapter from config), the REST service
+  (`marketDataService.ts`), the live service (`liveMarketData.ts`, `marketState.ts`, `streamPlan.ts`), DTOs
+  and routes. Tests use `test/fakeProvider.ts` (with a hand-driven `FakeStream`) for the services and routes,
+  the SDK's `mockFetch` for the adapter's REST side and `test/fakeAlpacaStream.ts` (a local msgpack server)
+  for its stream. `npm run check` never opens a real Alpaca connection.
 
 ## Desktop app architecture (`apps/desktop`)
 - `electron/`: main process (`main.ts`), preload (`preload.ts`, the typed `window.aperture` bridge from

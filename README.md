@@ -153,6 +153,7 @@ data isn't configured) and `INTERNAL` (500). Unknown fields and query parameters
 | `GET /instruments/:symbol/history?range=1M` | Chart bars for `1D`, `1W`, `1M`, `3M`, `6M`, `YTD`, `1Y`, `5Y`, `10Y` or `ALL` |
 | `GET /quotes?symbols=AAPL,BTC/USD` | `{ quotes }` in the order asked, up to 200 symbols; unknown ones are `unavailable` |
 | `GET /movers?limit=5` | Today's top stock gainers, losers and most active, with quotes (`limit` up to 50) |
+| `GET /market-data/status` | Each live connection's state, reconnect attempt and last error, and which symbols are polled; 200 even without keys |
 
 Alerts are evaluated on the last trade price. Changing an alert's condition or target price, or enabling
 it again, re-arms it so it can fire again.
@@ -213,3 +214,17 @@ How the server uses the free plan:
   name has none of these shows as a stock. OTC listings are left out because the IEX feed has no prices
   for them.
 - Alpaca provides no fundamentals (market cap, P/E, EPS), so Aperture doesn't show them.
+
+Live prices:
+
+- The server keeps one stream connection for stocks and ETFs and one for crypto, each opened when it first
+  has symbols. The watchlist always streams (it holds at most 30 symbols, the per-connection limit); spare
+  room goes to an open stock page, then to symbols of enabled alerts.
+- Symbols that don't fit, or whose connection is down, are polled: one batched snapshot request every 15
+  seconds. Streamed symbols also get a snapshot once a minute for the day's volume, range and previous close.
+- A symbol counts as streamed only after Alpaca confirms the subscription; anything Alpaca refuses stays
+  polled. `/quotes` serves current live values directly and fetches the rest.
+- After a drop, a connection retries 10 times with backoff (1 s doubling to 64 s). If it still can't connect,
+  for example because another app holds the one connection the plan allows, the server tries again every five
+  minutes. Rejected keys aren't retried until you fix them and restart. `GET /market-data/status` explains
+  each case in plain words.
