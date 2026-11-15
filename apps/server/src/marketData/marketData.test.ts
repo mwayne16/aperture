@@ -4,6 +4,7 @@ import type {
   HistoryResult,
   Instrument,
   InstrumentList,
+  MarketDataStatus,
   MarketMovers,
   QuoteList,
 } from '@aperture/shared/marketData';
@@ -153,6 +154,41 @@ describe('GET /quotes', () => {
       const bad = await get(server, url);
       expect([bad.statusCode, bad.json<ApiErrorBody>().error.message]).toEqual([400, message]);
     }
+  });
+});
+
+describe('GET /market-data/status', () => {
+  it('answers 200 and says market data is off when there are no keys', async () => {
+    const server = start(null);
+    const response = await get(server, '/market-data/status');
+    expect(response.statusCode).toBe(200);
+    expect(response.json<MarketDataStatus>()).toEqual({
+      configured: false,
+      feedName: null,
+      delayed: false,
+      stocks: { state: 'idle', reconnectAttempt: 0, error: null, lastMessageAt: null, streamed: [] },
+      crypto: { state: 'idle', reconnectAttempt: 0, error: null, lastMessageAt: null, streamed: [] },
+      polled: [],
+      lastPollAt: null,
+      pollError: null,
+    });
+  });
+
+  it("reports the live service's connections and feed once configured", async () => {
+    const provider = new FakeProvider();
+    const server = start(provider);
+    await server.ready();
+    provider.stream?.status('stocks', 'reconnecting', {
+      reconnectAttempt: 2,
+      error: 'The connection to Alpaca closed.',
+    });
+    const status = (await get(server, '/market-data/status')).json<MarketDataStatus>();
+    expect(status).toMatchObject({
+      configured: true,
+      feedName: 'Fake IEX',
+      stocks: { state: 'reconnecting', reconnectAttempt: 2, error: 'The connection to Alpaca closed.' },
+      crypto: { state: 'idle' },
+    });
   });
 });
 

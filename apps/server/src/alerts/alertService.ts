@@ -14,10 +14,17 @@ const notFound = (): ApiHttpError => new ApiHttpError('NOT_FOUND', 'Alert not fo
 export class AlertService {
   private readonly dataSource: DataSource;
   private readonly now: () => Date;
+  private readonly onChange: () => void;
 
-  constructor(dataSource: DataSource, now: () => Date = () => new Date()) {
+  /** `onChange` runs after each committed change, e.g. so live prices follow enabled alerts. */
+  constructor(
+    dataSource: DataSource,
+    now: () => Date = () => new Date(),
+    onChange: () => void = () => undefined,
+  ) {
     this.dataSource = dataSource;
     this.now = now;
+    this.onChange = onChange;
   }
 
   /** Oldest first. */
@@ -46,6 +53,7 @@ export class AlertService {
       triggerCount: 0,
     });
     await this.dataSource.manager.insert(AlertEntity, alert);
+    this.onChange();
     return toPriceAlert(alert);
   }
 
@@ -53,8 +61,8 @@ export class AlertService {
    * Applies the fields present in `input`. Changing the condition or target price, or enabling a
    * disabled alert, re-arms it. A request that changes nothing leaves updatedAt alone.
    */
-  update(id: string, input: UpdateAlertBody): Promise<PriceAlert> {
-    return this.dataSource.transaction(async (manager) => {
+  async update(id: string, input: UpdateAlertBody): Promise<PriceAlert> {
+    const updated = await this.dataSource.transaction(async (manager) => {
       const current = await manager.findOne(AlertEntity, {
         where: { id },
         lock: { mode: 'pessimistic_write' },
@@ -81,12 +89,15 @@ export class AlertService {
       await manager.update(AlertEntity, id, changes);
       return toPriceAlert(Object.assign(current, changes));
     });
+    this.onChange();
+    return updated;
   }
 
   /** Rejects with NOT_FOUND when no alert has this id. */
   async delete(id: string): Promise<void> {
     const result = await this.dataSource.manager.delete(AlertEntity, id);
     if (result.affected === 0) throw notFound();
+    this.onChange();
   }
 }
 

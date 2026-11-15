@@ -6,6 +6,7 @@ import { registerAlertRoutes } from './alerts/alertRoutes.js';
 import { AlertService } from './alerts/alertService.js';
 import { marketDataConfigured, marketDataFeed, type AppConfig } from './config/appConfig.js';
 import { registerErrorHandling } from './http/errors.js';
+import { LiveMarketData } from './marketData/liveMarketData.js';
 import { registerMarketDataRoutes } from './marketData/marketDataRoutes.js';
 import { MarketDataService } from './marketData/marketDataService.js';
 import type { MarketDataProvider } from './marketData/provider.js';
@@ -84,8 +85,34 @@ export function buildApp(
     return reply.code(up ? 200 : 503).send(health);
   });
 
-  registerWatchlistRoutes(app, new WatchlistService(dataSource));
-  registerAlertRoutes(app, new AlertService(dataSource));
-  registerMarketDataRoutes(app, new MarketDataService(marketData));
+  // ** Live prices follow the watchlist and enabled alerts, so both services report their changes.
+  let live: LiveMarketData | null = null;
+  const demandChanged = () => void live?.refresh();
+  const watchlist = new WatchlistService(dataSource, undefined, demandChanged);
+  const alerts = new AlertService(dataSource, undefined, demandChanged);
+  if (marketData) {
+    const started = new LiveMarketData(marketData, {
+      log: app.log,
+      demand: async () => ({
+        focus: [],
+        alerts: (await alerts.list()).filter((alert) => alert.enabled).map((alert) => alert.symbol),
+        watchlist: (await watchlist.get()).symbols,
+      }),
+    });
+    live = started;
+    // ** Started without waiting, so the server listens even while the provider is slow to answer.
+    app.addHook('onReady', (done) => {
+      void started.start();
+      done();
+    });
+    app.addHook('onClose', (_instance, done) => {
+      started.stop();
+      done();
+    });
+  }
+
+  registerWatchlistRoutes(app, watchlist);
+  registerAlertRoutes(app, alerts);
+  registerMarketDataRoutes(app, new MarketDataService(marketData, undefined, live));
   return app;
 }

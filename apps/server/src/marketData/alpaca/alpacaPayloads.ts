@@ -1,6 +1,6 @@
 import type { Instrument } from '@aperture/shared/marketData';
 import { validateSymbol } from '@aperture/shared/symbols';
-import type { ProviderBar, ProviderSnapshot } from '../provider.js';
+import type { LiveQuote, LiveTrade, ProviderBar, ProviderSnapshot } from '../provider.js';
 
 /**
  * Checks Alpaca payloads at the boundary. The SDK's types describe what Alpaca should send, but its
@@ -99,4 +99,33 @@ export function normalizeBar(raw: unknown): ProviderBar | null {
     return null;
   }
   return { time: at, open, high, low, close, volume };
+}
+
+/** A streamed trade from the SDK's mapped shape, or null when its symbol, price or time is malformed. */
+export function normalizeTrade(raw: unknown): LiveTrade | null {
+  const trade = fields(raw);
+  const symbol = text(trade.symbol);
+  const tradePrice = price(trade.price);
+  const at = time(trade.timestamp);
+  return symbol === null || tradePrice === null || at === null
+    ? null
+    : { symbol, price: tradePrice, time: at };
+}
+
+/** A streamed quote from the SDK's mapped shape, or null when its symbol or time is malformed. A zero side means none. */
+export function normalizeQuote(raw: unknown): LiveQuote | null {
+  const quote = fields(raw);
+  const symbol = text(quote.symbol);
+  const at = time(quote.timestamp);
+  if (symbol === null || at === null) return null;
+  const bid = price(quote.bidPrice);
+  const ask = price(quote.askPrice);
+  return {
+    symbol,
+    bid,
+    bidSize: bid === null ? null : size(quote.bidSize),
+    ask,
+    askSize: ask === null ? null : size(quote.askSize),
+    time: at,
+  };
 }

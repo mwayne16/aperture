@@ -100,3 +100,40 @@ export interface HistoryResult {
   truncated: boolean;
   simulated: boolean;
 }
+
+/** State of one of the server's live connections to the market-data provider. */
+export type FeedConnectionState = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'disconnected';
+
+export interface FeedChannelStatus {
+  /** 'idle' until the channel first has symbols to stream. */
+  state: FeedConnectionState;
+  /** The reconnect attempt under way (from 1), or 0. */
+  reconnectAttempt: number;
+  /** Why the connection failed or closed, or null while healthy. */
+  error: string | null;
+  /** Epoch ms of the last trade or quote received. */
+  lastMessageAt: number | null;
+  /** Symbols the provider confirmed on this connection. */
+  streamed: string[];
+}
+
+/**
+ * `GET /market-data/status`: how the server gets prices. Symbols that don't fit a live connection, or
+ * whose connection is down, are kept current by polling snapshots instead.
+ */
+export interface MarketDataStatus {
+  /** False until the provider's API keys are set; everything else is then empty. */
+  configured: boolean;
+  /** Name of the data feed, e.g. "Alpaca IEX", or null when not configured. */
+  feedName: string | null;
+  /** True when the feed's prices arrive late. */
+  delayed: boolean;
+  stocks: FeedChannelStatus;
+  crypto: FeedChannelStatus;
+  /** Symbols currently kept current by polling. */
+  polled: string[];
+  /** Epoch ms of the last successful poll. */
+  lastPollAt: number | null;
+  /** Why the last poll failed, or null. */
+  pollError: string | null;
+}

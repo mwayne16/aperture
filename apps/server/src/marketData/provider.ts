@@ -72,6 +72,59 @@ export interface ProviderMovers {
   asOf: number;
 }
 
+/** A live trade from a stream. */
+export interface LiveTrade {
+  symbol: string;
+  price: number;
+  /** Epoch ms of the trade. */
+  time: number;
+}
+
+/** A live best bid and ask from a stream. A side without an active order is null. */
+export interface LiveQuote {
+  symbol: string;
+  bid: number | null;
+  bidSize: number | null;
+  ask: number | null;
+  askSize: number | null;
+  /** Epoch ms of the quote. */
+  time: number;
+}
+
+/** The provider's live connections: one for stocks and ETFs, one for crypto. */
+export type StreamChannel = 'stocks' | 'crypto';
+
+export const STREAM_CHANNELS = ['stocks', 'crypto'] as const satisfies readonly StreamChannel[];
+
+export interface StreamStatus {
+  channel: StreamChannel;
+  /** 'idle' until the channel first has symbols to stream. */
+  state: 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'disconnected';
+  /** The reconnect attempt under way (from 1), or 0. */
+  reconnectAttempt: number;
+  /** Why the connection failed or closed, in words safe to show and log. Null while healthy. */
+  error: string | null;
+  /** False when trying again can't help until the configuration changes, e.g. rejected API keys. */
+  retryable: boolean;
+}
+
+export interface StreamHandlers {
+  onTrade(trade: LiveTrade): void;
+  onQuote(quote: LiveQuote): void;
+  onStatus(status: StreamStatus): void;
+  /** The symbols the provider confirmed on a channel. Only confirmed symbols are live. */
+  onSubscribed(channel: StreamChannel, symbols: string[]): void;
+}
+
+/** Live trades and quotes over the provider's connections, one per channel. */
+export interface MarketStream {
+  /** Streams exactly these symbols. A channel connects the first time it has symbols. */
+  setSymbols(symbols: Readonly<Record<StreamChannel, readonly string[]>>): void;
+  /** Connects again any channel that stopped retrying. */
+  reconnect(): void;
+  close(): void;
+}
+
 /**
  * What a market-data adapter implements. List methods take many symbols at once so callers can batch
  * requests inside the provider's rate limit. Failures reject with ProviderError.
@@ -90,6 +143,8 @@ export interface MarketDataProvider {
   /** Bars per symbol, oldest first. Symbols without history are left out. */
   getBars(request: BarsRequest): Promise<ReadonlyMap<string, ProviderBar[]>>;
   getMovers(limit: number): Promise<ProviderMovers>;
+  /** Opens the live stream. Call it once; the stream manages its own connections. */
+  openStream(handlers: StreamHandlers): MarketStream;
 }
 
 /**

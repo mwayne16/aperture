@@ -3,15 +3,19 @@ import { searchInstruments } from '@aperture/shared/instrumentSearch';
 import type {
   AssetClass,
   ChartRange,
+  FeedChannelStatus,
   HistoryResult,
   Instrument,
+  MarketDataStatus,
   MarketMovers,
   Quote,
 } from '@aperture/shared/marketData';
 import { normalizeSymbol } from '@aperture/shared/symbols';
 import { ApiHttpError } from '../http/errors.js';
 import { isTruncated, lastSessionBars, toChartBars } from './history.js';
-import { isCryptoSymbol, type MarketDataProvider, type ProviderSnapshot } from './provider.js';
+import type { LiveMarketData } from './liveMarketData.js';
+import { isCryptoSymbol, type MarketDataProvider } from './provider.js';
+import { toQuote } from './quotes.js';
 import { TtlCache } from './ttlCache.js';
 
 const NOT_CONFIGURED =
@@ -26,6 +30,14 @@ const INTRADAY_RANGES: ReadonlySet<ChartRange> = new Set(['1D', '1W', '1M']);
 const MOVERS_TTL_MS = 60_000;
 const MAX_CACHED_HISTORIES = 200;
 
+const IDLE_CHANNEL: FeedChannelStatus = {
+  state: 'idle',
+  reconnectAttempt: 0,
+  error: null,
+  lastMessageAt: null,
+  streamed: [],
+};
+
 interface Catalog {
   /** Every instrument, ordered by symbol. */
   all: Instrument[];
@@ -36,17 +48,24 @@ interface Catalog {
  * Instruments, quotes, chart history and movers from the configured provider. Without a provider every
  * method rejects with UNAVAILABLE and a message saying how to set one up. Results that change slowly
  * are cached in memory, so repeated chart and search requests stay inside the provider's rate limit.
+ * Quotes come from the live service when it has current values, and from snapshots otherwise.
  */
 export class MarketDataService {
   private readonly provider: MarketDataProvider | null;
   private readonly now: () => number;
+  private readonly live: LiveMarketData | null;
   private readonly catalogs: TtlCache<Catalog>;
   private readonly histories: TtlCache<HistoryResult>;
   private readonly movers: TtlCache<MarketMovers>;
 
-  constructor(provider: MarketDataProvider | null, now: () => number = Date.now) {
+  constructor(
+    provider: MarketDataProvider | null,
+    now: () => number = Date.now,
+    live: LiveMarketData | null = null,
+  ) {
     this.provider = provider;
     this.now = now;
+    this.live = live;
     this.catalogs = new TtlCache(1, now);
     this.histories = new TtlCache(MAX_CACHED_HISTORIES, now);
     this.movers = new TtlCache(1, now);
@@ -76,16 +95,41 @@ export class MarketDataService {
   }
 
   /**
-   * The latest quote for each symbol, in the order asked, from one batched provider request. Symbols the
-   * provider has no data for come back with status 'unavailable'.
+   * The latest quote for each symbol, in the order asked. Current live values are used as they are; the
+   * rest come from one batched snapshot request. Symbols the provider has no data for come back with
+   * status 'unavailable'.
    */
   async getQuotes(symbols: readonly string[]): Promise<Quote[]> {
     const provider = this.requireProvider();
     const wanted = symbols.map(normalizeSymbol);
-    const snapshots = await provider.getSnapshots([...new Set(wanted)]);
+    const live = new Map(
+      wanted.flatMap((symbol) => {
+        const quote = this.live?.quote(symbol) ?? null;
+        return quote === null ? [] : [[symbol, quote] as const];
+      }),
+    );
+    const missing = [...new Set(wanted.filter((symbol) => !live.has(symbol)))];
+    const snapshots = missing.length === 0 ? [] : await provider.getSnapshots(missing);
     const bySymbol = new Map(snapshots.map((s) => [s.symbol, s]));
     const at = this.now();
-    return wanted.map((symbol) => toQuote(symbol, bySymbol.get(symbol), provider.delayed, at));
+    return wanted.map(
+      (symbol) => live.get(symbol) ?? toQuote(symbol, bySymbol.get(symbol), provider.delayed, at),
+    );
+  }
+
+  /** How prices currently arrive: each live connection, and what is polled instead. */
+  status(): MarketDataStatus {
+    if (this.live) return this.live.status();
+    return {
+      configured: this.provider !== null,
+      feedName: this.provider?.feedLabel ?? null,
+      delayed: this.provider?.delayed ?? false,
+      stocks: IDLE_CHANNEL,
+      crypto: IDLE_CHANNEL,
+      polled: [],
+      lastPollAt: null,
+      pollError: null,
+    };
   }
 
   /** Bars for a chart range. Rejects with NOT_FOUND for a symbol the provider doesn't list. */
@@ -148,35 +192,4 @@ export class MarketDataService {
     if (this.provider === null) throw new ApiHttpError('UNAVAILABLE', NOT_CONFIGURED);
     return this.provider;
   }
-}
-
-/** A quote in the API's shape. Without a last price it is 'unavailable'; on a delayed feed, 'delayed'. */
-function toQuote(
-  symbol: string,
-  snapshot: ProviderSnapshot | undefined,
-  delayed: boolean,
-  at: number,
-): Quote {
-  const last = snapshot?.last ?? null;
-  const prevClose = snapshot?.prevClose ?? null;
-  const change = last !== null && prevClose !== null ? last - prevClose : null;
-  return {
-    symbol,
-    last,
-    lastTradeAt: snapshot?.lastTradeAt ?? null,
-    bid: snapshot?.bid ?? null,
-    bidSize: snapshot?.bidSize ?? null,
-    ask: snapshot?.ask ?? null,
-    askSize: snapshot?.askSize ?? null,
-    quoteAt: snapshot?.quoteAt ?? null,
-    open: snapshot?.open ?? null,
-    high: snapshot?.high ?? null,
-    low: snapshot?.low ?? null,
-    prevClose,
-    volume: snapshot?.volume ?? null,
-    change,
-    changePct: change !== null && prevClose !== null ? (change / prevClose) * 100 : null,
-    status: last === null ? 'unavailable' : delayed ? 'delayed' : 'live',
-    updatedAt: at,
-  };
 }
