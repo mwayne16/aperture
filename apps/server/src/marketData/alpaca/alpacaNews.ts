@@ -47,7 +47,7 @@ function publisher(value: unknown): string {
 }
 
 /** One Alpaca article, or null when it has no id, headline or valid time. Symbols the shared rules reject are dropped. */
-export function normalizeNews(raw: unknown): Article | null {
+function normalizeNews(raw: unknown): Article | null {
   const news = fields(raw);
   const id = typeof news.id === 'number' || typeof news.id === 'string' ? String(news.id) : '';
   const headline = text(news.headline);

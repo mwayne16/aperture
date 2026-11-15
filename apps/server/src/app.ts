@@ -10,6 +10,11 @@ import { LiveMarketData } from './marketData/liveMarketData.js';
 import { registerMarketDataRoutes } from './marketData/marketDataRoutes.js';
 import { MarketDataService } from './marketData/marketDataService.js';
 import type { MarketDataProvider } from './marketData/provider.js';
+import { loadMarketInputs } from './news/marketInputs.js';
+import { MemoryNewsCache, type NewsCache } from './news/newsCache.js';
+import { registerNewsRoutes } from './news/newsRoutes.js';
+import { NewsService } from './news/newsService.js';
+import type { NewsSource } from './news/newsSource.js';
 import { registerWatchlistRoutes } from './watchlist/watchlistRoutes.js';
 import { WatchlistService } from './watchlist/watchlistService.js';
 
@@ -34,6 +39,10 @@ interface AppDependencies {
   dataSource: DataSource;
   /** Null while market data isn't configured; its endpoints then answer UNAVAILABLE. */
   marketData: MarketDataProvider | null;
+  /** Null or omitted while news isn't configured; `/news` then answers UNAVAILABLE. */
+  news?: NewsSource | null;
+  /** Where fetched news waits between refreshes. Defaults to an in-process cache. */
+  newsCache?: NewsCache;
 }
 
 interface BuildOptions {
@@ -55,7 +64,7 @@ async function databaseReachable(dataSource: DataSource): Promise<boolean> {
 
 /** Creates the HTTP server with its error handling and routes, without starting it. */
 export function buildApp(
-  { config, dataSource, marketData }: AppDependencies,
+  { config, dataSource, marketData, news = null, newsCache = new MemoryNewsCache() }: AppDependencies,
   { logger = true, logStream }: BuildOptions = {},
 ): FastifyInstance {
   const app = Fastify({
@@ -111,8 +120,29 @@ export function buildApp(
     });
   }
 
+  const marketDataService = new MarketDataService(marketData, undefined, live);
+  const newsService = new NewsService({
+    source: news,
+    cache: newsCache,
+    watchlist: async () => (await watchlist.get()).symbols,
+    marketInputs: (symbols) => loadMarketInputs(marketDataService, symbols),
+    log: app.log,
+  });
+  if (news) {
+    // ** Like the live prices: refreshing starts without holding up listen and stops with the app.
+    app.addHook('onReady', (done) => {
+      newsService.start();
+      done();
+    });
+    app.addHook('onClose', (_instance, done) => {
+      newsService.stop();
+      done();
+    });
+  }
+
   registerWatchlistRoutes(app, watchlist);
   registerAlertRoutes(app, alerts);
-  registerMarketDataRoutes(app, new MarketDataService(marketData, undefined, live));
+  registerMarketDataRoutes(app, marketDataService);
+  registerNewsRoutes(app, newsService);
   return app;
 }

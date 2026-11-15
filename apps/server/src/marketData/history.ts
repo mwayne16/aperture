@@ -20,6 +20,9 @@ const START_LEEWAY_MS: Record<BarTimeframe, number> = {
 
 const easternDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' });
 
+/** The New York trading day an instant falls on, as YYYY-MM-DD. */
+export const sessionDate = (ms: number) => easternDate.format(ms);
+
 /**
  * Bars of the most recent session for the 1D chart: for stocks, the last bar's New York trading day; for
  * crypto, which trades around the clock, the 24 hours before `nowMs`.
