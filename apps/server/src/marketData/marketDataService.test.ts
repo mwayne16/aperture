@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ApiHttpError } from '../http/errors.js';
 import { FakeProvider, snapshot } from '../test/fakeProvider.js';
+import { LiveMarketData } from './liveMarketData.js';
 import { MarketDataService } from './marketDataService.js';
 import type { ProviderBar } from './provider.js';
 
@@ -210,5 +211,29 @@ describe('movers', () => {
     now += 60_000;
     await service.getMovers(5);
     expect(provider.calls.getMovers).toEqual([5, 5]);
+  });
+});
+
+describe('quotes with live prices', () => {
+  it('uses current live values and asks the provider only for the rest', async () => {
+    provider.snapshots.set('AAPL', snapshot('AAPL', { last: 105 }));
+    provider.snapshots.set('MSFT', snapshot('MSFT', { last: 410 }));
+    const live = new LiveMarketData(provider, {
+      demand: () => Promise.resolve({ focus: [], alerts: [], watchlist: ['AAPL'] }),
+      log: { info: () => undefined, warn: () => undefined } as never,
+      now: () => now,
+    });
+    await live.start();
+    const withLive = new MarketDataService(provider, () => now, live);
+    provider.calls.getSnapshots.length = 0;
+
+    const quotes = await withLive.getQuotes(['AAPL', 'MSFT']);
+
+    expect(provider.calls.getSnapshots).toEqual([['MSFT']]);
+    expect(quotes.map((q) => [q.symbol, q.last])).toEqual([
+      ['AAPL', 105],
+      ['MSFT', 410],
+    ]);
+    live.stop();
   });
 });
