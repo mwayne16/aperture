@@ -7,6 +7,8 @@ import { createDataSource } from './db/dataSource.js';
 import { closeDatabase, openDatabase } from './db/database.js';
 import { describeDatabaseError } from './db/errors.js';
 import { createMarketDataSources } from './marketData/createProvider.js';
+import { RedisNewsCache } from './news/redisNewsCache.js';
+import { RedisConnection } from './redis/redisConnection.js';
 
 function readConfig(): AppConfig {
   try {
@@ -25,13 +27,17 @@ function readConfig(): AppConfig {
 const config = readConfig();
 const dataSource = createDataSource(config.databaseUrl);
 const { marketData, news } = createMarketDataSources(config);
-const app = buildApp({ config, dataSource, marketData, news });
+const redis = new RedisConnection(config.redisUrl);
+const app = buildApp({ config, dataSource, marketData, news, newsCache: new RedisNewsCache(redis), redis });
+// ** Redis only holds caches, so it connects in the background and startup never waits for it.
+redis.start(app.log);
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
     void app
       .close()
       .then(() => closeDatabase(dataSource))
+      .then(() => redis.close())
       .then(() => process.exit(0));
   });
 }
