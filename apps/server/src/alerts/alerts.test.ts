@@ -237,3 +237,15 @@ describe('DELETE /alerts/:id', () => {
     expect((await call('GET', '/alerts')).body).toEqual({ alerts: [] });
   });
 });
+
+describe('change notifications', () => {
+  it('reports each committed change, and nothing for a rejected one', async () => {
+    let changes = 0;
+    const alerts = new AlertService(dataSource, undefined, () => (changes += 1));
+    const alert = await alerts.create({ symbol: 'AAPL', condition: 'above', targetPrice: 200, tag: 'buy' });
+    await alerts.update(alert.id, { enabled: false });
+    await alerts.delete(alert.id);
+    await expect(alerts.delete(alert.id)).rejects.toThrow();
+    expect(changes).toBe(3);
+  });
+});

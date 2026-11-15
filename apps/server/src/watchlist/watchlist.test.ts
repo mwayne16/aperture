@@ -179,3 +179,17 @@ describe('PUT /watchlist/order', () => {
     }
   });
 });
+
+describe('change notifications', () => {
+  it('reports each committed change, and nothing for a rejected one', async () => {
+    let changes = 0;
+    const watchlist = new WatchlistService(dataSource, undefined, () => (changes += 1));
+    await watchlist.add('AAPL');
+    await watchlist.add('MSFT');
+    await watchlist.reorder(['MSFT', 'AAPL']);
+    await watchlist.remove('AAPL');
+    await expect(watchlist.add('MSFT')).rejects.toThrow();
+    await expect(watchlist.remove('ZZZZ')).rejects.toThrow();
+    expect(changes).toBe(4);
+  });
+});

@@ -21,6 +21,7 @@ import {
   type ProviderSnapshot,
 } from '../provider.js';
 import { normalizeAsset, normalizeBar, normalizeSnapshot, rankedSymbols, time } from './alpacaPayloads.js';
+import { openAlpacaStream, type AlpacaStreamOptions } from './alpacaStream.js';
 
 /** Alpaca feeds: real-time IEX (free), all exchanges (paid), or all exchanges 15 minutes late. */
 export const ALPACA_FEEDS = ['iex', 'sip', 'delayed_sip'] as const;
@@ -65,6 +66,10 @@ export interface AlpacaProviderOptions {
   feed: AlpacaFeed;
   /** Replaces the network, for tests. */
   fetchApi?: trading.FetchAPI;
+  /** Replaces the stream addresses, for tests. */
+  streamUrls?: AlpacaStreamOptions['urls'];
+  /** Shortens the stream's reconnect backoff, for tests. */
+  streamReconnect?: AlpacaStreamOptions['reconnect'];
   now?: () => number;
 }
 
@@ -173,6 +178,16 @@ export function createAlpacaProvider(options: AlpacaProviderOptions): MarketData
         mostActive: rankedSymbols(active.mostActives),
         asOf: time(movers.lastUpdated) ?? now(),
       };
+    },
+
+    openStream(handlers) {
+      return openAlpacaStream({
+        data,
+        feed: options.feed,
+        handlers,
+        urls: options.streamUrls,
+        reconnect: options.streamReconnect,
+      });
     },
   };
 }

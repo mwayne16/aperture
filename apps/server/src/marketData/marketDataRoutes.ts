@@ -3,6 +3,7 @@ import type {
   HistoryResult,
   Instrument,
   InstrumentList,
+  MarketDataStatus,
   MarketMovers,
   QuoteList,
 } from '@aperture/shared/marketData';
@@ -58,5 +59,10 @@ export function registerMarketDataRoutes(app: FastifyInstance, marketData: Marke
     '/movers',
     { preHandler: validateRequest({ query: MoversQuery }) },
     (request): Promise<MarketMovers> => marketData.getMovers(request.query.limit ?? DEFAULT_MOVERS_LIMIT),
+  );
+
+  // ** Answers 200 even without API keys, like /health: the status itself says market data is off.
+  app.get('/market-data/status', (_request, reply) =>
+    reply.send(marketData.status() satisfies MarketDataStatus),
   );
 }

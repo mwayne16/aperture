@@ -1,23 +1,4 @@
-import type { ProviderSnapshot } from './provider.js';
-
-/** A live trade from a stream. */
-export interface LiveTrade {
-  symbol: string;
-  price: number;
-  /** Epoch ms of the trade. */
-  time: number;
-}
-
-/** A live best bid and ask from a stream. A side without an active order is null. */
-export interface LiveQuote {
-  symbol: string;
-  bid: number | null;
-  bidSize: number | null;
-  ask: number | null;
-  askSize: number | null;
-  /** Epoch ms of the quote. */
-  time: number;
-}
+import type { LiveQuote, LiveTrade, ProviderSnapshot } from './provider.js';
 
 export interface LiveValues extends ProviderSnapshot {
   /** Epoch ms when a snapshot last set the day's values, or null before the first one. */

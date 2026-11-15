@@ -14,10 +14,17 @@ import { WATCHLIST_ID, WatchlistEntity, WatchlistSymbolEntity } from './watchlis
 export class WatchlistService {
   private readonly dataSource: DataSource;
   private readonly now: () => Date;
+  private readonly onChange: () => void;
 
-  constructor(dataSource: DataSource, now: () => Date = () => new Date()) {
+  /** `onChange` runs after each committed change, e.g. so live prices follow the watchlist. */
+  constructor(
+    dataSource: DataSource,
+    now: () => Date = () => new Date(),
+    onChange: () => void = () => undefined,
+  ) {
     this.dataSource = dataSource;
     this.now = now;
+    this.onChange = onChange;
   }
 
   get(): Promise<Watchlist> {
@@ -70,10 +77,10 @@ export class WatchlistService {
   }
 
   /** Locks the watchlist, applies one change to it and bumps its updatedAt. */
-  private change(
+  private async change(
     apply: (manager: EntityManager, symbols: readonly string[]) => Promise<void>,
   ): Promise<Watchlist> {
-    return this.dataSource.transaction(async (manager) => {
+    const updated = await this.dataSource.transaction(async (manager) => {
       const watchlist = await manager.findOne(WatchlistEntity, {
         where: { id: WATCHLIST_ID },
         lock: { mode: 'pessimistic_write' },
@@ -85,6 +92,8 @@ export class WatchlistService {
       });
       return read(manager);
     });
+    this.onChange();
+    return updated;
   }
 }
 
