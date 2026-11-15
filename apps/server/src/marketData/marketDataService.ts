@@ -74,7 +74,8 @@ export class MarketDataService {
     this.live = live;
     this.catalogs = new TtlCache(1, now);
     this.histories = new TtlCache(MAX_CACHED_HISTORIES, now);
-    this.movers = new TtlCache(1, now);
+    // ** A few limits are in use at once (the dashboard asks for 5, news ranking for 10).
+    this.movers = new TtlCache(5, now);
     this.volumes = new TtlCache(20, now);
   }
 

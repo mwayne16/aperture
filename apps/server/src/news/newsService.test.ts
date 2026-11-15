@@ -131,11 +131,21 @@ describe('refreshing', () => {
     expect(source.queries).toHaveLength(4);
   });
 
-  it('warns once about a lasting failure and never throws', async () => {
+  it('warns once per pool about a lasting failure and never throws', async () => {
     source.failWith = new ProviderError('credentials', 'Alpaca rejected the API keys.');
     service.start();
     await vi.advanceTimersByTimeAsync(3 * REFRESH_INTERVAL_MS);
-    expect(warnings.filter((warning) => warning === 'Fetching news failed')).toHaveLength(1);
+    // One warning for the watchlist pool and one for the market pool, not one per refresh.
+    expect(warnings.filter((warning) => warning === 'Fetching news failed')).toHaveLength(2);
+  });
+
+  it('keeps last good copies for a bounded number of pools', async () => {
+    for (let page = 0; page < 30; page++) await service.about([`S${String(page)}`], 5);
+    source.failWith = new ProviderError('unavailable', 'Alpaca could not be reached.');
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
+    // The earliest pages fell out of the last-good copies, the latest are still there.
+    await expect(service.about(['S0'], 5)).rejects.toBeInstanceOf(ProviderError);
+    await expect(service.about(['S29'], 5)).resolves.toEqual([]);
   });
 
   it('stops refreshing and leaves no timers behind', () => {
