@@ -5,8 +5,8 @@ prices, charts, price alerts and market news. Aperture never places orders or ex
 Sell on alerts are labels only.
 
 The user interface currently runs on clearly labelled **simulated data**. The backend already serves real
-market data from Alpaca (see [Market data](#market-data)); the app switches to it once it talks to the
-backend (see [`stock-app-plan.md`](stock-app-plan.md)).
+market data and news from Alpaca (see [Market data](#market-data) and [News](#news)); the app switches to
+them once it talks to the backend (see [`stock-app-plan.md`](stock-app-plan.md)).
 
 ## Repository layout
 
@@ -125,8 +125,8 @@ npm run check
 Runs typecheck, lint, unused-code detection (knip), tests and builds for every workspace. A green check
 is required before merging into `main`. Inside a workspace, `npm run check` checks only that workspace.
 
-The server tests start their own throwaway PostgreSQL container (the image from `compose.yaml`), so **Docker
-must be running**. They never touch the database in your `.env`.
+The server tests start their own throwaway PostgreSQL and Redis containers (the images from `compose.yaml`), so
+**Docker must be running**. They never touch the database or Redis in your `.env`.
 
 ## HTTP API
 
@@ -138,7 +138,7 @@ data isn't configured) and `INTERNAL` (500). Unknown fields and query parameters
 
 | Method and path | Does |
 | --- | --- |
-| `GET /health` | Server, database and market-data status; 503 while the database is down |
+| `GET /health` | Server, database, Redis and market-data status; 503 while the database is down (Redis is informational) |
 | `GET /watchlist` | The watchlist: `{ symbols, updatedAt }` |
 | `POST /watchlist/symbols` | Append `{ symbol }`. 409 for a duplicate, 400 once the list holds 30 symbols |
 | `DELETE /watchlist/symbols/:symbol` | Remove a symbol. Encode crypto pairs: `BTC%2FUSD` |
@@ -154,6 +154,8 @@ data isn't configured) and `INTERNAL` (500). Unknown fields and query parameters
 | `GET /quotes?symbols=AAPL,BTC/USD` | `{ quotes }` in the order asked, up to 200 symbols; unknown ones are `unavailable` |
 | `GET /movers?limit=5` | Today's top stock gainers, losers and most active, with quotes (`limit` up to 50) |
 | `GET /market-data/status` | Each live connection's state, reconnect attempt and last error, and which symbols are polled; 200 even without keys |
+| `GET /news?limit=10` | The curated feed: stories about the watchlist, then top market stories, each with a `reason`; `limit` up to 25 |
+| `GET /news?symbols=AAPL` | A stock page's news, newest first (up to 10 symbols) |
 
 Alerts are evaluated on the last trade price. Changing an alert's condition or target price, or enabling
 it again, re-arms it so it can fire again.
@@ -229,3 +231,21 @@ Live prices:
   for example because another app holds the one connection the plan allows, the server tries again every five
   minutes. Rejected keys aren't retried until you fix them and restart. `GET /market-data/status` explains
   each case in plain words.
+
+## News
+
+The dashboard's news feed is curated on the server; the app shows it in the order it arrives.
+
+- **Source:** Alpaca's news (from Benzinga on the free plan) for now. A second provider can be added as
+  another news source; the plan asks for one once it is chosen.
+- **Refresh:** every three minutes the server fetches news about the watchlist and general market news from
+  the last 48 hours, about 100 articles each, and caches them in Redis for five minutes. Requests read the
+  cache, so they don't call Alpaca. If Redis is down, an in-memory copy is used instead; if a fetch fails,
+  the last good copy keeps the feed going.
+- **Ranking:** duplicates (the same link, or near-identical headlines within six hours) become one story.
+  Stories about watched symbols come first, ranked by how directly they concern the symbol, the day's move,
+  volume against its 20-day average and whether it is an event such as earnings or an analyst change, with
+  newer stories first. No symbol takes more than 3 of the first 10 places. Top market stories follow, ranked
+  by broad-market topics and today's most active stocks. Each story says why it is there ("About AAPL",
+  "Top market story"). The weights live in `apps/server/src/news/newsRules.ts`.
+- **Stock pages:** `GET /news?symbols=AAPL` returns the symbol's news, newest first.

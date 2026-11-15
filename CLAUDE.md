@@ -16,9 +16,11 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
 - Phase 3 (market data integration): **in progress, split into three PRs.**
   (1) REST market data (the Alpaca adapter, instruments and search, quote snapshots, chart history, movers):
   **merged 2026-11-14** (PR #5).
-  (2) Live prices on `feat/market-stream`: one Alpaca connection per channel, the 30-symbol budget,
-  connection status (`GET /market-data/status`), polling for the rest. Built, awaiting merge.
-  (3) The curated news feed (plan section 2.6): next.
+  (2) Live prices: one Alpaca connection per channel, the 30-symbol budget, connection status
+  (`GET /market-data/status`), polling for the rest: **merged 2026-11-15** (PR #6).
+  (3) The curated news feed (plan section 2.6) on `feat/news-feed`: built, awaiting merge. Alpaca news only
+  for now (user's choice, 2026-11-15); a second source waits for the user to pick a provider. The `reason`
+  tag isn't shown in the UI yet (frontend integration).
   Against real Alpaca only the rejected-keys path is verified (2026-11-14, fake keys): the REST hosts answer
   401 and the server answers 502; both stream endpoints (IEX stocks, crypto) complete the handshake, Alpaca's
   msgpack auth error decodes, and status reports "Alpaca rejected the API keys." without retrying. No log
@@ -132,6 +134,24 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
     `stop()` runs in `onClose`, before the database closes.
   - Stream errors are mapped to our own words (`FAILURES` in `alpacaStream.ts`) because the auth frame
     carries the keys. Tests run the real SDK against `test/fakeAlpacaStream.ts`, a local msgpack server.
+- News (`news/`, plan section 2.6):
+  - Filtering, de-duplication, scoring and assembly are pure functions in `newsRules.ts`; every weight is in
+    `NEWS_WEIGHTS`. Grouping is union-find over duplicate pairs, so it is order-independent. When the
+    per-symbol cap leaves places in the first 10, market stories fill them before the watchlist overflow.
+  - Sources implement `NewsSource` (`newsSource.ts`). Alpaca news is built on the adapter's own
+    `MarketDataClient` (`provider.news`), so it shares the rate limit, and reads newest-first pages only up to
+    100 articles per query. Alpaca tags crypto as compact pairs (`BTCUSD`); the adapter queries with and maps
+    them to the app's form (`BTC/USD`). Only http(s) links pass; ids are namespaced (`alpaca:<id>`).
+  - `NewsService` refreshes both pools every 3 minutes into the cache (5-minute TTL, keys `news:v1:...`). The
+    watchlist pool is keyed by its symbols, so a changed watchlist fetches its own. Requests rank on the spot
+    with `loadMarketInputs` (quotes, 20-day average daily volume from cached daily bars, most active, names),
+    each part optional so a missing one scores 0. A failed fetch falls back to the last good pool.
+- Redis (`redis/redisConnection.ts`, official `redis` 6.x client): only caches live there (news for now), so
+  the server runs without it. `disableOfflineQueue` makes commands fail at once while it is down, and
+  `RedisNewsCache` falls back to memory. An `error` listener is required (unhandled errors crash the process).
+  It retries 10 times with backoff, then every 5 minutes from the `terminated` event; down and back are logged
+  once each, by message only. `main.ts` owns the connection; `buildApp` only takes the cache and a readiness
+  view for `/health` (informational, never changes the status code).
 - Lint config: one `eslint.base.js` at the root; each workspace adds its globals and plugins.
 - Shared code: `packages/shared` holds the API contracts and the rules both sides enforce: symbols, alerts,
   chart ranges (`resolveRange`) and the instrument search ranking.
@@ -147,8 +167,8 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
   - Prices are `double precision` (round-trips JS numbers exactly). Alert ids are UUIDs made in the app.
   - `updatedAt` strictly increases (`nextUpdatedAt`), because the app drops alert copies older than the
     one it has.
-  - Server tests run against a Testcontainers PostgreSQL started once per run (`src/test/globalSetup.ts`,
-    image read from `compose.yaml`), with test files run one at a time. **Docker must be running for
+  - Server tests run against a Testcontainers PostgreSQL and Redis started once per run
+    (`src/test/globalSetup.ts`, images read from `compose.yaml`), with test files run one at a time. **Docker must be running for
     `npm run check`.** `migrations.test.ts` fails when entities and migrations drift.
   - Alert trigger history stays session-only until the alerting work adds a table for it.
 
@@ -159,6 +179,8 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
   messages. `Omittable` marks optional fields in partial updates: unlike `IsOptional` it still rejects null.
 - `db/`: the data source, migrations, startup (`openDatabase`, bounded retry) and `isDatabaseUnavailable`,
   which the error handler turns into 503 UNAVAILABLE.
+- `news/`: rules, the `NewsSource` port, the service, market inputs, caches (memory and Redis), DTOs and
+  routes; tests use `test/fakeNewsSource.ts`. `redis/`: the connection.
 - `marketData/`: the provider port (`provider.ts`), one folder per adapter (`alpaca/`: REST adapter, stream,
   payload checks, doc-shaped fixtures), `createProvider.ts` (picks the adapter from config), the REST service
   (`marketDataService.ts`), the live service (`liveMarketData.ts`, `marketState.ts`, `streamPlan.ts`), DTOs
