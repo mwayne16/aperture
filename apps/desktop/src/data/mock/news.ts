@@ -52,6 +52,7 @@ export function simulatedNews(profiles: readonly InstrumentProfile[], limit: num
         publishedAt: new Date(publishedAt).toISOString(),
         url: null,
         simulated: true,
+        reason: `About ${profile.symbol}`,
       });
     }
   }

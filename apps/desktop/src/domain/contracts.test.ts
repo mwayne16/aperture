@@ -1,5 +1,6 @@
 import type * as SharedAlerts from '@aperture/shared/alerts';
 import type * as SharedMarketData from '@aperture/shared/marketData';
+import type * as SharedNews from '@aperture/shared/news';
 import type * as SharedWatchlist from '@aperture/shared/watchlist';
 import { describe, expectTypeOf, it } from 'vitest';
 import type {
@@ -13,6 +14,7 @@ import type {
   HistoryResult,
   Instrument,
   MarketMovers,
+  NewsItem,
   PriceAlert,
   Quote,
   UpdateAlertInput,
@@ -40,5 +42,6 @@ describe('API contract types', () => {
     expectTypeOf<BarTimeframe>().toEqualTypeOf<SharedMarketData.BarTimeframe>();
     expectTypeOf<Bar>().toEqualTypeOf<SharedMarketData.Bar>();
     expectTypeOf<HistoryResult>().toEqualTypeOf<SharedMarketData.HistoryResult>();
+    expectTypeOf<NewsItem>().toEqualTypeOf<SharedNews.NewsItem>();
   });
 });

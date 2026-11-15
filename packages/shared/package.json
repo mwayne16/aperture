@@ -40,6 +40,11 @@
       "types": "./dist/marketData.d.ts",
       "default": "./dist/marketData.js"
     },
+    "./news": {
+      "source": "./src/news.ts",
+      "types": "./dist/news.d.ts",
+      "default": "./dist/news.js"
+    },
     "./symbols": {
       "source": "./src/symbols.ts",
       "types": "./dist/symbols.d.ts",

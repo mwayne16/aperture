@@ -85,6 +85,8 @@ export interface NewsItem {
   url: string | null;
   /** True for prototype headlines. The UI must label them as simulated. */
   simulated: boolean;
+  /** Why the story is in the feed, e.g. "About AAPL" or "Top market story". Shown next to it. */
+  reason: string;
 }
 
 export interface MarketMovers {
