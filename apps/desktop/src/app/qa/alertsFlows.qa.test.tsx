@@ -242,6 +242,9 @@ describe('alerts end to end (QA)', () => {
     type(field('Symbol'), 'amd');
     await advance(1500);
     expect(useUiStore.getState().alertDraftSymbol).toBe('AMD');
+    // ** AMD's last simulated trade can be an hour old (each test starts an hour later), so its quote is stale
+    // until it trades again, and the feed picks which symbol trades at random. Wait for that trade.
+    await runFeedUntil(() => getQuote('AMD')?.status === 'live', 10_000);
     const quote = within(dialog()).getByText(/^Last/).closest('p');
     expect(quote).toHaveTextContent(/^Last \d+\.\d{2}Simulated$/);
     type(field('Target price'), '1');
