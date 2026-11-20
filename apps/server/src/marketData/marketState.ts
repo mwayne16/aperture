@@ -81,14 +81,16 @@ export class MarketState {
     return true;
   }
 
-  applyQuote(quote: LiveQuote): void {
+  /** Returns true when the quote is newer than the last one, so it changed the bid and ask. */
+  applyQuote(quote: LiveQuote): boolean {
     const current = this.values.get(quote.symbol);
-    if (!current || !newer(quote.time, current.quoteAt)) return;
+    if (!current || !newer(quote.time, current.quoteAt)) return false;
     current.bid = quote.bid;
     current.bidSize = quote.bidSize;
     current.ask = quote.ask;
     current.askSize = quote.askSize;
     current.quoteAt = quote.time;
+    return true;
   }
 }
 

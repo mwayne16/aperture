@@ -113,6 +113,7 @@ export function buildApp(
       demand: async () => ({
         focus: [],
         alerts: (await alerts.list()).filter((alert) => alert.enabled).map((alert) => alert.symbol),
+        viewed: [],
         watchlist: (await watchlist.get()).symbols,
       }),
     });

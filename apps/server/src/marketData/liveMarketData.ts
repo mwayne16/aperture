@@ -83,6 +83,8 @@ export class LiveMarketData {
   private pollError: string | null = null;
   private stopped = false;
   private readonly priceListeners = new Set<PriceListener>();
+  private readonly changeListeners = new Set<(symbol: string) => void>();
+  private readonly statusListeners = new Set<(status: MarketDataStatus) => void>();
 
   constructor(provider: MarketDataProvider, options: LiveMarketDataOptions) {
     this.provider = provider;
@@ -95,11 +97,14 @@ export class LiveMarketData {
     if (this.stream !== null || this.stopped) return;
     this.stream = this.provider.openStream({
       onTrade: (trade) => {
-        if (this.state.applyTrade(trade)) this.publishPrice(trade.symbol, trade.price, trade.time);
+        if (this.state.applyTrade(trade)) {
+          this.publishPrice(trade.symbol, trade.price, trade.time);
+          this.publishChange(trade.symbol);
+        }
         this.received(trade.symbol);
       },
       onQuote: (quote) => {
-        this.state.applyQuote(quote);
+        if (this.state.applyQuote(quote)) this.publishChange(quote.symbol);
         this.received(quote.symbol);
       },
       onStatus: (status) => {
@@ -107,6 +112,7 @@ export class LiveMarketData {
       },
       onSubscribed: (channel, symbols) => {
         this.channels[channel].confirmed = new Set(symbols);
+        this.publishStatus();
       },
     });
     this.pollTimer = setInterval(() => void this.poll(), POLL_INTERVAL_MS);
@@ -121,6 +127,18 @@ export class LiveMarketData {
   onPrice(listener: PriceListener): () => void {
     this.priceListeners.add(listener);
     return () => this.priceListeners.delete(listener);
+  }
+
+  /** Calls `listener` with a symbol whenever its trade, quote or day values change. Returns a remover. */
+  onChange(listener: (symbol: string) => void): () => void {
+    this.changeListeners.add(listener);
+    return () => this.changeListeners.delete(listener);
+  }
+
+  /** Calls `listener` with the current status whenever a connection, polling or the plan changes. Returns a remover. */
+  onStatus(listener: (status: MarketDataStatus) => void): () => void {
+    this.statusListeners.add(listener);
+    return () => this.statusListeners.delete(listener);
   }
 
   /** Stops polling and closes the stream. */
@@ -149,11 +167,21 @@ export class LiveMarketData {
 
   /** The symbol's quote when it is current (streamed, or polled within two rounds), otherwise null. */
   quote(symbol: string): Quote | null {
+    const quote = this.latest(symbol);
+    return quote === null || quote.status === 'stale' ? null : quote;
+  }
+
+  /**
+   * The symbol's last known quote, marked 'stale' when it isn't current (not streamed, and not polled within
+   * two rounds), or null before its first snapshot.
+   */
+  latest(symbol: string): Quote | null {
     const values = this.state.get(symbol);
     if (values?.baselineAt == null) return null;
     const now = this.now();
     const current = this.isStreamed(symbol) || now - values.baselineAt < 2 * POLL_INTERVAL_MS;
-    return current ? toQuote(symbol, values, this.provider.delayed, now) : null;
+    const quote = toQuote(symbol, values, this.provider.delayed, now);
+    return current || quote.last === null ? quote : { ...quote, status: 'stale' };
   }
 
   status(): MarketDataStatus {
@@ -181,6 +209,7 @@ export class LiveMarketData {
         this.stream?.setSymbols(this.plan.streamed);
         // ** New symbols need a baseline (previous close, day range) before they can be served.
         await this.poll();
+        this.publishStatus();
       } catch {
         this.options.log.warn('Could not load the symbols that need prices; keeping the current ones');
       }
@@ -216,9 +245,11 @@ export class LiveMarketData {
       const snapshots = await this.provider.getSnapshots(due);
       const at = this.now();
       for (const snapshot of snapshots) {
+        if (!this.state.get(snapshot.symbol)) continue;
         if (this.state.applySnapshot(snapshot, at) && snapshot.last !== null) {
           this.publishPrice(snapshot.symbol, snapshot.last, snapshot.lastTradeAt ?? at);
         }
+        this.publishChange(snapshot.symbol);
       }
       this.lastPollAt = at;
       if (this.pollError !== null) this.options.log.info('Polling market data works again');
@@ -229,9 +260,15 @@ export class LiveMarketData {
       if (reason !== this.pollError) this.options.log.warn({ reason }, 'Polling market data failed');
       this.pollError = reason;
     }
+    this.publishStatus();
   }
 
   private statusChanged(status: StreamStatus): void {
+    this.applyStatus(status);
+    this.publishStatus();
+  }
+
+  private applyStatus(status: StreamStatus): void {
     if (this.stopped) return;
     const channel = this.channels[status.channel];
     const previous = channel.status;
@@ -277,6 +314,28 @@ export class LiveMarketData {
     const timer = this.channels[channel].recovery;
     if (timer !== null) clearTimeout(timer);
     this.channels[channel].recovery = null;
+  }
+
+  private publishChange(symbol: string): void {
+    for (const listener of this.changeListeners) {
+      try {
+        listener(symbol);
+      } catch {
+        this.options.log.warn({ symbol }, 'A quote listener failed');
+      }
+    }
+  }
+
+  private publishStatus(): void {
+    if (this.statusListeners.size === 0) return;
+    const status = this.status();
+    for (const listener of this.statusListeners) {
+      try {
+        listener(status);
+      } catch {
+        this.options.log.warn('A status listener failed');
+      }
+    }
   }
 
   private publishPrice(symbol: string, price: number, time: number): void {

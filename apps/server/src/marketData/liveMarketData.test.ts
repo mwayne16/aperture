@@ -24,7 +24,7 @@ beforeEach(() => {
     provider.snapshots.set(symbol, snapshot(symbol, { lastTradeAt: START - 1_000, quoteAt: START - 1_000 }));
   }
   provider.limits.streamSymbolsPerConnection = { stocks: 2, crypto: 30 };
-  demand = { focus: [], alerts: ['NVDA'], watchlist: ['AAPL', 'MSFT', 'BTC/USD'] };
+  demand = { focus: [], alerts: ['NVDA'], watchlist: ['AAPL', 'MSFT', 'BTC/USD'], viewed: [] };
   demandLoads = 0;
   warnings = [];
   live = new LiveMarketData(provider, {
@@ -190,7 +190,7 @@ describe('recovering a connection', () => {
 describe('refreshing demand', () => {
   it('folds a burst of refreshes into at most one more run and follows the new demand', async () => {
     await live.start();
-    demand = { focus: [], alerts: [], watchlist: ['SPY'] };
+    demand = { focus: [], alerts: [], watchlist: ['SPY'], viewed: [] };
     await Promise.all([live.refresh(), live.refresh(), live.refresh()]);
     expect(demandLoads).toBe(3);
     expect(stream().subscriptions.at(-1)).toEqual({ stocks: ['SPY'], crypto: [] });
@@ -258,5 +258,45 @@ describe('price updates', () => {
     await live.start();
     expect(seen).toHaveLength(4);
     expect(warnings).toContain('A price listener failed');
+  });
+});
+
+describe('changes, status and the latest quote', () => {
+  it('reports a symbol whenever a trade, a quote or a snapshot changes it', async () => {
+    const changed: string[] = [];
+    live.onChange((symbol) => changed.push(symbol));
+    await live.start();
+    expect(changed.sort()).toEqual(['AAPL', 'BTC/USD', 'MSFT', 'NVDA']);
+
+    changed.length = 0;
+    stream().handlers.onTrade({ symbol: 'AAPL', price: 110, time: START + 5 });
+    stream().handlers.onTrade({ symbol: 'AAPL', price: 90, time: START + 4 });
+    stream().handlers.onQuote({ symbol: 'MSFT', bid: 1, bidSize: 1, ask: 2, askSize: 1, time: START + 5 });
+    stream().handlers.onTrade({ symbol: 'TSLA', price: 300, time: START + 6 });
+    expect(changed).toEqual(['AAPL', 'MSFT']);
+  });
+
+  it('reports the status when a connection changes, symbols are confirmed and a poll finishes', async () => {
+    const statuses: string[] = [];
+    live.onStatus((status) =>
+      statuses.push(`${status.stocks.state}:${String(status.stocks.streamed.length)}`),
+    );
+    await live.start();
+    statuses.length = 0;
+    stream().status('stocks', 'connected');
+    stream().handlers.onSubscribed('stocks', ['AAPL', 'MSFT']);
+    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
+    expect(statuses).toEqual(['connected:0', 'connected:2', 'connected:2']);
+  });
+
+  it('marks the latest quote stale once polling falls behind, and has none before the first snapshot', async () => {
+    provider.snapshots.delete('NVDA');
+    await live.start();
+    expect(live.latest('NVDA')).toBeNull();
+    expect(live.latest('AAPL')?.status).toBe('live');
+    provider.failWith = new ProviderError('unavailable', 'Alpaca could not be reached.');
+    await vi.advanceTimersByTimeAsync(2 * POLL_INTERVAL_MS);
+    expect(live.latest('AAPL')).toMatchObject({ status: 'stale', last: 101 });
+    expect(live.quote('AAPL')).toBeNull();
   });
 });

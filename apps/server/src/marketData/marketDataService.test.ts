@@ -219,7 +219,7 @@ describe('quotes with live prices', () => {
     provider.snapshots.set('AAPL', snapshot('AAPL', { last: 105 }));
     provider.snapshots.set('MSFT', snapshot('MSFT', { last: 410 }));
     const live = new LiveMarketData(provider, {
-      demand: () => Promise.resolve({ focus: [], alerts: [], watchlist: ['AAPL'] }),
+      demand: () => Promise.resolve({ focus: [], alerts: [], watchlist: ['AAPL'], viewed: [] }),
       log: { info: () => undefined, warn: () => undefined } as never,
       now: () => now,
     });
