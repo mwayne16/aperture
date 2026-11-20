@@ -1,11 +1,19 @@
-import type { AlertList } from '@aperture/shared/alerts';
+import { DEFAULT_ALERT_EVENTS_LIMIT, type AlertEventList, type AlertList } from '@aperture/shared/alerts';
 import type { FastifyInstance } from 'fastify';
 import { validateRequest } from '../http/validateRequest.js';
-import { AlertIdParams, CreateAlertBody, UpdateAlertBody } from './alertDtos.js';
+import { AlertEventsQuery, AlertIdParams, CreateAlertBody, UpdateAlertBody } from './alertDtos.js';
 import type { AlertService } from './alertService.js';
 
 export function registerAlertRoutes(app: FastifyInstance, alerts: AlertService): void {
   app.get('/alerts', async (): Promise<AlertList> => ({ alerts: await alerts.list() }));
+
+  app.get<{ Querystring: AlertEventsQuery }>(
+    '/alerts/events',
+    { preHandler: validateRequest({ query: AlertEventsQuery }) },
+    async (request): Promise<AlertEventList> => ({
+      events: await alerts.listEvents(request.query.limit ?? DEFAULT_ALERT_EVENTS_LIMIT),
+    }),
+  );
 
   app.post<{ Body: CreateAlertBody }>(
     '/alerts',

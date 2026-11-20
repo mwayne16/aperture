@@ -1,5 +1,5 @@
 import { normalizeNote } from '@aperture/shared/alertRules';
-import type { PriceAlert } from '@aperture/shared/alerts';
+import type { AlertEvent, PriceAlert } from '@aperture/shared/alerts';
 import { normalizeSymbol } from '@aperture/shared/symbols';
 import { randomUUID } from 'node:crypto';
 import type { DataSource } from 'typeorm';
@@ -7,6 +7,8 @@ import { nextUpdatedAt } from '../db/updatedAt.js';
 import { ApiHttpError } from '../http/errors.js';
 import type { CreateAlertBody, UpdateAlertBody } from './alertDtos.js';
 import { AlertEntity } from './alertEntity.js';
+import { AlertEventEntity } from './alertEventEntity.js';
+import { toAlertEvent, toPriceAlert } from './alertMappers.js';
 
 const notFound = (): ApiHttpError => new ApiHttpError('NOT_FOUND', 'Alert not found.');
 
@@ -93,29 +95,19 @@ export class AlertService {
     return updated;
   }
 
+  /** The trigger history, newest first. */
+  async listEvents(limit: number): Promise<AlertEvent[]> {
+    const rows = await this.dataSource.manager.find(AlertEventEntity, {
+      order: { triggeredAt: 'DESC', id: 'DESC' },
+      take: limit,
+    });
+    return rows.map(toAlertEvent);
+  }
+
   /** Rejects with NOT_FOUND when no alert has this id. */
   async delete(id: string): Promise<void> {
     const result = await this.dataSource.manager.delete(AlertEntity, id);
     if (result.affected === 0) throw notFound();
     this.onChange();
   }
-}
-
-function toPriceAlert(alert: AlertEntity): PriceAlert {
-  return {
-    id: alert.id,
-    symbol: alert.symbol,
-    condition: alert.condition,
-    targetPrice: alert.targetPrice,
-    tag: alert.tag,
-    field: alert.field,
-    enabled: alert.enabled,
-    armed: alert.armed,
-    note: alert.note,
-    createdAt: alert.createdAt.toISOString(),
-    updatedAt: alert.updatedAt.toISOString(),
-    lastTriggeredAt: alert.lastTriggeredAt?.toISOString() ?? null,
-    lastTriggeredPrice: alert.lastTriggeredPrice,
-    triggerCount: alert.triggerCount,
-  };
 }
