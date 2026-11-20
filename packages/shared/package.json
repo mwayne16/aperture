@@ -5,6 +5,11 @@
   "description": "Typed contracts shared by the Aperture desktop app and server.",
   "type": "module",
   "exports": {
+    "./alertEngine": {
+      "source": "./src/alertEngine.ts",
+      "types": "./dist/alertEngine.d.ts",
+      "default": "./dist/alertEngine.js"
+    },
     "./alertRules": {
       "source": "./src/alertRules.ts",
       "types": "./dist/alertRules.d.ts",

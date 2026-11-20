@@ -1,4 +1,4 @@
-import { isConditionMet } from '../../domain/alertEngine';
+import { isConditionMet } from '@aperture/shared/alertEngine';
 import type { AlertCondition, AlertEvent, AlertTag, PriceAlert } from '../../domain/types';
 import { formatClock, formatDateTime, formatPercent, formatPrice } from '../../lib/format';
 

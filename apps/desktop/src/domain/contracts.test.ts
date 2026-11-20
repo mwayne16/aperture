@@ -4,6 +4,7 @@ import type * as SharedNews from '@aperture/shared/news';
 import type * as SharedWatchlist from '@aperture/shared/watchlist';
 import { describe, expectTypeOf, it } from 'vitest';
 import type {
+  AlertEvent,
   AssetClass,
   Bar,
   BarTimeframe,
@@ -26,6 +27,7 @@ import type {
 describe('API contract types', () => {
   it('match the shared alert and watchlist contracts', () => {
     expectTypeOf<PriceAlert>().toEqualTypeOf<SharedAlerts.PriceAlert>();
+    expectTypeOf<AlertEvent>().toEqualTypeOf<SharedAlerts.AlertEvent>();
     expectTypeOf<CreateAlertInput>().toEqualTypeOf<SharedAlerts.CreateAlertInput>();
     expectTypeOf<UpdateAlertInput>().toEqualTypeOf<SharedAlerts.UpdateAlertInput>();
     expectTypeOf<Watchlist>().toEqualTypeOf<SharedWatchlist.Watchlist>();

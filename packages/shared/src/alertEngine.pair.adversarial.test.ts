@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { evaluateAlert, isConditionMet } from './alertEngine';
-import type { AlertCondition, PriceAlert } from './types';
+import { evaluateAlert, isConditionMet } from './alertEngine.js';
+import type { AlertCondition, PriceAlert } from './alerts.js';
 
 /**
  * Round-5 adversarial tests: an "above" and a "below" alert on the same target, driven by the same
