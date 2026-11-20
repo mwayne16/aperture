@@ -50,6 +50,11 @@
       "types": "./dist/news.d.ts",
       "default": "./dist/news.js"
     },
+    "./realtime": {
+      "source": "./src/realtime.ts",
+      "types": "./dist/realtime.d.ts",
+      "default": "./dist/realtime.js"
+    },
     "./symbols": {
       "source": "./src/symbols.ts",
       "types": "./dist/symbols.d.ts",

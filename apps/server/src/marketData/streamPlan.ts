@@ -8,6 +8,8 @@ export interface Demand {
   alerts: readonly string[];
   /** Watchlist rows. */
   watchlist: readonly string[];
+  /** Other symbols the app shows, e.g. search results or the movers list. */
+  viewed: readonly string[];
 }
 
 export interface SubscriptionPlan {
@@ -21,7 +23,7 @@ export interface SubscriptionPlan {
  * Splits demand between the live streams and polling. Symbols are placed in priority order, each once,
  * into its asset class's stream while that stream has room; whatever doesn't fit is polled. The watchlist
  * goes first: it holds at most 30 symbols, a stream's cap, so it always streams in full. The remaining room
- * goes to what's on screen, then to enabled alerts.
+ * goes to the open stock page, then to enabled alerts, then to other symbols the app shows.
  */
 export function planSubscriptions(
   demand: Demand,
@@ -29,7 +31,7 @@ export function planSubscriptions(
 ): SubscriptionPlan {
   const plan: SubscriptionPlan = { streamed: { stocks: [], crypto: [] }, polled: [] };
   const seen = new Set<string>();
-  for (const symbol of [...demand.watchlist, ...demand.focus, ...demand.alerts]) {
+  for (const symbol of [...demand.watchlist, ...demand.focus, ...demand.alerts, ...demand.viewed]) {
     if (seen.has(symbol)) continue;
     seen.add(symbol);
     const kind = isCryptoSymbol(symbol) ? 'crypto' : 'stocks';
