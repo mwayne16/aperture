@@ -44,9 +44,11 @@ export class MarketState {
     return this.values.get(symbol);
   }
 
-  applySnapshot(snapshot: ProviderSnapshot, receivedAt: number): void {
+  /** Returns true when the snapshot brought a newer trade price, which alerts are evaluated against. */
+  applySnapshot(snapshot: ProviderSnapshot, receivedAt: number): boolean {
     const current = this.values.get(snapshot.symbol);
-    if (!current) return;
+    if (!current) return false;
+    let newTrade = false;
     current.open = snapshot.open;
     current.high = snapshot.high;
     current.low = snapshot.low;
@@ -54,6 +56,7 @@ export class MarketState {
     current.volume = snapshot.volume;
     current.baselineAt = receivedAt;
     if (newer(snapshot.lastTradeAt, current.lastTradeAt) || current.lastTradeAt === null) {
+      newTrade = snapshot.last !== null && snapshot.lastTradeAt !== current.lastTradeAt;
       current.last = snapshot.last;
       current.lastTradeAt = snapshot.lastTradeAt;
     }
@@ -65,14 +68,17 @@ export class MarketState {
       current.quoteAt = snapshot.quoteAt;
     }
     extendRange(current);
+    return newTrade;
   }
 
-  applyTrade(trade: LiveTrade): void {
+  /** Returns true when the trade is newer than the last one, so it changed the last price. */
+  applyTrade(trade: LiveTrade): boolean {
     const current = this.values.get(trade.symbol);
-    if (!current || !newer(trade.time, current.lastTradeAt)) return;
+    if (!current || !newer(trade.time, current.lastTradeAt)) return false;
     current.last = trade.price;
     current.lastTradeAt = trade.time;
     extendRange(current);
+    return true;
   }
 
   applyQuote(quote: LiveQuote): void {
