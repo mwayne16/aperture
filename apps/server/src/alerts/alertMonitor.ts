@@ -96,9 +96,14 @@ export class AlertMonitor {
     for (const entry of watched.values()) this.check(entry, price);
   }
 
-  /** Waits for every save in progress, so tests and shutdown see a settled state. */
-  async settled(): Promise<void> {
+  /**
+   * Waits for every save in progress, so tests and shutdown see a settled state. Gives up after `timeoutMs`,
+   * so a hung database can't hold up shutdown.
+   */
+  async settled(timeoutMs = 5_000): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
     while (
+      Date.now() < deadline &&
       [...this.bySymbol.values()].some((entries) => [...entries.values()].some((entry) => entry.saving))
     ) {
       await new Promise((resolve) => setImmediate(resolve));
