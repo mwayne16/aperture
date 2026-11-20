@@ -51,7 +51,7 @@ describe('database migrations', () => {
     }
     expect(await tables()).toEqual(['migrations']);
     await dataSource.runMigrations();
-    expect(await tables()).toEqual(['alerts', 'migrations', 'watchlist_symbols', 'watchlists']);
+    expect(await tables()).toEqual(['alert_events', 'alerts', 'migrations', 'watchlist_symbols', 'watchlists']);
     expect(await pendingSchemaChanges()).toEqual([]);
   });
 });

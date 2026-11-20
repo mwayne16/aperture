@@ -19,6 +19,6 @@ export async function openTestDatabase(url: string = inject('databaseUrl')): Pro
 
 /** Empties the tables and resets the watchlist row, so each test starts from a fresh install. */
 export async function resetDatabase(dataSource: DataSource): Promise<void> {
-  await dataSource.query('TRUNCATE "watchlist_symbols", "alerts"');
+  await dataSource.query('TRUNCATE "watchlist_symbols", "alerts", "alert_events"');
   await dataSource.query(`UPDATE "watchlists" SET "updated_at" = '2026-01-01T00:00:00Z'`);
 }
