@@ -147,6 +147,7 @@ data isn't configured) and `INTERNAL` (500). Unknown fields and query parameters
 | `POST /alerts` | Create `{ symbol, condition, targetPrice, tag, enabled?, note? }` (201) |
 | `PATCH /alerts/:id` | Change any of `condition`, `targetPrice`, `tag`, `enabled`, `note`; `note: null` clears it |
 | `DELETE /alerts/:id` | Delete (204) |
+| `GET /alerts/events?limit=50` | `{ events }`: the trigger history, newest first (`limit` up to 200); kept after an alert is deleted |
 | `GET /instruments` | `{ instruments }` ordered by symbol; `assetClass=stock\|etf\|crypto` filters, `limit` caps |
 | `GET /instruments?q=app` | Search: exact symbol, then symbol prefix, then name; 8 results by default, `limit` up to 50 |
 | `GET /instruments/:symbol` | One instrument; 404 if the provider doesn't list it |
@@ -157,8 +158,18 @@ data isn't configured) and `INTERNAL` (500). Unknown fields and query parameters
 | `GET /news?limit=10` | The curated feed: stories about the watchlist, then top market stories, each with a `reason`; `limit` up to 25 |
 | `GET /news?symbols=AAPL` | A stock page's news, newest first (up to 10 symbols) |
 
-Alerts are evaluated on the last trade price. Changing an alert's condition or target price, or enabling
-it again, re-arms it so it can fire again.
+Alerts are evaluated on the server against the last trade price, live or polled (see
+[Market data](#market-data)), with the same rules as the app:
+
+- An enabled alert fires the first time a price meets its condition, then stays quiet until the price
+  leaves the condition; it can then fire again. Changing its condition or target price, or enabling it
+  again, re-arms it.
+- Each trigger is saved before anything is told about it: the alert records the price and time, and the
+  history gets a row. Because the alert's armed state is saved, a server restart doesn't fire it again for
+  a condition that still holds.
+- A trigger is saved only if the alert is still exactly as it was evaluated, so an edit made at the same
+  moment, or two prices arriving together, can't make it fire twice.
+- The history keeps the newest 1,000 triggers.
 
 ## Configuration
 

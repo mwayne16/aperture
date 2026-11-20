@@ -13,21 +13,23 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
 - Phase 2 (persistence and API): **merged 2026-11-14.** Schema and the first migration, watchlist and alert
   endpoints, DB-unavailable handling, Testcontainers-backed tests, and a manual check that data survives a
   backend restart.
-- Phase 3 (market data integration): **in progress, split into three PRs.**
+- Phase 3 (market data integration): **merged 2026-11-15**, apart from a second news source.
   (1) REST market data (the Alpaca adapter, instruments and search, quote snapshots, chart history, movers):
-  **merged 2026-11-14** (PR #5).
-  (2) Live prices: one Alpaca connection per channel, the 30-symbol budget, connection status
-  (`GET /market-data/status`), polling for the rest: **merged 2026-11-15** (PR #6).
-  (3) The curated news feed (plan section 2.6) with the Redis cache: built 2026-11-15 on `feat/news-feed`.
-  Alpaca news only for now (user's choice, 2026-11-15); a second source waits for the user to pick a
-  provider. The `reason` tag isn't shown in the UI yet (frontend integration). Phase 3 is complete once this
-  PR merges, apart from the second news source; next is Phase 4, real-time updates and alerting.
+  PR #5. (2) Live prices: one Alpaca connection per channel, the 30-symbol budget, connection status
+  (`GET /market-data/status`), polling for the rest: PR #6. (3) The curated news feed (plan section 2.6)
+  with the Redis cache: PR #7. Alpaca news only for now (user's choice, 2026-11-15); a second source waits
+  for the user to pick a provider. The `reason` tag isn't shown in the UI yet (frontend integration).
   Against real Alpaca only the rejected-keys path is verified (2026-11-14, fake keys): the REST hosts answer
   401 and the server answers 502; both stream endpoints (IEX stocks, crypto) complete the handshake, Alpaca's
   msgpack auth error decodes, and status reports "Alpaca rejected the API keys." without retrying. No log
   line contains the keys. Success-path payloads and ticks rest on the SDK's types and doc-shaped fixtures
   until the user adds paper-trading keys to `.env`; whether the free plan includes the screener behind
   `/movers` is also unverified.
+- Phase 4 (real-time updates and alerting): **in progress, split into three PRs.**
+  (1) Server-side alert evaluation with the trigger history table and `GET /alerts/events`: built
+  2026-11-20 on `feat/alert-monitor`. (2) The client WebSocket: typed contracts, quote updates, connection
+  status, alert events, validated messages, focus symbol, recovery after reconnecting. (3) Native desktop
+  notifications through the Electron bridge.
 - Track phase status in this section. Update it whenever a phase is approved or completed.
 
 ## Product decisions that override the plan
@@ -147,6 +149,18 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
     watchlist pool is keyed by its symbols, so a changed watchlist fetches its own. Requests rank on the spot
     with `loadMarketInputs` (quotes, 20-day average daily volume from cached daily bars, most active, names),
     each part optional so a missing one scores 0. A failed fetch falls back to the last good pool.
+- Alert evaluation (`alerts/alertMonitor.ts`) runs on the server with the shared engine
+  (`@aperture/shared/alertEngine`, the same rules as the app's simulated backend):
+  - Enabled alerts are cached in memory; a price that changes nothing costs no database work. The live
+    service's `onPrice` feeds it every newer trade price, live or from a poll (a polled symbol's first
+    snapshot counts), and alert changes call `reload()`. Alerts load before prices start.
+  - Firing or re-arming is saved with a conditional `UPDATE ... WHERE enabled AND armed = <evaluated> AND
+    condition/target unchanged`, plus the history row, in one transaction. No row updated means the alert
+    changed (an edit, another price, another process): the monitor re-reads it and nothing fires. That is
+    what prevents duplicate notifications, including across restarts (the armed state is saved).
+  - Prices that arrive while one of an alert's changes is being saved wait in a single slot (newest
+    wins), which bounds memory and database work during an outage. Listeners (`onTriggered`, `onUpdated`)
+    run only after the save commits. `updatedAt` is bumped in SQL with `GREATEST(now, updated_at + 1 ms)`.
 - Redis (`redis/redisConnection.ts`, official `redis` 6.x client): only caches live there (news for now), so
   the server runs without it. `disableOfflineQueue` makes commands fail at once while it is down, and
   `RedisNewsCache` falls back to memory. An `error` listener is required (unhandled errors crash the process).
@@ -155,7 +169,7 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
   view for `/health` (informational, never changes the status code).
 - Lint config: one `eslint.base.js` at the root; each workspace adds its globals and plugins.
 - Shared code: `packages/shared` holds the API contracts and the rules both sides enforce: symbols, alerts,
-  chart ranges (`resolveRange`) and the instrument search ranking.
+  the alert engine, chart ranges (`resolveRange`) and the instrument search ranking.
   Each export has a `source` condition pointing at its TypeScript, which the desktop app resolves
   (`customConditions` and Vite `resolve.conditions`), so it never needs the package built. The server
   resolves `dist` through its project reference. The app keeps its own copies of the API types until it
@@ -171,7 +185,8 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
   - Server tests run against a Testcontainers PostgreSQL and Redis started once per run
     (`src/test/globalSetup.ts`, images read from `compose.yaml`), with test files run one at a time. **Docker must be running for
     `npm run check`.** `migrations.test.ts` fails when entities and migrations drift.
-  - Alert trigger history stays session-only until the alerting work adds a table for it.
+  - Trigger history lives in `alert_events`, an append-only log without a foreign key, so it outlives an
+    edited or deleted alert (as in the app). The newest 1,000 rows are kept.
 
 ## Server architecture (`apps/server`)
 - One folder per feature (`watchlist/`, `alerts/`) with its entities, DTOs, service and routes. Services hold
@@ -192,8 +207,8 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
 ## Desktop app architecture (`apps/desktop`)
 - `electron/`: main process (`main.ts`), preload (`preload.ts`, the typed `window.aperture` bridge from
   `bridge.ts`) and the navigation policy. `src/`: the React renderer, described below.
-- `domain/`: pure types and logic that carry over to production (types, alert engine). Chart ranges and
-  search ranking now live in `packages/shared`.
+- `domain/`: the app's copies of the API types (`types.ts`), checked by `contracts.test.ts`. The alert engine,
+  chart ranges and search ranking live in `packages/shared`.
 - `lib/`: formatting and small utilities.
 - `data/api.ts` and `data/realtime.ts`: **interfaces** that mirror the future HTTP API and WebSocket client.
   `data/mock/` implements them with clearly labeled simulated data. In Phase 5 the mocks are replaced
