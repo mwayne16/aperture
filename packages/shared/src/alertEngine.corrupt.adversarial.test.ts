@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { evaluateAlert } from './alertEngine';
-import type { AlertCondition, PriceAlert } from './types';
+import { evaluateAlert } from './alertEngine.js';
+import type { AlertCondition, PriceAlert } from './alerts.js';
 
 /**
  * Round-4 adversarial tests for evaluateAlert. The implementation treats persisted alerts as untyped at

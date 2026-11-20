@@ -1,7 +1,7 @@
-import type { AlertCondition, PriceAlert } from './types';
+import type { AlertCondition, PriceAlert } from './alerts.js';
 
 /**
- * Alert evaluation rules (shared with the future backend Alert Service).
+ * Alert evaluation rules, shared by the server, which evaluates alerts, and the app's simulated backend.
  *
  * - "above" is satisfied when price >= targetPrice. "below" is satisfied when price <= targetPrice.
  * - An alert fires only when it is enabled, armed, and the condition is satisfied.

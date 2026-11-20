@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { type AlertEvaluation, evaluateAlert, isConditionMet } from './alertEngine';
-import type { AlertCondition, PriceAlert } from './types';
+import { type AlertEvaluation, evaluateAlert, isConditionMet } from './alertEngine.js';
+import type { AlertCondition, PriceAlert } from './alerts.js';
 
 type AlertState = Pick<PriceAlert, 'enabled' | 'armed' | 'condition' | 'targetPrice'>;
 

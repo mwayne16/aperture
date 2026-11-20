@@ -58,3 +58,29 @@ export interface UpdateAlertInput {
   enabled?: boolean;
   note?: string | null;
 }
+
+/**
+ * One time an alert fired, as it was at that moment. Triggers stay in the history after their alert is
+ * edited or deleted. Clients de-duplicate notifications by `id`.
+ */
+export interface AlertEvent {
+  id: string;
+  alertId: string;
+  symbol: string;
+  condition: AlertCondition;
+  targetPrice: number;
+  tag: AlertTag;
+  field: AlertField;
+  /** The price that satisfied the condition. */
+  price: number;
+  /** ISO timestamp. */
+  triggeredAt: string;
+}
+
+/** `GET /alerts/events`: the trigger history, newest first. */
+export interface AlertEventList {
+  events: AlertEvent[];
+}
+
+export const DEFAULT_ALERT_EVENTS_LIMIT = 50;
+export const MAX_ALERT_EVENTS_LIMIT = 200;

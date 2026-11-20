@@ -1,4 +1,4 @@
-import { evaluateAlert } from '../../domain/alertEngine';
+import { evaluateAlert } from '@aperture/shared/alertEngine';
 import type { AlertCondition, PriceAlert, Watchlist } from '../../domain/types';
 import { createMockMarket, type MockMarket } from './market';
 import { roundPrice } from './priceModel';
