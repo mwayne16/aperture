@@ -230,3 +230,33 @@ describe('refusals on a working connection', () => {
     expect(live.status().stocks).toMatchObject({ state: 'connected', error: refusal });
   });
 });
+
+describe('price updates', () => {
+  it('publishes the first known price of a polled symbol and every newer trade, but no repeats', async () => {
+    const prices: string[] = [];
+    live.onPrice(({ symbol, price }) => prices.push(`${symbol} ${String(price)}`));
+    await live.start();
+    expect(prices.sort()).toEqual(['AAPL 101', 'BTC/USD 101', 'MSFT 101', 'NVDA 101']);
+
+    prices.length = 0;
+    stream().connect('stocks');
+    stream().handlers.onTrade({ symbol: 'AAPL', price: 110, time: START + 5 });
+    stream().handlers.onTrade({ symbol: 'AAPL', price: 90, time: START + 4 });
+    // The same snapshot polled again brings no newer trade.
+    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
+    provider.snapshots.set('NVDA', snapshot('NVDA', { last: 120, lastTradeAt: START + 60_000 }));
+    await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
+    expect(prices).toEqual(['AAPL 110', 'NVDA 120']);
+  });
+
+  it('keeps publishing when a listener throws', async () => {
+    const seen: string[] = [];
+    live.onPrice(() => {
+      throw new Error('broken listener');
+    });
+    live.onPrice(({ symbol }) => seen.push(symbol));
+    await live.start();
+    expect(seen).toHaveLength(4);
+    expect(warnings).toContain('A price listener failed');
+  });
+});

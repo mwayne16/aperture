@@ -27,6 +27,15 @@ export interface LiveMarketDataOptions {
   now?: () => number;
 }
 
+/** A newer trade price for a symbol: `time` is when the trade happened, in epoch ms. */
+export interface PriceUpdate {
+  symbol: string;
+  price: number;
+  time: number;
+}
+
+type PriceListener = (update: PriceUpdate) => void;
+
 interface Channel {
   status: StreamStatus;
   lastMessageAt: number | null;
@@ -73,6 +82,7 @@ export class LiveMarketData {
   private lastPollAt: number | null = null;
   private pollError: string | null = null;
   private stopped = false;
+  private readonly priceListeners = new Set<PriceListener>();
 
   constructor(provider: MarketDataProvider, options: LiveMarketDataOptions) {
     this.provider = provider;
@@ -85,7 +95,7 @@ export class LiveMarketData {
     if (this.stream !== null || this.stopped) return;
     this.stream = this.provider.openStream({
       onTrade: (trade) => {
-        this.state.applyTrade(trade);
+        if (this.state.applyTrade(trade)) this.publishPrice(trade.symbol, trade.price, trade.time);
         this.received(trade.symbol);
       },
       onQuote: (quote) => {
@@ -101,6 +111,16 @@ export class LiveMarketData {
     });
     this.pollTimer = setInterval(() => void this.poll(), POLL_INTERVAL_MS);
     await this.refresh();
+  }
+
+  /**
+   * Calls `listener` with every newer trade price for a tracked symbol, live or polled. A polled symbol's
+   * first snapshot counts as a new price, so alerts are checked once its value is known. Returns a function
+   * that removes the listener.
+   */
+  onPrice(listener: PriceListener): () => void {
+    this.priceListeners.add(listener);
+    return () => this.priceListeners.delete(listener);
   }
 
   /** Stops polling and closes the stream. */
@@ -195,7 +215,11 @@ export class LiveMarketData {
     try {
       const snapshots = await this.provider.getSnapshots(due);
       const at = this.now();
-      for (const snapshot of snapshots) this.state.applySnapshot(snapshot, at);
+      for (const snapshot of snapshots) {
+        if (this.state.applySnapshot(snapshot, at) && snapshot.last !== null) {
+          this.publishPrice(snapshot.symbol, snapshot.last, snapshot.lastTradeAt ?? at);
+        }
+      }
       this.lastPollAt = at;
       if (this.pollError !== null) this.options.log.info('Polling market data works again');
       this.pollError = null;
@@ -253,6 +277,17 @@ export class LiveMarketData {
     const timer = this.channels[channel].recovery;
     if (timer !== null) clearTimeout(timer);
     this.channels[channel].recovery = null;
+  }
+
+  private publishPrice(symbol: string, price: number, time: number): void {
+    for (const listener of this.priceListeners) {
+      try {
+        listener({ symbol, price, time });
+      } catch {
+        // ** One failing listener must not stop the others or the stream.
+        this.options.log.warn({ symbol }, 'A price listener failed');
+      }
+    }
   }
 
   private received(symbol: string): void {
