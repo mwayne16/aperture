@@ -3,6 +3,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import { readFileSync } from 'node:fs';
 import type { DataSource } from 'typeorm';
 import { registerAlertRoutes } from './alerts/alertRoutes.js';
+import { AlertMonitor } from './alerts/alertMonitor.js';
 import { AlertService } from './alerts/alertService.js';
 import { marketDataConfigured, marketDataFeed, type AppConfig } from './config/appConfig.js';
 import { registerErrorHandling } from './http/errors.js';
@@ -97,11 +98,15 @@ export function buildApp(
     return reply.code(up ? 200 : 503).send(health);
   });
 
-  // ** Live prices follow the watchlist and enabled alerts, so both services report their changes.
+  // ** Live prices follow the watchlist and enabled alerts, and alert evaluation follows the alerts, so
+  // both services report their changes.
   let live: LiveMarketData | null = null;
-  const demandChanged = () => void live?.refresh();
-  const watchlist = new WatchlistService(dataSource, undefined, demandChanged);
-  const alerts = new AlertService(dataSource, undefined, demandChanged);
+  let monitor: AlertMonitor | null = null;
+  const watchlist = new WatchlistService(dataSource, undefined, () => void live?.refresh());
+  const alerts = new AlertService(dataSource, undefined, () => {
+    void live?.refresh();
+    void monitor?.reload();
+  });
   if (marketData) {
     const started = new LiveMarketData(marketData, {
       log: app.log,
@@ -111,15 +116,22 @@ export function buildApp(
         watchlist: (await watchlist.get()).symbols,
       }),
     });
+    const watcher = new AlertMonitor(dataSource, app.log);
+    started.onPrice(({ symbol, price }) => {
+      watcher.evaluate(symbol, price);
+    });
     live = started;
-    // ** Started without waiting, so the server listens even while the provider is slow to answer.
+    monitor = watcher;
+    // ** Started without waiting, so the server listens even while the provider is slow to answer. Alerts
+    // load first, so each symbol's first price is checked against them.
     app.addHook('onReady', (done) => {
-      void started.start();
+      void watcher.reload().then(() => started.start());
       done();
     });
-    app.addHook('onClose', (_instance, done) => {
+    // ** Saves in progress finish before the caller closes the database.
+    app.addHook('onClose', async () => {
       started.stop();
-      done();
+      await watcher.settled();
     });
   }
 

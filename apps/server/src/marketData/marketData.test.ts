@@ -9,7 +9,7 @@ import type {
   QuoteList,
 } from '@aperture/shared/marketData';
 import type { FastifyInstance } from 'fastify';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildApp } from '../app.js';
 import { createDataSource } from '../db/dataSource.js';
 import { testConfig } from '../test/database.js';
@@ -178,6 +178,10 @@ describe('GET /market-data/status', () => {
     const provider = new FakeProvider();
     const server = start(provider);
     await server.ready();
+    // The stream opens once alerts have loaded, just after the server is ready.
+    await vi.waitFor(() => {
+      expect(provider.stream).not.toBeNull();
+    });
     provider.stream?.status('stocks', 'reconnecting', {
       reconnectAttempt: 2,
       error: 'The connection to Alpaca closed.',
