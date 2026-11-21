@@ -192,25 +192,83 @@ describe('history', () => {
 });
 
 describe('movers', () => {
-  it('quotes the ranked symbols with one snapshot request and caches the result for a minute', async () => {
-    provider.movers = { gainers: ['AAPL', 'MSFT'], losers: ['SPY'], mostActive: ['AAPL'], asOf: 123 };
-    provider.snapshots.set('AAPL', snapshot('AAPL', { last: 105 }));
-    provider.snapshots.set('SPY', snapshot('SPY', { last: 95 }));
+  const TODAY = Date.now() - 60_000;
 
+  /** A catalog with ordinary shares, a warrant, a unit and a crypto pair, all with quotes from today. */
+  function market(): void {
+    provider.instruments = [
+      { symbol: 'AAPL', name: 'Apple Inc. Common Stock', exchange: 'NASDAQ', assetClass: 'stock' },
+      { symbol: 'MSFT', name: 'Microsoft Corporation', exchange: 'NASDAQ', assetClass: 'stock' },
+      { symbol: 'SPY', name: 'SPDR S&P 500 ETF Trust', exchange: 'ARCA', assetClass: 'etf' },
+      { symbol: 'NVDA', name: 'NVIDIA Corporation', exchange: 'NASDAQ', assetClass: 'stock' },
+      { symbol: 'PIIIW', name: 'P3 Health Partners Inc. Warrant', exchange: 'NASDAQ', assetClass: 'stock' },
+      {
+        symbol: 'BKHAU',
+        name: 'Black Hawk Acquisition Corporation Units',
+        exchange: 'NASDAQ',
+        assetClass: 'stock',
+      },
+      { symbol: 'PENY', name: 'Penny Corp', exchange: 'NASDAQ', assetClass: 'stock' },
+      { symbol: 'OLD', name: 'Old Listing Inc', exchange: 'NYSE', assetClass: 'stock' },
+    ];
+    const quote = (symbol: string, last: number, prevClose: number, lastTradeAt = TODAY) =>
+      provider.snapshots.set(
+        symbol,
+        snapshot(symbol, { last, prevClose, lastTradeAt, quoteAt: lastTradeAt }),
+      );
+    quote('AAPL', 110, 100); // +10%
+    quote('MSFT', 105, 100); // +5%
+    quote('SPY', 98, 100); // -2%
+    quote('NVDA', 90, 100); // -10%
+    quote('PIIIW', 3, 1);
+    quote('BKHAU', 1.5, 3);
+    quote('PENY', 0.5, 0.1);
+    quote('OLD', 50, 10, Date.parse('2025-12-02T20:59:00Z'));
+  }
+
+  it('keeps ordinary shares priced at $1 or more that traded in the latest session', async () => {
+    market();
+    provider.movers = {
+      gainers: ['PIIIW', 'OLD', 'PENY', 'MSFT', 'AAPL', 'UNKNOWN'],
+      losers: ['BKHAU', 'SPY', 'NVDA'],
+      mostActive: ['NVDA', 'PIIIW', 'AAPL'],
+      asOf: 123,
+    };
     const movers = await service.getMovers(5);
-
-    expect(provider.calls.getSnapshots).toEqual([['AAPL', 'MSFT', 'SPY']]);
+    // Ordered by the quote's own change, so the list matches the numbers shown.
     expect(movers.gainers.map((q) => [q.symbol, q.changePct])).toEqual([
-      ['AAPL', 5],
-      ['MSFT', null],
+      ['AAPL', 10],
+      ['MSFT', 5],
     ]);
-    expect(movers.losers.map((q) => q.symbol)).toEqual(['SPY']);
+    expect(movers.losers.map((q) => [q.symbol, q.changePct])).toEqual([
+      ['NVDA', -10],
+      ['SPY', -2],
+    ]);
+    // Most active keeps the provider's order, which ranks by full-market volume.
+    expect(movers.mostActive.map((q) => q.symbol)).toEqual(['NVDA', 'AAPL']);
     expect(movers).toMatchObject({ asOf: 123, simulated: false });
-    await service.getMovers(5);
-    expect(provider.calls.getMovers).toEqual([5]);
+    // Only catalog shares are quoted, in one request.
+    expect(provider.calls.getSnapshots).toEqual([['OLD', 'PENY', 'MSFT', 'AAPL', 'SPY', 'NVDA']]);
+  });
+
+  it('drops a gainer whose quote fell, and a loser whose quote rose', async () => {
+    market();
+    provider.movers = { gainers: ['SPY', 'AAPL'], losers: ['MSFT', 'NVDA'], mostActive: [], asOf: 1 };
+    const movers = await service.getMovers(5);
+    expect(movers.gainers.map((q) => q.symbol)).toEqual(['AAPL']);
+    expect(movers.losers.map((q) => q.symbol)).toEqual(['NVDA']);
+  });
+
+  it('asks for 50 candidates once a minute and cuts the lists to each requested limit', async () => {
+    market();
+    provider.movers = { gainers: ['MSFT', 'AAPL'], losers: [], mostActive: ['NVDA', 'AAPL'], asOf: 1 };
+    const five = await service.getMovers(5);
+    const one = await service.getMovers(1);
+    expect([five.gainers.length, one.gainers.length, one.mostActive.length]).toEqual([2, 1, 1]);
+    expect(provider.calls.getMovers).toEqual([50]);
     now += 60_000;
     await service.getMovers(5);
-    expect(provider.calls.getMovers).toEqual([5, 5]);
+    expect(provider.calls.getMovers).toEqual([50, 50]);
   });
 });
 
@@ -235,17 +293,6 @@ describe('quotes with live prices', () => {
       ['MSFT', 410],
     ]);
     live.stop();
-  });
-});
-
-describe('movers for different limits', () => {
-  it('caches each limit, so the dashboard and news ranking do not evict each other', async () => {
-    provider.movers = { gainers: [], losers: [], mostActive: [], asOf: 1 };
-    await service.getMovers(5);
-    await service.getMovers(10);
-    await service.getMovers(5);
-    await service.getMovers(10);
-    expect(provider.calls.getMovers).toEqual([5, 10]);
   });
 });
 

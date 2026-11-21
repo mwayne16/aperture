@@ -28,6 +28,12 @@ const INTRADAY_HISTORY_TTL_MS = 60_000;
 const DAILY_HISTORY_TTL_MS = 15 * 60_000;
 const INTRADAY_RANGES: ReadonlySet<ChartRange> = new Set(['1D', '1W', '1M']);
 const MOVERS_TTL_MS = 60_000;
+/** Candidates asked for per list, so enough remain after filtering. */
+const MOVER_CANDIDATES = 50;
+/** Sub-dollar shares swing by huge percentages on tiny trades, so they are left out of movers. */
+const MIN_MOVER_PRICE = 1;
+/** Listings that aren't ordinary shares, recognized by name, e.g. "P3 Health Partners Inc. Warrant". */
+const NOT_ORDINARY = new RegExp(String.raw`\b(warrants?|units?|rights?)\b`, 'i');
 const MAX_CACHED_HISTORIES = 200;
 /** Average daily volume barely changes within a day. */
 const VOLUME_TTL_MS = 6 * 60 * 60_000;
@@ -74,8 +80,7 @@ export class MarketDataService {
     this.live = live;
     this.catalogs = new TtlCache(1, now);
     this.histories = new TtlCache(MAX_CACHED_HISTORIES, now);
-    // ** A few limits are in use at once (the dashboard asks for 5, news ranking for 10).
-    this.movers = new TtlCache(5, now);
+    this.movers = new TtlCache(1, now);
     this.volumes = new TtlCache(20, now);
   }
 
@@ -198,25 +203,68 @@ export class MarketDataService {
     });
   }
 
-  /** Today's top gainers, losers and most active stocks, `limit` of each, with their latest quotes. */
+  /**
+   * Today's top gainers, losers and most active stocks, `limit` of each, with their latest quotes. The
+   * provider's rankings include warrants, units, sub-dollar shares and symbols whose own prices are days
+   * old, so candidates are kept only when they are ordinary stocks or ETFs in the catalog, cost at least $1
+   * and traded in the latest session. Gainers and losers are then ordered by the quote's own change, and
+   * any whose quote moved the other way are dropped, so the list matches the numbers shown.
+   */
   async getMovers(limit: number): Promise<MarketMovers> {
     const provider = this.requireProvider();
-    return await this.movers.get(String(limit), MOVERS_TTL_MS, async () => {
-      const ranking = await provider.getMovers(limit);
-      const symbols = [...new Set([...ranking.gainers, ...ranking.losers, ...ranking.mostActive])];
-      const snapshots = symbols.length === 0 ? [] : await provider.getSnapshots(symbols);
-      const bySymbol = new Map(snapshots.map((s) => [s.symbol, s]));
+    // ** The filtered lists don't depend on `limit`, so every limit shares one fetch and gets a slice of it.
+    const all = await this.movers.get('all', MOVERS_TTL_MS, async () => {
+      const [ranking, { bySymbol: catalog }] = await Promise.all([
+        provider.getMovers(MOVER_CANDIDATES),
+        this.catalog(),
+      ]);
+      const ordinary = (symbol: string) => {
+        const instrument = catalog.get(symbol);
+        return (
+          instrument !== undefined &&
+          instrument.assetClass !== 'crypto' &&
+          !NOT_ORDINARY.test(instrument.name)
+        );
+      };
+      const candidates = [...new Set([...ranking.gainers, ...ranking.losers, ...ranking.mostActive])].filter(
+        ordinary,
+      );
+      const snapshots = candidates.length === 0 ? [] : await provider.getSnapshots(candidates);
       const at = this.now();
-      const quotes = (list: readonly string[]) =>
-        list.slice(0, limit).map((symbol) => toQuote(symbol, bySymbol.get(symbol), provider.delayed, at));
+      const quotes = new Map(
+        snapshots.map((snapshot) => [
+          snapshot.symbol,
+          toQuote(snapshot.symbol, snapshot, provider.delayed, at),
+        ]),
+      );
+      const sessions = [...quotes.values()].flatMap((q) =>
+        q.lastTradeAt === null ? [] : [sessionDate(q.lastTradeAt)],
+      );
+      const latestSession = sessions.sort().at(-1);
+      const tradedToday = (symbol: string): Quote[] => {
+        const quote = quotes.get(symbol);
+        if (quote?.last == null || quote.lastTradeAt === null || quote.last < MIN_MOVER_PRICE) return [];
+        return sessionDate(quote.lastTradeAt) === latestSession ? [quote] : [];
+      };
+      const byChange = (list: readonly string[], direction: 1 | -1) =>
+        list
+          .flatMap(tradedToday)
+          .filter((quote) => quote.changePct !== null && Math.sign(quote.changePct) === direction)
+          .sort((a, b) => direction * ((b.changePct ?? 0) - (a.changePct ?? 0)));
       return {
-        gainers: quotes(ranking.gainers),
-        losers: quotes(ranking.losers),
-        mostActive: quotes(ranking.mostActive),
+        gainers: byChange(ranking.gainers, 1),
+        losers: byChange(ranking.losers, -1),
+        mostActive: ranking.mostActive.flatMap(tradedToday),
         asOf: ranking.asOf,
         simulated: false,
       };
     });
+    return {
+      ...all,
+      gainers: all.gainers.slice(0, limit),
+      losers: all.losers.slice(0, limit),
+      mostActive: all.mostActive.slice(0, limit),
+    };
   }
 
   private async catalog(): Promise<Catalog> {

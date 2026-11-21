@@ -24,14 +24,14 @@ describe('loadMarketInputs', () => {
   it("gathers the day's move, volume against the 20-day average, the most active and company names", async () => {
     const provider = new FakeProvider();
     provider.snapshots.set('AAPL', snapshot('AAPL', { last: 103, prevClose: 100, volume: 3_000 }));
-    provider.snapshots.set('TSLA', snapshot('TSLA'));
+    provider.snapshots.set('MSFT', snapshot('MSFT'));
     provider.bars.set('AAPL', dailyBars(1_000));
-    provider.movers = { gainers: [], losers: [], mostActive: ['TSLA'], asOf: NOW };
+    provider.movers = { gainers: [], losers: [], mostActive: ['MSFT'], asOf: NOW };
     const inputs = await loadMarketInputs(new MarketDataService(provider, () => NOW), ['AAPL']);
 
     expect(inputs.changePct.get('AAPL')).toBeCloseTo(3);
     expect(inputs.volumeRatio.get('AAPL')).toBeCloseTo(3);
-    expect([...inputs.mostActive]).toEqual(['TSLA']);
+    expect([...inputs.mostActive]).toEqual(['MSFT']);
     expect(inputs.names.get('AAPL')).toBe('Apple Inc.');
     expect(provider.calls.getBars[0]).toMatchObject({ symbols: ['AAPL'], timeframe: '1Day' });
   });
@@ -55,7 +55,7 @@ describe('loadMarketInputs', () => {
       provider.calls.getSnapshots.length,
       provider.calls.getBars.length,
       provider.calls.getMovers,
-    ]).toEqual([0, 0, [10]]);
+    ]).toEqual([0, 0, [50]]);
   });
 });
 

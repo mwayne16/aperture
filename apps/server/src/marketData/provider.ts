@@ -142,6 +142,7 @@ export interface MarketDataProvider {
   getSnapshots(symbols: readonly string[]): Promise<ProviderSnapshot[]>;
   /** Bars per symbol, oldest first. Symbols without history are left out. */
   getBars(request: BarsRequest): Promise<ReadonlyMap<string, ProviderBar[]>>;
+  /** The provider's ranked candidates, up to `limit` per list (fewer where its plan caps the list). */
   getMovers(limit: number): Promise<ProviderMovers>;
   /** Opens the live stream. Call it once; the stream manages its own connections. */
   openStream(handlers: StreamHandlers): MarketStream;

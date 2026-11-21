@@ -204,7 +204,9 @@ describe('GET /movers', () => {
     const server = start(provider);
     const movers = await get(server, '/movers');
     expect(movers.statusCode).toBe(200);
-    expect(provider.calls.getMovers).toEqual([5]);
+    // The server asks for 50 candidates and cuts each list to the requested five.
+    expect(provider.calls.getMovers).toEqual([50]);
+    expect(movers.json<MarketMovers>().gainers.map((quote) => quote.symbol)).toEqual(['AAPL']);
     expect(movers.json<MarketMovers>()).toMatchObject({ asOf: 42, simulated: false });
     expect((await get(server, '/movers?limit=0')).statusCode).toBe(400);
   });

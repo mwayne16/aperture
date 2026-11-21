@@ -269,6 +269,21 @@ describe('Alpaca adapter: movers', () => {
   });
 });
 
+describe('Alpaca adapter: movers limits', () => {
+  it('asks each screener list for no more than it allows', async () => {
+    const { provider, requests } = setup([
+      { path: '/v1beta1/screener/stocks/movers', body: MOVERS },
+      { path: '/v1beta1/screener/stocks/most-actives', body: MOST_ACTIVES },
+    ]);
+    await provider.getMovers(80);
+    const tops = Object.fromEntries(requests.map((r) => [r.url.pathname, params(r).top]));
+    expect(tops).toEqual({
+      '/v1beta1/screener/stocks/movers': '50',
+      '/v1beta1/screener/stocks/most-actives': '80',
+    });
+  });
+});
+
 describe('Alpaca adapter: failures', () => {
   async function failure(status: number, body: unknown): Promise<ProviderError> {
     const { provider } = setup([{ path: '/v2/stocks/snapshots', status, body }]);
