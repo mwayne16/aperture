@@ -70,8 +70,9 @@ function isBetter(a: Score, b: Score): boolean {
 /**
  * A target the symbol's path first reaches 30-90 seconds in and rarely revisits. A price hovering at
  * a level re-fires every few trades, so only the path's new highs (or lows) are candidates: the one
- * with the widest gap between re-fires wins, then the one nearest 50 seconds. Falls back to just
- * beyond the price if the path never moves that way.
+ * with the widest gap between re-fires wins, then the one nearest 50 seconds. Candidates reached
+ * sooner than 30 seconds in are skipped. Without any candidate, the target goes just beyond the
+ * furthest price ahead (or the current price, if the path never moves that way).
  */
 function demoTarget(market: MockMarket, symbol: string, condition: AlertCondition): number {
   const last = currentPrice(market, symbol);
@@ -84,6 +85,8 @@ function demoTarget(market: MockMarket, symbol: string, condition: AlertConditio
     extreme = price;
     const fires = demoFireTrades(path, condition, price);
     const first = fires[0] ?? DEMO_HORIZON_TRADES;
+    // ** A target reached before the window would fire right after seeding, e.g. just after Reset demo data.
+    if (first < DEMO_FIRST_TRIGGER_TRADES.min) continue;
     const gaps = fires.slice(1).map((trade, i) => trade - (fires[i] ?? 0));
     const score: Score = [
       first >= DEMO_FIRST_TRIGGER_TRADES.min && first <= DEMO_FIRST_TRIGGER_TRADES.max ? 1 : 0,
@@ -92,7 +95,8 @@ function demoTarget(market: MockMarket, symbol: string, condition: AlertConditio
     ];
     if (!best || isBetter(score, best.score)) best = { target: price, score };
   }
-  return best?.target ?? roundPrice(last * (condition === 'above' ? 1.001 : 0.999));
+  // Without a usable target, go just beyond the furthest price ahead, which isn't reached within the horizon.
+  return best?.target ?? roundPrice(extreme * (condition === 'above' ? 1.001 : 0.999));
 }
 
 /**
@@ -103,7 +107,11 @@ function demoTarget(market: MockMarket, symbol: string, condition: AlertConditio
  */
 export function buildSeedData(options: { market?: MockMarket; now?: number } = {}): SeedData {
   const market = options.market ?? createMockMarket();
-  const iso = new Date(options.now ?? Date.now()).toISOString();
+  const now = options.now ?? Date.now();
+  const iso = new Date(now).toISOString();
+  // ** A symbol that sat idle is traded forward in one jump on its next snapshot, without alerts seeing
+  // those trades. Catching up first makes the targets count trades from where the market really is.
+  for (const symbol of ['MSFT', 'TSLA', 'AAPL', 'NVDA']) market.catchUp(symbol, now);
 
   const watchlist: Watchlist = { symbols: [...SEED_WATCHLIST_SYMBOLS], updatedAt: iso };
 
