@@ -14,6 +14,8 @@ import type { MarketDataProvider } from './marketData/provider.js';
 import { loadMarketInputs } from './news/marketInputs.js';
 import { MemoryNewsCache, type NewsCache } from './news/newsCache.js';
 import { registerNewsRoutes } from './news/newsRoutes.js';
+import { RealtimeHub } from './realtime/realtimeHub.js';
+import { registerRealtimeRoutes } from './realtime/realtimeRoutes.js';
 import { NewsService } from './news/newsService.js';
 import type { NewsSource } from './news/newsSource.js';
 import { registerWatchlistRoutes } from './watchlist/watchlistRoutes.js';
@@ -102,6 +104,7 @@ export function buildApp(
   // both services report their changes.
   let live: LiveMarketData | null = null;
   let monitor: AlertMonitor | null = null;
+  let hub: RealtimeHub | null = null;
   const watchlist = new WatchlistService(dataSource, undefined, () => void live?.refresh());
   const alerts = new AlertService(dataSource, undefined, () => {
     void live?.refresh();
@@ -111,9 +114,9 @@ export function buildApp(
     const started = new LiveMarketData(marketData, {
       log: app.log,
       demand: async () => ({
-        focus: [],
+        focus: hub?.focusSymbols() ?? [],
         alerts: (await alerts.list()).filter((alert) => alert.enabled).map((alert) => alert.symbol),
-        viewed: [],
+        viewed: hub?.subscribedSymbols() ?? [],
         watchlist: (await watchlist.get()).symbols,
       }),
     });
@@ -156,9 +159,31 @@ export function buildApp(
     });
   }
 
+  // ** The app's realtime connections: their symbols join live demand, and they hear about prices, status
+  // and alerts. Without market data they still connect and get a status saying so.
+  const liveSource = live;
+  const realtime = new RealtimeHub({
+    log: app.log,
+    onDemandChange: () => void liveSource?.refresh(),
+    sources: {
+      status: () => marketDataService.status(),
+      latest: (symbol) => liveSource?.latest(symbol) ?? null,
+      onChange: liveSource ? (listener) => liveSource.onChange(listener) : undefined,
+      onStatus: liveSource ? (listener) => liveSource.onStatus(listener) : undefined,
+      onAlert: monitor ? (listener) => monitor.onTriggered(listener) : undefined,
+      onAlertUpdated: monitor ? (listener) => monitor.onUpdated(listener) : undefined,
+    },
+  });
+  hub = realtime;
+  app.addHook('onClose', (_instance, done) => {
+    realtime.close();
+    done();
+  });
+
   registerWatchlistRoutes(app, watchlist);
   registerAlertRoutes(app, alerts);
   registerMarketDataRoutes(app, marketDataService);
   registerNewsRoutes(app, newsService);
+  registerRealtimeRoutes(app, realtime);
   return app;
 }

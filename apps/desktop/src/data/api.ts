@@ -54,6 +54,7 @@ export interface MarketApi {
 
 export type ApiErrorCode =
   | 'VALIDATION_ERROR'
+  | 'FORBIDDEN'
   | 'NOT_FOUND'
   | 'CONFLICT'
   | 'PROVIDER_ERROR'
