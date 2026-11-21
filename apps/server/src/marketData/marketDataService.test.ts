@@ -248,3 +248,15 @@ describe('movers for different limits', () => {
     expect(provider.calls.getMovers).toEqual([5, 10]);
   });
 });
+
+describe('history that starts after the range', () => {
+  it("flags ALL and 10Y charts as cut short where the provider's history begins, per asset class", async () => {
+    provider.limits.historyStartMs = { stocks: Date.UTC(2020, 6, 27), crypto: Date.UTC(2021, 0, 1) };
+    provider.bars.set('AAPL', [bar('2020-08-01T04:00:00Z'), bar('2026-11-01T04:00:00Z')]);
+    provider.bars.set('BTC/USD', [bar('2021-01-01T00:00:00Z'), bar('2026-11-01T00:00:00Z')]);
+    expect((await service.getHistory('AAPL', 'ALL')).truncated).toBe(true);
+    expect((await service.getHistory('AAPL', '10Y')).truncated).toBe(true);
+    expect((await service.getHistory('AAPL', '5Y')).truncated).toBe(false);
+    expect((await service.getHistory('BTC/USD', 'ALL')).truncated).toBe(true);
+  });
+});

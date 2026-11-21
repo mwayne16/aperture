@@ -19,16 +19,29 @@ import { openAlpacaStream, type AlpacaStreamOptions } from './alpacaStream.js';
 export const ALPACA_FEEDS = ['iex', 'sip', 'delayed_sip'] as const;
 export type AlpacaFeed = (typeof ALPACA_FEEDS)[number];
 
-/** The free plan's limits (checked 2026-11-14). Paid plans raise them; the adapter never needs more. */
-const FREE_PLAN_LIMITS: ProviderLimits = {
-  requestsPerMinute: 200,
-  streamSymbolsPerConnection: { stocks: 30, crypto: 30 },
-  streamConnections: 1,
-  historyStartMs: Date.UTC(2016, 0, 1),
+/**
+ * Where bar history begins, checked against Alpaca 2026-11-21: IEX stock history starts 2020-07-27, SIP
+ * history 2016-01-04, crypto history 2021-01-01.
+ */
+const HISTORY_START: Record<AlpacaFeed, number> = {
+  iex: Date.UTC(2020, 6, 27),
+  sip: Date.UTC(2016, 0, 1),
+  delayed_sip: Date.UTC(2016, 0, 1),
 };
+const CRYPTO_HISTORY_START = Date.UTC(2021, 0, 1);
+
+/** The free plan's limits (checked 2026-11-14). Paid plans raise them; the adapter never needs more. */
+function freePlanLimits(feed: AlpacaFeed): ProviderLimits {
+  return {
+    requestsPerMinute: 200,
+    streamSymbolsPerConnection: { stocks: 30, crypto: 30 },
+    streamConnections: 1,
+    historyStartMs: { stocks: HISTORY_START[feed], crypto: CRYPTO_HISTORY_START },
+  };
+}
 
 // ** The SDK throttles itself to this many requests a minute, a margin below the plan's limit so retries fit.
-const REQUESTS_PER_MINUTE = Math.floor(FREE_PLAN_LIMITS.requestsPerMinute * 0.9);
+const REQUESTS_PER_MINUTE = Math.floor(freePlanLimits('iex').requestsPerMinute * 0.9);
 const REQUEST_TIMEOUT_MS = 10_000;
 /** Recent SIP data is only available to paid plans, so delayed history ends this long ago. */
 const SIP_DELAY_MS = 15 * 60_000;
@@ -77,6 +90,7 @@ export type AlpacaProvider = MarketDataProvider & { readonly news: NewsSource };
  */
 export function createAlpacaProvider(options: AlpacaProviderOptions): AlpacaProvider {
   const now = options.now ?? Date.now;
+  const limits = freePlanLimits(options.feed);
   const rest = {
     keyId: options.keyId,
     secret: options.secret,
@@ -98,7 +112,7 @@ export function createAlpacaProvider(options: AlpacaProviderOptions): AlpacaProv
   return {
     id: 'alpaca',
     news: createAlpacaNewsSource(data),
-    limits: FREE_PLAN_LIMITS,
+    limits,
     feedLabel: FEED_LABELS[options.feed],
     delayed: options.feed === 'delayed_sip',
 
@@ -128,9 +142,8 @@ export function createAlpacaProvider(options: AlpacaProviderOptions): AlpacaProv
 
     async getBars(request: BarsRequest) {
       const timeframe = TIMEFRAMES[request.timeframe];
-      const start = request.start ?? new Date(FREE_PLAN_LIMITS.historyStartMs);
       const end = new Date(Math.min(request.end.getTime(), now() - historyLagMs));
-      const limits = { maxPerSymbol: MAX_BARS_PER_SYMBOL };
+      const pages = { maxPerSymbol: MAX_BARS_PER_SYMBOL };
       const stocks = request.symbols.filter((s) => !isCryptoSymbol(s));
       const crypto = request.symbols.filter(isCryptoSymbol);
       const [stockBars, cryptoBars] = await Promise.all([
@@ -138,14 +151,30 @@ export function createAlpacaProvider(options: AlpacaProviderOptions): AlpacaProv
           ? NO_RESULTS
           : call(() =>
               data.getStockBars(
-                { symbols: [...stocks], timeframe, start, end, adjustment: 'split', feed: historyFeed },
-                limits,
+                {
+                  symbols: [...stocks],
+                  timeframe,
+                  start: request.start ?? new Date(limits.historyStartMs.stocks),
+                  end,
+                  adjustment: 'split',
+                  feed: historyFeed,
+                },
+                pages,
               ),
             ),
         crypto.length === 0
           ? NO_RESULTS
           : call(() =>
-              data.getCryptoBars({ loc: 'us', symbols: [...crypto], timeframe, start, end }, limits),
+              data.getCryptoBars(
+                {
+                  loc: 'us',
+                  symbols: [...crypto],
+                  timeframe,
+                  start: request.start ?? new Date(limits.historyStartMs.crypto),
+                  end,
+                },
+                pages,
+              ),
             ),
       ]);
       const result = new Map<string, ProviderBar[]>();

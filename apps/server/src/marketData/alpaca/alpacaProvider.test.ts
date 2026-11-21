@@ -199,7 +199,7 @@ describe('Alpaca adapter: bars', () => {
     expect(params(requests[0]).timeframe).toBe(wire);
   });
 
-  it('starts "earliest available" at the retention floor and leaves out symbols without bars', async () => {
+  it('starts "earliest available" where each history begins and leaves out symbols without bars', async () => {
     const { provider, requests } = setup([
       { path: '/v2/stocks/bars', body: { bars: {}, next_page_token: null } },
       { path: '/v1beta3/crypto/us/bars', body: CRYPTO_BARS },
@@ -210,11 +210,26 @@ describe('Alpaca adapter: bars', () => {
       start: null,
       end: new Date(NOW),
     });
-    expect(requests.map((r) => params(r).start)).toEqual([
-      '2016-01-01T00:00:00.000Z',
-      '2016-01-01T00:00:00.000Z',
-    ]);
+    // IEX stock history begins 2020-07-27 and crypto history 2021-01-01.
+    const starts = Object.fromEntries(requests.map((r) => [r.url.pathname, params(r).start]));
+    expect(starts).toEqual({
+      '/v2/stocks/bars': '2020-07-27T00:00:00.000Z',
+      '/v1beta3/crypto/us/bars': '2021-01-01T00:00:00.000Z',
+    });
     expect([...bars.keys()]).toEqual(['BTC/USD']);
+    expect(provider.limits.historyStartMs).toEqual({
+      stocks: Date.UTC(2020, 6, 27),
+      crypto: Date.UTC(2021, 0, 1),
+    });
+  });
+
+  it('starts SIP history in 2016', async () => {
+    const { provider, requests } = setup(
+      [{ path: '/v2/stocks/bars', body: { bars: {}, next_page_token: null } }],
+      'sip',
+    );
+    await provider.getBars({ symbols: ['AAPL'], timeframe: '1Month', start: null, end: new Date(NOW) });
+    expect(params(requests[0]).start).toBe('2016-01-01T00:00:00.000Z');
   });
 
   it('reads delayed history from SIP and ends it 15 minutes ago, which the free plan allows', async () => {
