@@ -132,9 +132,9 @@ The server tests start their own throwaway PostgreSQL and Redis containers (the 
 
 The backend listens on `127.0.0.1:4100`. Request and response types live in `packages/shared`. Every
 error uses one shape, `{ "error": { "code", "message", "details": [{ "field", "message" }] } }`, with
-the codes `VALIDATION_ERROR` (400), `NOT_FOUND` (404), `CONFLICT` (409), `PROVIDER_ERROR` (502, the
-market-data provider failed or rejected the keys), `UNAVAILABLE` (503, e.g. the database is down or market
-data isn't configured) and `INTERNAL` (500). Unknown fields and query parameters are rejected.
+the codes `VALIDATION_ERROR` (400), `FORBIDDEN` (403, e.g. a web page opening the realtime connection),
+`NOT_FOUND` (404), `CONFLICT` (409), `PROVIDER_ERROR` (502, the market-data provider failed or rejected the
+keys), `UNAVAILABLE` (503, e.g. the database is down or market data isn't configured) and `INTERNAL` (500). Unknown fields and query parameters are rejected.
 
 | Method and path | Does |
 | --- | --- |
@@ -242,6 +242,30 @@ Live prices:
   for example because another app holds the one connection the plan allows, the server tries again every five
   minutes. Rejected keys aren't retried until you fix them and restart. `GET /market-data/status` explains
   each case in plain words.
+
+## Realtime connection
+
+The app keeps one WebSocket open to `ws://127.0.0.1:4100/realtime`. Messages are JSON objects with a
+`type`; the types are in `packages/shared/src/realtime.ts`.
+
+| From | Message | Does |
+| --- | --- | --- |
+| App | `{ type: 'subscribe', symbols }` | Adds symbols (up to 200 per connection); answered at once with their latest quotes |
+| App | `{ type: 'unsubscribe', symbols }` | Stops quotes for those symbols |
+| App | `{ type: 'focus', symbol }` | The open stock page (or `null`); it gets a live stream ahead of alerts when there's room |
+| Server | `{ type: 'quotes', quotes }` | Changed quotes, at most one per symbol, batched every 250 ms; quotes that aren't current are marked `stale` |
+| Server | `{ type: 'status', status }` | The market-data status, as `GET /market-data/status` returns it; sent on connect and when it changes |
+| Server | `{ type: 'alert', event }` | An alert fired; sent once per trigger |
+| Server | `{ type: 'alertUpdated', alert }` | An alert's saved state after it fired or re-armed |
+| Server | `{ type: 'error', message }` | A message from the app was invalid; the connection stays open |
+
+- Symbols a connection subscribes to join what the server watches, after the watchlist, the open page and
+  alerts, so they stream when there's room and are polled otherwise.
+- After a reconnect, the app subscribes again and gets current quotes for everything, so it never depends
+  on messages it missed. Alerts that fired meanwhile are in `GET /alerts/events`.
+- Only the app may connect: requests from other web pages are refused (403), because browsers let any page
+  open a WebSocket to localhost. Messages over 16 KB, more than 20 connections, and connections that stop
+  answering pings or fall too far behind are closed.
 
 ## News
 

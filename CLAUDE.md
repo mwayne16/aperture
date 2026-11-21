@@ -26,10 +26,11 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
   until the user adds paper-trading keys to `.env`; whether the free plan includes the screener behind
   `/movers` is also unverified.
 - Phase 4 (real-time updates and alerting): **in progress, split into three PRs.**
-  (1) Server-side alert evaluation with the trigger history table and `GET /alerts/events`: built
-  2026-11-20 on `feat/alert-monitor`. (2) The client WebSocket: typed contracts, quote updates, connection
-  status, alert events, validated messages, focus symbol, recovery after reconnecting. (3) Native desktop
-  notifications through the Electron bridge.
+  (1) Server-side alert evaluation with the trigger history table and `GET /alerts/events`: **merged
+  2026-11-20** (PR #8). (2) The realtime WebSocket (`/realtime`): typed contracts, coalesced quote batches,
+  status, alert events, validated messages, focus and viewed symbols in live demand, recovery by snapshot
+  on subscribe: built 2026-11-20 on `feat/realtime-socket`. The app's client for it comes with frontend
+  integration. (3) Native desktop notifications through the Electron bridge: next.
 - Track phase status in this section. Update it whenever a phase is approved or completed.
 
 ## Product decisions that override the plan
@@ -123,7 +124,8 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
     shared. Redis comes in when something does (the news cache per plan section 2.6).
 - Live prices (`liveMarketData.ts`, `alpaca/alpacaStream.ts`):
   - `planSubscriptions` puts the watchlist first (it always fits a stream), then focus (the open stock page,
-    wired by the client WebSocket later), then enabled alerts; the rest is polled.
+    from realtime `focus` messages), then enabled alerts, then viewed (every symbol a realtime connection
+    subscribes to); the rest is polled.
   - A symbol is streamed only once Alpaca's `subscription` frame confirms it and its channel is connected.
     Everything else, including a dropped channel's symbols, is polled: one batched snapshot per 15 s round.
     Streamed symbols get a snapshot once a minute (volume, range, previous close).
@@ -161,6 +163,24 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
   - Prices that arrive while one of an alert's changes is being saved wait in a single slot (newest
     wins), which bounds memory and database work during an outage. Listeners (`onTriggered`, `onUpdated`)
     run only after the save commits. `updatedAt` is bumped in SQL with `GREATEST(now, updated_at + 1 ms)`.
+- Realtime WebSocket (`realtime/`, `@fastify/websocket` 11, the official plugin on `ws`; protocol in
+  `@aperture/shared/realtime`):
+  - One path, `/realtime`, JSON messages with a `type`. App to server: `subscribe`/`unsubscribe` (diffs,
+    at most 200 symbols per connection), `focus` (symbol or null). Server to app: `quotes`, `status`,
+    `alert`, `alertUpdated`, `error`. Client messages are validated with class-validator DTOs
+    (`realtimeMessages.ts`); a bad one gets an `error` message and the connection stays open.
+  - A subscribe answers at once with `latest()` quotes (marked stale when not current); that snapshot is
+    the recovery path after a reconnect. Later changes are coalesced per connection into one batch every
+    250 ms, one quote per symbol. Status is broadcast only when it changes (ignoring `lastPollAt`).
+  - The hub (`realtimeHub.ts`) depends on `RealtimeSources` functions, not on the live service, so it runs
+    without market data (status says `configured: false`) and tests can drive it directly.
+  - Safety: connections from other web pages are refused in `preValidation` (403 `FORBIDDEN`, a new error
+    code) because browsers let any page open a WebSocket to localhost. Allowed origins: the dev renderer
+    (`http://localhost:5173`, `http://127.0.0.1:5173`), the packaged app (`file://`), and no Origin header
+    (non-browser clients). Messages over 16 KB close with 1009, a 21st connection gets 1013, a connection
+    that misses a 30-second ping or buffers over 1 MB is terminated (the app reconnects and resubscribes).
+  - The packaged app's `file://` origin is assumed from Chromium's behavior; verify it once the app's
+    client connects (frontend integration).
 - Redis (`redis/redisConnection.ts`, official `redis` 6.x client): only caches live there (news for now), so
   the server runs without it. `disableOfflineQueue` makes commands fail at once while it is down, and
   `RedisNewsCache` falls back to memory. An `error` listener is required (unhandled errors crash the process).
@@ -195,6 +215,8 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
   messages. `Omittable` marks optional fields in partial updates: unlike `IsOptional` it still rejects null.
 - `db/`: the data source, migrations, startup (`openDatabase`, bounded retry) and `isDatabaseUnavailable`,
   which the error handler turns into 503 UNAVAILABLE.
+- `realtime/`: the WebSocket hub, message DTOs and route; tests use real `ws` clients
+  (`test/realtimeClient.ts`) against the server listening on a random port.
 - `news/`: rules, the `NewsSource` port, the service, market inputs, caches (memory and Redis), DTOs and
   routes; tests use `test/fakeNewsSource.ts`. `redis/`: the connection.
 - `marketData/`: the provider port (`provider.ts`), one folder per adapter (`alpaca/`: REST adapter, stream,
