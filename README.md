@@ -199,6 +199,19 @@ messages name the variable and never print its value.
 - API keys live only in the server's environment. They never reach the renderer, and the server's logs
   redact them.
 
+## Desktop notifications
+
+In the desktop app, an alert that fires while Aperture isn't the window in front shows a system
+notification; clicking it brings Aperture forward on that stock's page and marks the trigger read. While
+Aperture is in front, the in-app toast shows instead. Turn them off under Settings → Notifications.
+
+The app shows each trigger once. Until the app switches to the server's live data, triggers come from the
+simulated feed and their notifications say "Simulated".
+
+On Windows, a development build (`npm run dev`) can only show notifications once Electron is pinned to the
+Start menu: right-click `node_modules\electron\dist\electron.exe` and choose **Pin to Start**. The installed
+app doesn't need this.
+
 ## Market data
 
 Market data sits behind a provider interface (`apps/server/src/marketData/provider.ts`). Alpaca is the

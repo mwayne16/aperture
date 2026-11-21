@@ -31,8 +31,10 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
   (1) Server-side alert evaluation with the trigger history table and `GET /alerts/events`: **merged
   2026-11-20** (PR #8). (2) The realtime WebSocket (`/realtime`): typed contracts, coalesced quote batches,
   status, alert events, validated messages, focus and viewed symbols in live demand, recovery by snapshot
-  on subscribe: built 2026-11-20 on `feat/realtime-socket`. The app's client for it comes with frontend
-  integration. (3) Native desktop notifications through the Electron bridge: next.
+  on subscribe: **merged 2026-11-21** (PR #9), plus fixes from the first real Alpaca data (PR #10).
+  (3) Native desktop notifications through the Electron bridge: built 2026-11-21 on
+  `feat/desktop-notifications`. With it, Phase 4 is built; the app still runs on its simulated data layer
+  until frontend integration (Phase 5) switches it to the server's HTTP API and `/realtime`.
 - Track phase status in this section. Update it whenever a phase is approved or completed.
 
 ## Product decisions that override the plan
@@ -244,7 +246,23 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
 
 ## Desktop app architecture (`apps/desktop`)
 - `electron/`: main process (`main.ts`), preload (`preload.ts`, the typed `window.aperture` bridge from
-  `bridge.ts`) and the navigation policy. `src/`: the React renderer, described below.
+  `bridge.ts`), the navigation policy and notification checks (`notifications.ts`). `src/`: the React
+  renderer, described below. The renderer reads the bridge only through `src/app/desktopBridge.ts`, which
+  returns null in a plain browser.
+- Desktop notifications:
+  - The bridge has `notify` and `onNotificationClick` only. The main process accepts `notify` IPC only from
+    app pages (`isAppUrl` on the sender frame), validates every field (`parseNotification`), and shows a
+    notification only while no app window is focused (the app's own toast covers that case).
+  - A click restores and focuses the asking window and sends `{ id, symbol }` back; the renderer marks the
+    inbox entry read and opens `#/symbol/...`. Shown notifications are held (max 20) so their click handlers
+    survive garbage collection.
+  - The feed (`notificationFeed.ts`) notifies once per new trigger (not re-deliveries, not connection
+    changes); simulated triggers are titled "Simulated · ...". Setting `desktopNotifications`, on by default.
+  - Windows needs an App User Model ID matching a Start Menu shortcut: dev runs use `process.execPath` (pin
+    `node_modules\electron\dist\electron.exe` to Start to see them); the packaged app uses
+    `com.aperture.desktop`, so the installer (packaging, Phase 7) must create its shortcut with that id.
+  - The smoke test checks the round trip in a built app (`APERTURE_SMOKE_TEST=1` swaps in a recorder that
+    clicks at once): a malformed request is refused and the valid one opens `#/symbol/MSFT`.
 - `domain/`: the app's copies of the API types (`types.ts`), checked by `contracts.test.ts`. The alert engine,
   chart ranges and search ranking live in `packages/shared`.
 - `lib/`: formatting and small utilities.
