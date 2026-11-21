@@ -3,6 +3,7 @@ import { realtime } from '../../data/dataLayer';
 import type { AlertEvent } from '../../domain/types';
 import { triggerNotice } from '../alerts/alertDisplay';
 import { outageNotification, trackOutage, type Outage } from './connectionNotices';
+import { listenForNotificationClicks, showDesktopNotification } from './desktopNotifications';
 import type { AppNotification } from './notificationRules';
 import { useNotificationStore } from './notificationStore';
 
@@ -33,8 +34,14 @@ function wire(): () => void {
   let outage: Outage | null = null;
   const offAlert = realtime.onAlert((event) => {
     const { simulated } = useConnectionStore.getState().connection;
-    useNotificationStore.getState().add(alertNotification(event, simulated));
+    const notification = alertNotification(event, simulated);
+    const inbox = useNotificationStore.getState();
+    // ** A re-delivered trigger is already in the inbox and was already shown on the desktop.
+    const isNew = !inbox.notifications.some((n) => n.id === notification.id);
+    inbox.add(notification);
+    if (isNew) showDesktopNotification(notification, simulated);
   });
+  const offClicks = listenForNotificationClicks();
   const offConnection = useConnectionStore.subscribe((state, previous) => {
     if (state.connection.state === previous.connection.state) return;
     const next = trackOutage(outage, previous.connection.state, state.connection, Date.now(), createOutageId);
@@ -44,6 +51,7 @@ function wire(): () => void {
   });
   return () => {
     offAlert();
+    offClicks();
     offConnection();
   };
 }
@@ -52,7 +60,7 @@ function wire(): () => void {
  * Fills the notification inbox from alert triggers and connection changes. Idempotent: extra calls
  * never add a second listener, and each call returns its own teardown. The feed stops once every
  * caller has torn down, which suits StrictMode double mounts and a second host mounting it.
- * Native desktop notifications arrive with the Electron app and will hook in here.
+ * New alert triggers are also shown as desktop notifications in the Electron app.
  */
 export function startNotificationFeed(): () => void {
   users += 1;

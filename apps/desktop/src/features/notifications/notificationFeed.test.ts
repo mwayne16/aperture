@@ -75,7 +75,9 @@ describe('startNotificationFeed', () => {
   });
 
   it('drops "(simulated)" once the feed is real, and survives an unreadable trigger time', () => {
-    useConnectionStore.setState({ connection: { ...INITIAL_CONNECTION, state: 'connected', simulated: false } });
+    useConnectionStore.setState({
+      connection: { ...INITIAL_CONNECTION, state: 'connected', simulated: false },
+    });
     start();
     emit({ ...event, triggeredAt: 'not a time' });
     expect(inbox()[0]).toMatchObject({ body: 'Last trade 200.12 at — ET', at: Date.now() });
@@ -104,13 +106,19 @@ describe('startNotificationFeed', () => {
     start();
     emit(event);
     setState('reconnecting');
-    expect(inbox().map((n) => n.kind).sort()).toEqual(['alert', 'connection']);
+    expect(
+      inbox()
+        .map((n) => n.kind)
+        .sort(),
+    ).toEqual(['alert', 'connection']);
   });
 
   it('records a lost connection and turns the same entry into a restore', () => {
     start();
     setState('reconnecting');
-    expect(inbox()).toMatchObject([{ kind: 'connection', title: 'Connection lost', read: false, symbol: null }]);
+    expect(inbox()).toMatchObject([
+      { kind: 'connection', title: 'Connection lost', read: false, symbol: null },
+    ]);
     useNotificationStore.getState().markAllRead();
 
     vi.advanceTimersByTime(4000);
@@ -152,5 +160,33 @@ describe('startNotificationFeed', () => {
     useNotificationStore.getState().clear();
     setState('connected');
     expect(inbox().map((n) => n.title)).toEqual(['Connection restored']);
+  });
+});
+
+describe('desktop notifications from the feed', () => {
+  afterEach(() => {
+    delete window.aperture;
+  });
+
+  it('shows each new trigger once on the desktop, not connection changes or re-deliveries', () => {
+    const notify = vi.fn();
+    window.aperture = {
+      platform: 'win32',
+      versions: { electron: '45.0.0', chrome: '146.0.0' },
+      notify,
+      onNotificationClick: () => () => undefined,
+    };
+    start();
+    emit(event);
+    emit({ ...event });
+    setState('reconnecting');
+    setState('connected');
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(notify).toHaveBeenCalledWith({
+      id: 'alert:evt-1',
+      title: 'Simulated · MSFT above 200.00 · Buy',
+      body: 'Last trade 200.12 at 14:05:09 ET (simulated)',
+      symbol: 'MSFT',
+    });
   });
 });
