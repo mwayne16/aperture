@@ -47,6 +47,9 @@ const REQUEST_TIMEOUT_MS = 10_000;
 const SIP_DELAY_MS = 15 * 60_000;
 /** Upper bound on bars kept per symbol, so a bad request can't fill memory. */
 const MAX_BARS_PER_SYMBOL = 10_000;
+/** The largest lists the screener returns per request (checked 2026-11-21). */
+const MAX_MOVERS = 50;
+const MAX_MOST_ACTIVE = 100;
 
 const FEED_LABELS: Record<AlpacaFeed, string> = {
   iex: 'Alpaca IEX',
@@ -193,8 +196,8 @@ export function createAlpacaProvider(options: AlpacaProviderOptions): AlpacaProv
 
     async getMovers(limit): Promise<ProviderMovers> {
       const [movers, active] = await Promise.all([
-        call(() => data.screener.movers({ marketType: 'stocks', top: limit })),
-        call(() => data.screener.mostActives({ by: 'volume', top: limit })),
+        call(() => data.screener.movers({ marketType: 'stocks', top: Math.min(limit, MAX_MOVERS) })),
+        call(() => data.screener.mostActives({ by: 'volume', top: Math.min(limit, MAX_MOST_ACTIVE) })),
       ]);
       return {
         gainers: rankedSymbols(movers.gainers),
