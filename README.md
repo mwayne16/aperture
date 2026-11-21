@@ -227,6 +227,12 @@ How the server uses the free plan:
   name has none of these shows as a stock. OTC listings are left out because the IEX feed has no prices
   for them.
 - Alpaca provides no fundamentals (market cap, P/E, EPS), so Aperture doesn't show them.
+- A quote is `stale` once nothing new (trade or bid/ask) has arrived for 15 minutes, e.g. after the 4 PM
+  close. Crypto pairs keep updating their bid/ask around the clock, so they stay live.
+- Chart history on the free IEX feed starts on 2020-07-27 (SIP: 2016; crypto: 2021). Longer ranges are
+  marked as cut short.
+- Movers list ordinary stocks and ETFs priced at $1 or more that traded in the latest session, ordered by the
+  change shown. Warrants, units, rights and listings without a current price are left out.
 
 Live prices:
 
@@ -271,8 +277,9 @@ The app keeps one WebSocket open to `ws://127.0.0.1:4100/realtime`. Messages are
 
 The dashboard's news feed is curated on the server; the app shows it in the order it arrives.
 
-- **Source:** Alpaca's news (from Benzinga on the free plan) for now. A second provider can be added as
-  another news source; the plan asks for one once it is chosen.
+- **Source:** Alpaca's news, for now. As of November 2026 its stories come from Fiscal.ai and cover stocks
+  and ETFs; they aren't tagged with crypto pairs, so crypto pages show no news. A second provider can be
+  added as another news source; the plan asks for one once it is chosen.
 - **Refresh:** every three minutes the server fetches news about the watchlist and general market news from
   the last 48 hours, about 100 articles each, and caches them in Redis for five minutes. Requests read the
   cache, so they don't call Alpaca. If Redis is down, an in-memory copy is used instead; if a fetch fails,

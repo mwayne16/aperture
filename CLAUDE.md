@@ -19,12 +19,14 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
   (`GET /market-data/status`), polling for the rest: PR #6. (3) The curated news feed (plan section 2.6)
   with the Redis cache: PR #7. Alpaca news only for now (user's choice, 2026-11-15); a second source waits
   for the user to pick a provider. The `reason` tag isn't shown in the UI yet (frontend integration).
-  Against real Alpaca only the rejected-keys path is verified (2026-11-14, fake keys): the REST hosts answer
-  401 and the server answers 502; both stream endpoints (IEX stocks, crypto) complete the handshake, Alpaca's
-  msgpack auth error decodes, and status reports "Alpaca rejected the API keys." without retrying. No log
-  line contains the keys. Success-path payloads and ticks rest on the SDK's types and doc-shaped fixtures
-  until the user adds paper-trading keys to `.env`; whether the free plan includes the screener behind
-  `/movers` is also unverified.
+  Verified against real Alpaca on 2026-11-21 with the user's paper keys (Friday evening, stocks closed):
+  about 12,900 instruments with correct ETF classification, search, stock and crypto snapshots (unknown
+  symbols in a batch come back unavailable without failing it), history for every range, the screener
+  (on the free plan), news, the crypto stream (connects, confirms subscriptions, ticks reach `/realtime`),
+  and a BTC/USD alert that fired once on the next real trade and didn't repeat. No log line held the keys.
+  Not yet seen with real data: stock ticks during market hours, and whether trades plus quotes for 30
+  symbols fit the stream's cap. The check found four problems, fixed on `fix/live-data-findings`: movers
+  full of warrants and stale prices, history floors, quotes "live" after the close, and crypto news (none).
 - Phase 4 (real-time updates and alerting): **in progress, split into three PRs.**
   (1) Server-side alert evaluation with the trigger history table and `GET /alerts/events`: **merged
   2026-11-20** (PR #8). (2) The realtime WebSocket (`/realtime`): typed contracts, coalesced quote batches,
@@ -75,7 +77,8 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
   compile, and write the evidence here.
 - Vite 8, React 19, Vitest 5, ESLint 10 flat config with typescript-eslint strict type-checked rules.
 - Charts: `lightweight-charts` v5 (TradingView, Apache-2.0).
-- Market data: Alpaca **free plan, IEX feed** (decided 2026-11-07; the user has no Alpaca account yet).
+- Market data: Alpaca **free plan, IEX feed** (decided 2026-11-07; the user made a paper account 2026-11-20,
+  and its keys are in `.env`).
   IEX quotes and trades are real-time but cover only the IEX exchange, so label them "IEX" and never as
   consolidated prices or volume. Alpaca provides no fundamentals (market cap, P/E, EPS): don't show them
   unless another source is added. Free-plan limits the backend must respect (checked 2026-11-14):
@@ -85,7 +88,8 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
     stream; the 30-symbol cap applies to the crypto stream too. Budget slots by priority: watchlist rows
     (always fit, see the 30-symbol decision), then the open symbol page, then enabled alerts; poll the rest.
   - REST requests can't reach the latest 15 minutes of SIP data, so current snapshots use `feed=iex`.
-  - News: the Benzinga feed is included in the free plan.
+  - News is included in the free plan. Its stories came from Benzinga and, as of 2026-11-21, come from Fiscal.ai;
+    they cover stocks and ETFs and tag no crypto (`BTCUSD`, `BTC/USD` return nothing; `BTC` is a mining stock).
   - Keep the feed in configuration, so Algo Trader Plus (all exchanges, no caps) is a config change.
 - UI primitives: `radix-ui` provides focus, layering and keyboard behavior for Dialog, Menu, Tooltip,
   SegmentedControl, Tabs and Switch. Features import our `components/ui/*` wrappers, never Radix directly.
@@ -122,6 +126,17 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
     the log.
   - Caches are in memory with TTLs and size caps (`TtlCache`), not Redis: one backend instance needs nothing
     shared. Redis comes in when something does (the news cache per plan section 2.6).
+- Market-data rules learned from real data (2026-11-21):
+  - Staleness (`quotes.ts`): a quote is `stale` once its newest trade and bid/ask are both over 15 minutes old
+    (plus 15 minutes on a delayed feed). IEX stock quotes stop at the 4 PM close; crypto quotes update every
+    second while crypto trades can be an hour apart, so bid/ask must count.
+  - History floors per feed and asset class (`HISTORY_START` in `alpacaProvider.ts`): IEX stocks 2020-07-27,
+    SIP 2016-01-04, crypto 2021-01-01. They set "earliest available" starts and the `truncated` flag.
+  - Movers: the screener (max 50 movers, 100 most active) ranks warrants, units, sub-dollar shares and listings
+    with months-old IEX prices (a new "SONN" showed +3,949%). The service asks for 50, keeps catalog stocks
+    and ETFs whose names don't say warrant/unit/right, priced at $1 or more, that traded in the latest session,
+    orders gainers and losers by the quote's own `changePct` (dropping sign mismatches), keeps the screener's
+    order for most active, caches one filtered set and slices it per limit.
 - Live prices (`liveMarketData.ts`, `alpaca/alpacaStream.ts`):
   - `planSubscriptions` puts the watchlist first (it always fits a stream), then focus (the open stock page,
     from realtime `focus` messages), then enabled alerts, then viewed (every symbol a realtime connection
@@ -145,8 +160,9 @@ The full spec is `stock-app-plan.md`. Read it before you change architecture.
     per-symbol cap leaves places in the first 10, market stories fill them before the watchlist overflow.
   - Sources implement `NewsSource` (`newsSource.ts`). Alpaca news is built on the adapter's own
     `MarketDataClient` (`provider.news`), so it shares the rate limit, and reads newest-first pages only up to
-    100 articles per query. Alpaca tags crypto as compact pairs (`BTCUSD`); the adapter queries with and maps
-    them to the app's form (`BTC/USD`). Only http(s) links pass; ids are namespaced (`alpaca:<id>`).
+    100 articles per query. Alpaca's docs show crypto as compact pairs (`BTCUSD`), so the adapter queries with
+    and maps that form to the app's (`BTC/USD`), but the current source tags no crypto at all, so crypto pairs
+    get no news. Only http(s) links pass; ids are namespaced (`alpaca:<id>`).
   - `NewsService` refreshes both pools every 3 minutes into the cache (5-minute TTL, keys `news:v1:...`). The
     watchlist pool is keyed by its symbols, so a changed watchlist fetches its own. Requests rank on the spot
     with `loadMarketInputs` (quotes, 20-day average daily volume from cached daily bars, most active, names),
