@@ -136,6 +136,35 @@ describe('seed data', () => {
     }
   });
 
+  it('never picks a target the path reaches before the window, so a reset alert does not fire at once', () => {
+    const market = createMockMarket();
+    const last = market.getState('MSFT')!.last;
+    // MSFT rises for 20 trades and then drifts down: every new high comes too early.
+    const peek = market.peekPrices.bind(market);
+    market.peekPrices = (symbol, count) =>
+      symbol === 'MSFT'
+        ? Array.from({ length: count }, (_, i) => (i < 20 ? last + i + 1 : last + 20 - (i - 19) * 0.01))
+        : peek(symbol, count);
+    const buy = buildSeedData({ market, now: NOW }).alerts[0]!;
+    expect(buy.targetPrice).toBe(roundPrice((last + 20) * 1.001));
+    expect(demoFireTrades(market.peekPrices('MSFT', DEMO_HORIZON_TRADES), 'above', buy.targetPrice)).toEqual(
+      [],
+    );
+  });
+
+  it('catches up an idle symbol before placing its target, so the next snapshot does not jump past it', () => {
+    const market = createMockMarket();
+    market.trade('MSFT', NOW);
+    const later = NOW + 3_600_000;
+    const [buy] = buildSeedData({ market, now: later }).alerts;
+    expect(market.lastTradeAt('MSFT')).toBe(later);
+    // A snapshot right after seeding has nothing left to catch up.
+    const before = market.getState('MSFT')!.last;
+    expect(market.catchUp('MSFT', later + 1_000)!.last).toBe(before);
+    const fires = demoFireTrades(market.peekPrices('MSFT', DEMO_HORIZON_TRADES), 'above', buy!.targetPrice);
+    expect(fires[0]).toBeGreaterThanOrEqual(DEMO_FIRST_TRIGGER_TRADES.min);
+  });
+
   it('falls back to a target just beyond the price when the path never moves that way', () => {
     const market = createMockMarket();
     // Every TSLA trade ahead prints above the current price, so no "below" target is ever reached.
