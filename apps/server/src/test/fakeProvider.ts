@@ -90,7 +90,7 @@ export class FakeProvider implements MarketDataProvider {
     requestsPerMinute: 200,
     streamSymbolsPerConnection: { stocks: 30, crypto: 30 },
     streamConnections: 1,
-    historyStartMs: Date.UTC(2016, 0, 1),
+    historyStartMs: { stocks: Date.UTC(2016, 0, 1), crypto: Date.UTC(2021, 0, 1) },
   };
   feedLabel = 'Fake IEX';
   delayed = false;

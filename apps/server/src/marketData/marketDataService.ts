@@ -161,7 +161,11 @@ export class MarketDataService {
         range,
         timeframe: spec.timeframe,
         bars: toChartBars(bars),
-        truncated: isTruncated(spec, bars[0]?.time ?? null, provider.limits.historyStartMs),
+        truncated: isTruncated(
+          spec,
+          bars[0]?.time ?? null,
+          provider.limits.historyStartMs[isCryptoSymbol(instrument.symbol) ? 'crypto' : 'stocks'],
+        ),
         simulated: false,
       };
     });

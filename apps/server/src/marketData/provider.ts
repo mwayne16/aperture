@@ -23,8 +23,8 @@ export interface ProviderLimits {
   streamSymbolsPerConnection: { stocks: number | null; crypto: number | null };
   /** Stream connections allowed per endpoint for the same credentials. */
   streamConnections: number;
-  /** Earliest instant the provider keeps bar history for, in epoch ms. */
-  historyStartMs: number;
+  /** Earliest instant the provider keeps bar history for, per asset class, in epoch ms. */
+  historyStartMs: { stocks: number; crypto: number };
 }
 
 /** The latest values the provider has for one symbol. Any value it doesn't have, or sent malformed, is null. */
