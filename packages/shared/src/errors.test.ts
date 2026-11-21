@@ -15,5 +15,6 @@ describe('API error contract', () => {
     expect(API_ERROR_STATUS.PROVIDER_ERROR).toBe(502);
     expect(API_ERROR_STATUS.UNAVAILABLE).toBe(503);
     expect(API_ERROR_STATUS.INTERNAL).toBe(500);
+    expect(API_ERROR_STATUS.FORBIDDEN).toBe(403);
   });
 });

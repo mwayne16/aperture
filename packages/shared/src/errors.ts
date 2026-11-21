@@ -6,6 +6,7 @@
 
 export const API_ERROR_CODES = [
   'VALIDATION_ERROR',
+  'FORBIDDEN',
   'NOT_FOUND',
   'CONFLICT',
   'PROVIDER_ERROR',
@@ -18,6 +19,7 @@ export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
 /** The HTTP status that goes with each error code. */
 export const API_ERROR_STATUS: Readonly<Record<ApiErrorCode, number>> = {
   VALIDATION_ERROR: 400,
+  FORBIDDEN: 403,
   NOT_FOUND: 404,
   CONFLICT: 409,
   PROVIDER_ERROR: 502,
