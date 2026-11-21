@@ -20,8 +20,19 @@ describe('parseStoredSettings', () => {
   });
 
   it('reads a complete stored copy and ignores unknown keys', () => {
-    const stored = JSON.stringify({ defaultChartRange: 'YTD', chartStyle: 'line', triggerToasts: false, theme: 'x' });
-    expect(parseStoredSettings(stored)).toEqual({ defaultChartRange: 'YTD', chartStyle: 'line', triggerToasts: false });
+    const stored = JSON.stringify({
+      defaultChartRange: 'YTD',
+      chartStyle: 'line',
+      triggerToasts: false,
+      desktopNotifications: false,
+      theme: 'x',
+    });
+    expect(parseStoredSettings(stored)).toEqual({
+      defaultChartRange: 'YTD',
+      chartStyle: 'line',
+      triggerToasts: false,
+      desktopNotifications: false,
+    });
   });
 
   it('returns a fresh object, never the shared defaults', () => {
@@ -37,7 +48,9 @@ describe('parseStoredSettings', () => {
 
 describe('validPatch', () => {
   it('drops unknown keys and invalid values', () => {
-    expect(validPatch({ chartStyle: 'line', defaultChartRange: '2D', triggerToasts: 1, extra: true })).toEqual({
+    expect(
+      validPatch({ chartStyle: 'line', defaultChartRange: '2D', triggerToasts: 1, extra: true }),
+    ).toEqual({
       chartStyle: 'line',
     });
     expect(validPatch(null)).toEqual({});

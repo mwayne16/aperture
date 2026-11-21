@@ -1,6 +1,7 @@
 import { RotateCcw, Trash2 } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { version } from '../../../package.json';
+import { desktopBridge } from '../../app/desktopBridge';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
@@ -69,7 +70,15 @@ export function SettingsPage() {
   );
 }
 
-function SettingsCard({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
+function SettingsCard({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: ReactNode;
+}) {
   const headingId = useId();
   return (
     <section className="settings-card" aria-labelledby={headingId}>
@@ -117,7 +126,11 @@ function AppearanceSection() {
       <SettingRow
         label="Theme"
         hintId={hintId}
-        hint={preference === 'system' ? `Follows your operating system (currently ${resolved}).` : 'Used on every page.'}
+        hint={
+          preference === 'system'
+            ? `Follows your operating system (currently ${resolved}).`
+            : 'Used on every page.'
+        }
       >
         <SegmentedControl<ThemePreference>
           aria-label="Theme"
@@ -133,6 +146,8 @@ function AppearanceSection() {
 
 function NotificationSection() {
   const triggerToasts = useSettingsStore((s) => s.settings.triggerToasts);
+  const desktopNotifications = useSettingsStore((s) => s.settings.desktopNotifications);
+  const inDesktopApp = desktopBridge() !== null;
   const toastHintId = useId();
   const desktopHintId = useId();
   return (
@@ -152,14 +167,24 @@ function NotificationSection() {
           }}
         />
       </SettingRow>
-      <SettingRow label="Desktop notifications" hintId={desktopHintId} hint="Available in the desktop app.">
+      <SettingRow
+        label="Desktop notifications"
+        hintId={desktopHintId}
+        hint={
+          inDesktopApp
+            ? "Show a system notification when an alert triggers while Aperture isn't in front. Click it to open the stock."
+            : 'Available in the desktop app.'
+        }
+      >
         <Switch
           label="Desktop notifications"
           hideLabel
-          checked={false}
-          disabled
+          checked={inDesktopApp && desktopNotifications}
+          disabled={!inDesktopApp}
           aria-describedby={desktopHintId}
-          onChange={() => undefined}
+          onChange={(checked) => {
+            updateSettings({ desktopNotifications: checked });
+          }}
         />
       </SettingRow>
     </SettingsCard>
@@ -180,11 +205,15 @@ function MarketDataSection() {
             <SimulatedBadge title="Prices are generated in the app, not taken from a real market" />
           )}
           <span className="settings-source__status">
-            <StatusDot tone={view.tone} label={view.dataNote ? `${view.label} · ${view.dataNote.label}` : view.label} />
+            <StatusDot
+              tone={view.tone}
+              label={view.dataNote ? `${view.label} · ${view.dataNote.label}` : view.label}
+            />
           </span>
         </div>
         <p className="settings-source__text">
-          This prototype generates prices on your device to show how Aperture behaves. They are not real market data.
+          This prototype generates prices on your device to show how Aperture behaves. They are not real
+          market data.
         </p>
       </div>
       <div className="settings-source">
@@ -226,7 +255,11 @@ function ChartSection() {
           }}
         />
       </SettingRow>
-      <SettingRow label="Chart style" hintId={styleHintId} hint="Candles show open, high, low and close; line shows closes.">
+      <SettingRow
+        label="Chart style"
+        hintId={styleHintId}
+        hint="Candles show open, high, low and close; line shows closes."
+      >
         <SegmentedControl<Settings['chartStyle']>
           aria-label="Chart style"
           aria-describedby={styleHintId}

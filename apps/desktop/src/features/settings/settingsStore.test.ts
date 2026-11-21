@@ -23,11 +23,17 @@ afterEach(() => {
 describe('settingsStore', () => {
   it('saves every change and reads it back after a reload', async () => {
     useSettingsStore.getState().update({ chartStyle: 'line', defaultChartRange: '3M' });
-    useSettingsStore.getState().update({ triggerToasts: false });
-    expect(stored()).toEqual({ defaultChartRange: '3M', chartStyle: 'line', triggerToasts: false });
+    useSettingsStore.getState().update({ triggerToasts: false, desktopNotifications: false });
+    const saved = {
+      defaultChartRange: '3M',
+      chartStyle: 'line',
+      triggerToasts: false,
+      desktopNotifications: false,
+    };
+    expect(stored()).toEqual(saved);
 
     const reloaded = await reloadStore();
-    expect(reloaded.getState().settings).toEqual({ defaultChartRange: '3M', chartStyle: 'line', triggerToasts: false });
+    expect(reloaded.getState().settings).toEqual(saved);
   });
 
   it('starts from the defaults when the stored copy is corrupt', async () => {

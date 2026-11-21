@@ -9,12 +9,15 @@ export interface Settings {
   chartStyle: ChartStyle;
   /** Show a toast when an alert triggers. The notification inbox records triggers either way. */
   triggerToasts: boolean;
+  /** Show a system notification when an alert triggers while the app isn't in front (desktop app only). */
+  desktopNotifications: boolean;
 }
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
   defaultChartRange: '1D',
   chartStyle: 'candles',
   triggerToasts: true,
+  desktopNotifications: true,
 });
 
 export function isChartRange(value: unknown): value is ChartRange {
@@ -30,6 +33,7 @@ const VALIDATORS: { [K in keyof Settings]: (value: unknown) => value is Settings
   defaultChartRange: isChartRange,
   chartStyle: isChartStyle,
   triggerToasts: (value): value is boolean => typeof value === 'boolean',
+  desktopNotifications: (value): value is boolean => typeof value === 'boolean',
 };
 
 const KEYS = Object.keys(VALIDATORS) as (keyof Settings)[];

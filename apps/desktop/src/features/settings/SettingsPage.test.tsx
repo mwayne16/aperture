@@ -80,12 +80,37 @@ describe('SettingsPage', () => {
     expect(toasts).toHaveAccessibleDescription(/Every trigger is still recorded in Notifications/);
     await user.click(toasts);
     expect(settings().triggerToasts).toBe(false);
-    expect(JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '{}')).toMatchObject({ triggerToasts: false });
+    expect(JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '{}')).toMatchObject({
+      triggerToasts: false,
+    });
 
     const desktop = within(notifications).getByRole('switch', { name: 'Desktop notifications' });
     expect(desktop).toBeDisabled();
     expect(desktop).not.toBeChecked();
     expect(desktop).toHaveAccessibleDescription('Available in the desktop app.');
+  });
+
+  it('turns desktop notifications off and on in the desktop app', async () => {
+    window.aperture = {
+      platform: 'win32',
+      versions: { electron: '45.0.0', chrome: '146.0.0' },
+      notify: vi.fn(),
+      onNotificationClick: () => () => undefined,
+    };
+    try {
+      const { user } = renderPage();
+      const desktop = within(card('Notifications')).getByRole('switch', { name: 'Desktop notifications' });
+      expect(desktop).toBeEnabled();
+      expect(desktop).toBeChecked();
+      expect(desktop).toHaveAccessibleDescription(/while Aperture isn't in front/);
+      await user.click(desktop);
+      expect(settings().desktopNotifications).toBe(false);
+      expect(JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '{}')).toMatchObject({
+        desktopNotifications: false,
+      });
+    } finally {
+      delete window.aperture;
+    }
   });
 
   it('sets the default chart range and style', async () => {
@@ -111,7 +136,9 @@ describe('SettingsPage', () => {
     expect(within(market).getByText(/API keys are configured in the backend later/)).toBeInTheDocument();
 
     act(() => {
-      useConnectionStore.getState().setConnection({ ...INITIAL_CONNECTION, state: 'reconnecting', reconnectAttempt: 2 });
+      useConnectionStore
+        .getState()
+        .setConnection({ ...INITIAL_CONNECTION, state: 'reconnecting', reconnectAttempt: 2 });
     });
     expect(within(market).getByText('Reconnecting (attempt 2)')).toBeInTheDocument();
   });
@@ -146,8 +173,12 @@ describe('SettingsPage', () => {
 
   it('clears notifications after confirmation and keeps focus in the card', async () => {
     act(() => {
-      useNotificationStore.getState().add({ id: 'a', kind: 'alert', title: 'A', body: '', at: 1, symbol: 'AAPL' });
-      useNotificationStore.getState().add({ id: 'b', kind: 'alert', title: 'B', body: '', at: 2, symbol: 'AAPL' });
+      useNotificationStore
+        .getState()
+        .add({ id: 'a', kind: 'alert', title: 'A', body: '', at: 1, symbol: 'AAPL' });
+      useNotificationStore
+        .getState()
+        .add({ id: 'b', kind: 'alert', title: 'B', body: '', at: 2, symbol: 'AAPL' });
     });
     const { user } = renderPage();
     const data = card('Data');
@@ -177,7 +208,11 @@ describe('SettingsPage', () => {
     renderPage();
     const about = card('About');
     expect(within(about).getByText(/^\d+\.\d+\.\d+/)).toBeInTheDocument();
-    expect(within(about).getByText('Monitoring only — Aperture never places trades. Buy and Sell on alerts are labels.')).toBeInTheDocument();
+    expect(
+      within(about).getByText(
+        'Monitoring only — Aperture never places trades. Buy and Sell on alerts are labels.',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('starts one reset even when confirm is pressed twice', async () => {
